@@ -4,6 +4,13 @@
 !/README.md
 !/.gitignore
 
+# Android Build Outputs & APKs
+*.apk
+**/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+
 # Node Dependencies & Build Artifacts
 node_modules/
 **/node_modules/
