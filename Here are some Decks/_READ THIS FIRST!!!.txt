@@ -1,0 +1,4 @@
+If you want to use all these decks then copy them all and paste in
+'C:\Program Files\Yu-Gi-Oh! Power Chaos common' folder (or 'common' folder on your desktop).
+
+Then run the game and in 'DECK CONSTRUCTION' you can IMPORT them.

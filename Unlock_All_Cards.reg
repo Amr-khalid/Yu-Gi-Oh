@@ -1,0 +1,33 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\KONAMI\Yu-Gi-Oh! Power Of Chaos\system]
+"flcrc"=hex:82,f5,89,43,01,f8,ed,02,20,84,a0,10,72
+"InstallDirJ"="C:\\Games\\Game Files"
+"InstallDirK"="C:\\Games\\Game Files"
+"InstallDir"="C:\\Games\\Game Files"
+"CommonDir"="C:\\Games\\Game Files"
+"Lang"=dword:00000002
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\KONAMI\Yu-Gi-Oh! Power Of Chaos\system]
+"flcrc"=hex:82,f5,89,43,01,f8,ed,02,20,84,a0,10,72
+"InstallDirJ"="C:\\Games\\Game Files"
+"InstallDirK"="C:\\Games\\Game Files"
+"InstallDir"="C:\\Games\\Game Files"
+"CommonDir"="C:\\Games\\Game Files"
+"Lang"=dword:00000002
+
+[HKEY_CURRENT_USER\Software\KONAMI\Yu-Gi-Oh! Power Of Chaos\system]
+"flcrc"=hex:82,f5,89,43,01,f8,ed,02,20,84,a0,10,72
+"InstallDirJ"="C:\\Games\\Game Files"
+"InstallDirK"="C:\\Games\\Game Files"
+"InstallDir"="C:\\Games\\Game Files"
+"CommonDir"="C:\\Games\\Game Files"
+"Lang"=dword:00000002
+
+[HKEY_CURRENT_USER\Software\Classes\VirtualStore\MACHINE\SOFTWARE\KONAMI\Yu-Gi-Oh! Power Of Chaos\system]
+"flcrc"=hex:82,f5,89,43,01,f8,ed,02,20,84,a0,10,72
+"InstallDirJ"="C:\\Games\\Game Files"
+"InstallDirK"="C:\\Games\\Game Files"
+"InstallDir"="C:\\Games\\Game Files"
+"CommonDir"="C:\\Games\\Game Files"
+"Lang"=dword:00000002

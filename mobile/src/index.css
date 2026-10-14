@@ -1,0 +1,1398 @@
+/* Yu-Gi-Oh! Mobile — Authentic Pharaonic Design, Themes & Animation System */
+:root {
+  /* Default: Dark Obsidian Pharaoh Theme */
+  --pharaoh-bg-deep: #0c0a08;
+  --pharaoh-stone-slab: #16130e;
+  --pharaoh-stone-card: #201b14;
+  --pharaoh-stone-border: #3d3222;
+  
+  --pharaoh-gold-bright: #f0cb64;
+  --pharaoh-gold-royal: #c99e32;
+  --pharaoh-gold-dark: #6e5214;
+  --pharaoh-gold-shadow: #3b2b06;
+
+  --pharaoh-lapis: #1e3a5f;
+  --pharaoh-lapis-border: #2f5a91;
+  --pharaoh-carnelian: #8f241b;
+  --pharaoh-carnelian-border: #bd3428;
+
+  --pharaoh-text-gold: #f5df9e;
+  --pharaoh-text-light: #e6dec8;
+  --pharaoh-text-muted: #9c917a;
+
+  --pharaoh-panel-bg: rgba(22, 19, 14, 0.95);
+  --pharaoh-slot-bg: rgba(18, 15, 11, 0.88);
+  --pharaoh-input-bg: #14110c;
+  --pharaoh-modal-backdrop: rgba(0, 0, 0, 0.85);
+  --pharaoh-modal-shadow: rgba(0, 0, 0, 0.85);
+  
+  --font-body: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Light Mode: Ancient Egyptian Golden Papyrus & Sandstone Relief */
+[data-theme="light"] {
+  --pharaoh-bg-deep: #f5eedb;
+  --pharaoh-stone-slab: #ebe0c5;
+  --pharaoh-stone-card: #e2d2ae;
+  --pharaoh-stone-border: #b89f70;
+  
+  --pharaoh-gold-bright: #946c0d;
+  --pharaoh-gold-royal: #785208;
+  --pharaoh-gold-dark: #573a03;
+  --pharaoh-gold-shadow: #d4bf92;
+
+  --pharaoh-lapis: #1a447a;
+  --pharaoh-lapis-border: #235ea8;
+  --pharaoh-carnelian: #b52c20;
+  --pharaoh-carnelian-border: #8f2016;
+
+  --pharaoh-text-gold: #614305;
+  --pharaoh-text-light: #1f190f;
+  --pharaoh-text-muted: #5e5038;
+
+  --pharaoh-panel-bg: rgba(235, 224, 197, 0.96);
+  --pharaoh-slot-bg: rgba(226, 210, 174, 0.92);
+  --pharaoh-input-bg: #fffbf0;
+  --pharaoh-modal-backdrop: rgba(45, 35, 20, 0.65);
+  --pharaoh-modal-shadow: rgba(100, 75, 25, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--pharaoh-bg-deep);
+  color: var(--pharaoh-text-light);
+  font-family: var(--font-body);
+  direction: rtl;
+  text-align: right;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Authentic Pharaonic Cartouche Buttons */
+button {
+  font-family: inherit;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+.btn-pharaoh-gold {
+  background: linear-gradient(180deg, #d8ac3b 0%, #a77c1d 100%);
+  color: #120e06;
+  font-weight: 800;
+  border: 1px solid #f6d87d;
+  border-radius: 4px;
+  padding: 10px 22px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.5px;
+}
+
+.btn-pharaoh-gold:hover {
+  background: linear-gradient(180deg, #e5ba48 0%, #b88a24 100%);
+  box-shadow: 0 4px 16px rgba(201, 158, 50, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.btn-pharaoh-stone {
+  background: var(--pharaoh-stone-card);
+  color: var(--pharaoh-text-gold);
+  border: 1px solid var(--pharaoh-stone-border);
+  border-radius: 4px;
+  padding: 9px 18px;
+  font-weight: 700;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(240, 203, 100, 0.15);
+}
+
+.btn-pharaoh-stone:hover {
+  border-color: var(--pharaoh-gold-royal);
+  color: var(--pharaoh-text-light);
+}
+
+.btn-pharaoh-danger {
+  background: linear-gradient(180deg, #a8291f 0%, #6d150e 100%);
+  color: #fff;
+  border: 1px solid #d4493e;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 700;
+}
+
+/* Card Slot Styling (Dynamic, Fluid & High-Clarity for Mobile Phones & Tablets) */
+:root {
+  --slot-w: clamp(62px, 17.5vw, 84px);
+  --slot-h: clamp(90px, 25.5vw, 122px);
+  --slot-gap: clamp(4px, 1.4vw, 10px);
+}
+
+.pharaoh-slot {
+  width: var(--slot-w);
+  height: var(--slot-h);
+  border: 1.5px solid var(--pharaoh-stone-border);
+  border-radius: 5px;
+  background: var(--pharaoh-slot-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45), 0 3px 8px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pharaoh-slot.occupied {
+  border-color: var(--pharaoh-gold-royal);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(240, 203, 100, 0.25);
+  animation: cardSummonDrop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.pharaoh-slot.selected {
+  border-color: var(--pharaoh-gold-bright) !important;
+  box-shadow: 0 0 20px rgba(240, 203, 100, 0.95), 0 8px 18px rgba(0, 0, 0, 0.6) !important;
+  transform: translateY(-8px) scale(1.05);
+  z-index: 20;
+}
+
+.pharaoh-slot.defense {
+  transform: rotate(90deg) scale(0.92);
+}
+
+.pharaoh-slot.defense.selected {
+  transform: rotate(90deg) scale(1.02);
+}
+
+/* Compact Spell/Trap field slots to leave maximum vertical room for heroic monster cards */
+.pharaoh-slot-st {
+  width: var(--slot-w);
+  height: clamp(34px, 5.2vh, 48px);
+  border: 1px dashed var(--pharaoh-stone-border);
+  border-radius: 4px;
+}
+
+@keyframes cardSummonDrop {
+  0% {
+    transform: scale(1.3) translateY(-14px);
+    opacity: 0;
+    filter: brightness(1.8);
+  }
+  60% {
+    transform: scale(0.97) translateY(2px);
+    opacity: 1;
+    filter: brightness(1.2);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+@keyframes readyAttackPulse {
+  0% {
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5), inset 0 0 4px rgba(245, 158, 11, 0.3);
+    border-color: rgba(245, 158, 11, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.95), inset 0 0 8px rgba(245, 158, 11, 0.6);
+    border-color: #f59e0b;
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5), inset 0 0 4px rgba(245, 158, 11, 0.3);
+    border-color: rgba(245, 158, 11, 0.7);
+  }
+}
+
+.attack-ready {
+  animation: readyAttackPulse 1.6s ease-in-out infinite;
+}
+
+/* Touch Icon Button with Hover & Tap Feedback */
+.btn-icon-pharaoh {
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn-icon-pharaoh:active {
+  transform: scale(0.92);
+}
+
+/* Stone Carving Border */
+.stone-panel {
+  background: var(--pharaoh-panel-bg);
+  border: 1px solid var(--pharaoh-stone-border);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(240, 203, 100, 0.12);
+  border-radius: 6px;
+}
+
+/* Input Fields & Dropdown Menus */
+input[type="text"], input[type="search"], select {
+  background-color: var(--pharaoh-input-bg) !important;
+  border: 1px solid var(--pharaoh-stone-border);
+  color: var(--pharaoh-text-light) !important;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+input[type="text"]:focus, input[type="search"]:focus, select:focus {
+  border-color: var(--pharaoh-gold-royal);
+  box-shadow: 0 0 8px rgba(201, 158, 50, 0.25);
+}
+
+select option {
+  background-color: var(--pharaoh-bg-deep);
+  color: var(--pharaoh-text-light);
+}
+
+input::placeholder {
+  color: var(--pharaoh-text-muted);
+}
+
+/* =========================================
+   COMBAT & LIFE POINT ANIMATIONS
+   ========================================= */
+
+@keyframes attackRayAnimation {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.1) scaleY(1);
+    filter: drop-shadow(0 0 8px #f0cb64);
+  }
+  30% {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1.4);
+    filter: drop-shadow(0 0 20px #f0cb64);
+  }
+  80% {
+    opacity: 1;
+    transform: scaleX(1) scaleY(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1) scaleY(0.2);
+  }
+}
+
+.attack-ray {
+  position: absolute;
+  height: 9px;
+  border-radius: 4px;
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 500;
+  animation: attackRayAnimation 0.65s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Elemental Attack Beams */
+.attack-ray.fire {
+  background: linear-gradient(90deg, #fff7ed, #fb923c, #ef4444, #7f1d1d);
+  box-shadow: 0 0 14px #ea580c, 0 0 28px rgba(239, 68, 68, 0.8);
+  height: 11px;
+}
+
+.attack-ray.water {
+  background: linear-gradient(90deg, #ecfeff, #22d3ee, #0284c7, #1e3a8a);
+  box-shadow: 0 0 14px #0ea5e9, 0 0 26px rgba(2, 132, 199, 0.8);
+  height: 10px;
+}
+
+.attack-ray.light {
+  background: linear-gradient(90deg, #ffffff, #fef08a, #eab308, #ca8a04);
+  box-shadow: 0 0 16px #fde047, 0 0 32px rgba(234, 179, 8, 0.9);
+  height: 11px;
+}
+
+.attack-ray.dark {
+  background: linear-gradient(90deg, #faf5ff, #c026d3, #7e22ce, #3b0764);
+  box-shadow: 0 0 14px #9333ea, 0 0 28px rgba(126, 34, 206, 0.8);
+  height: 10px;
+}
+
+.attack-ray.earth {
+  background: linear-gradient(90deg, #fef3c7, #d97706, #92400e, #451a03);
+  box-shadow: 0 0 12px #b45309, 0 0 24px rgba(146, 64, 14, 0.8);
+  height: 11px;
+}
+
+.attack-ray.wind {
+  background: linear-gradient(90deg, #f0fdf4, #34d399, #059669, #064e3b);
+  box-shadow: 0 0 14px #10b981, 0 0 26px rgba(5, 150, 105, 0.8);
+  height: 10px;
+}
+
+.attack-ray.pharaoh, .attack-ray.divine {
+  background: linear-gradient(90deg, #fffbeb, #fde047, #d4af37, #854d0e);
+  box-shadow: 0 0 16px #f59e0b, 0 0 30px rgba(212, 175, 55, 0.85);
+  height: 10px;
+}
+
+/* Elemental Impact Detonations */
+@keyframes impactBurstAnimation {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 1;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+}
+
+.impact-burst {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 650;
+  animation: impactBurstAnimation 0.65s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+.impact-burst.fire {
+  background: radial-gradient(circle, #ffedd5 0%, #ea580c 45%, rgba(220, 38, 38, 0.8) 70%, transparent 100%);
+  box-shadow: 0 0 35px #f97316;
+}
+
+.impact-burst.water {
+  background: radial-gradient(circle, #cffafe 0%, #06b6d4 45%, rgba(2, 132, 199, 0.8) 70%, transparent 100%);
+  box-shadow: 0 0 35px #0ea5e9;
+}
+
+.impact-burst.light {
+  background: radial-gradient(circle, #ffffff 0%, #fde047 45%, rgba(202, 138, 4, 0.8) 70%, transparent 100%);
+  box-shadow: 0 0 45px #facc15;
+}
+
+.impact-burst.dark {
+  background: radial-gradient(circle, #f3e8ff 0%, #a855f7 45%, rgba(88, 28, 135, 0.9) 70%, transparent 100%);
+  box-shadow: 0 0 35px #9333ea;
+}
+
+.impact-burst.earth {
+  background: radial-gradient(circle, #fef3c7 0%, #b45309 45%, rgba(69, 26, 3, 0.9) 70%, transparent 100%);
+  box-shadow: 0 0 35px #d97706;
+}
+
+.impact-burst.wind {
+  background: radial-gradient(circle, #ecfdf5 0%, #10b981 45%, rgba(6, 78, 59, 0.85) 70%, transparent 100%);
+  box-shadow: 0 0 35px #34d399;
+}
+
+.impact-burst.pharaoh, .impact-burst.divine {
+  background: radial-gradient(circle, #fffbeb 0%, #eab308 45%, rgba(133, 77, 14, 0.9) 70%, transparent 100%);
+  box-shadow: 0 0 40px #f59e0b;
+}
+
+/* Elemental Defense Barriers */
+@keyframes shieldRunePulse {
+  0% {
+    transform: scale(0.3) rotate(0deg);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.15) rotate(6deg);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(1.02) rotate(0deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(0.85) rotate(-6deg);
+    opacity: 0;
+  }
+}
+
+.defense-shield {
+  position: absolute;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 600;
+  animation: shieldRunePulse 0.9s ease-out forwards;
+}
+
+.defense-shield.fire {
+  border: 3px solid #f97316;
+  background: radial-gradient(circle, rgba(234, 88, 12, 0.45) 0%, rgba(127, 29, 29, 0.85) 100%);
+  box-shadow: 0 0 30px rgba(249, 115, 22, 0.9), inset 0 0 15px rgba(255, 237, 213, 0.7);
+}
+
+.defense-shield.water {
+  border: 3px solid #06b6d4;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.45) 0%, rgba(30, 58, 138, 0.85) 100%);
+  box-shadow: 0 0 30px rgba(14, 165, 233, 0.9), inset 0 0 15px rgba(207, 250, 254, 0.7);
+}
+
+.defense-shield.light {
+  border: 3px solid #fde047;
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.45) 0%, rgba(113, 63, 18, 0.85) 100%);
+  box-shadow: 0 0 35px rgba(250, 204, 21, 0.95), inset 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+.defense-shield.dark {
+  border: 3px solid #c026d3;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.45) 0%, rgba(59, 7, 100, 0.9) 100%);
+  box-shadow: 0 0 30px rgba(147, 51, 234, 0.9), inset 0 0 15px rgba(243, 232, 255, 0.7);
+}
+
+.defense-shield.earth {
+  border: 3px solid #d97706;
+  background: radial-gradient(circle, rgba(180, 83, 9, 0.45) 0%, rgba(69, 26, 3, 0.9) 100%);
+  box-shadow: 0 0 28px rgba(217, 119, 6, 0.85), inset 0 0 15px rgba(254, 243, 199, 0.6);
+}
+
+.defense-shield.wind {
+  border: 3px solid #10b981;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.45) 0%, rgba(6, 78, 59, 0.85) 100%);
+  box-shadow: 0 0 30px rgba(52, 211, 153, 0.9), inset 0 0 15px rgba(236, 253, 245, 0.7);
+}
+
+.defense-shield.pharaoh, .defense-shield.divine {
+  border: 3px solid var(--pharaoh-gold-bright);
+  background: radial-gradient(circle, rgba(201, 158, 50, 0.45) 0%, rgba(10, 8, 6, 0.85) 100%);
+  box-shadow: 0 0 30px rgba(240, 203, 100, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.8);
+}
+
+/* =========================================
+   ROCK-PAPER-SCISSORS MOTION ANIMATIONS
+   ========================================= */
+
+@keyframes rpsRhythmShake {
+  0% { transform: translateY(0) scale(1) rotate(0deg); }
+  25% { transform: translateY(-18px) scale(1.05) rotate(-4deg); }
+  50% { transform: translateY(4px) scale(0.96) rotate(3deg); }
+  75% { transform: translateY(-12px) scale(1.02) rotate(-2deg); }
+  100% { transform: translateY(0) scale(1) rotate(0deg); }
+}
+
+.rps-shaking {
+  animation: rpsRhythmShake 0.4s ease-in-out infinite;
+}
+
+@keyframes rpsClashFromLeft {
+  0% {
+    transform: translateX(-140px) scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(18px) scale(1.15);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(-6px) scale(1.04);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rpsClashFromRight {
+  0% {
+    transform: translateX(140px) scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(-18px) scale(1.15);
+    opacity: 1;
+  }
+  80% {
+    transform: translateX(6px) scale(1.04);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.rps-clash-left {
+  animation: rpsClashFromLeft 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+
+.rps-clash-right {
+  animation: rpsClashFromRight 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+
+@keyframes rpsShockwaveRing {
+  0% {
+    transform: scale(0.1);
+    opacity: 1;
+    border-width: 6px;
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+.rps-shockwave {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 4px solid var(--pharaoh-gold-bright);
+  box-shadow: 0 0 25px var(--pharaoh-gold-bright);
+  pointer-events: none;
+  animation: rpsShockwaveRing 0.65s ease-out forwards;
+}
+
+@keyframes rpsWinnerAura {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(240, 203, 100, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.3);
+    transform: scale(1.04);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(240, 203, 100, 1), 0 0 60px rgba(212, 175, 55, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.6);
+    transform: scale(1.08);
+  }
+}
+
+.rps-winner-aura {
+  animation: rpsWinnerAura 1.5s ease-in-out infinite;
+  border-color: var(--pharaoh-gold-bright) !important;
+}
+
+@keyframes rpsDefeatedTilt {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.92) rotate(6deg); opacity: 0.6; filter: grayscale(0.5); }
+}
+
+.rps-defeated-tilt {
+  animation: rpsDefeatedTilt 0.4s ease-out forwards;
+}
+
+@keyframes floatDamageNumber {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.35);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-26px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-46px) scale(0.85);
+  }
+}
+
+.damage-floating-text {
+  position: absolute;
+  font-size: 26px;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 700;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(239, 68, 68, 0.8);
+  animation: floatDamageNumber 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.damage-floating-text.damage {
+  color: #ff4d4d;
+}
+
+.damage-floating-text.heal {
+  color: #34d399;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(52, 211, 153, 0.8);
+}
+
+@keyframes pharaohShake {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-5px, 4px); }
+  40% { transform: translate(5px, -4px); }
+  60% { transform: translate(-3px, 3px); }
+  80% { transform: translate(3px, -2px); }
+  100% { transform: translate(0, 0); }
+}
+
+.screen-shake {
+  animation: pharaohShake 0.4s ease-in-out;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--pharaoh-bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--pharaoh-stone-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pharaoh-gold-dark);
+}
+
+/* Card Artwork Enhancement: High-clarity rendering, optimal contrast & saturation */
+.card-art-enhanced {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: auto;
+  filter: contrast(1.05) saturate(1.08) brightness(1.02);
+  transition: transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease;
+}
+
+.card-art-enhanced:hover {
+  filter: contrast(1.08) saturate(1.12) brightness(1.04);
+}
+
+/* Lightbox Modal for Ultra-Zoomed Card Artwork Inspection */
+.card-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 16px;
+  direction: rtl;
+}
+
+.card-lightbox-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 95vw;
+  max-height: 92vh;
+  gap: 12px;
+}
+
+/* =========================================
+   TRIBUTE SUMMON MECHANICS STYLES
+   ========================================= */
+
+@keyframes tributePulseAnim {
+  0% {
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6), inset 0 0 6px rgba(245, 158, 11, 0.4);
+    border-color: #f59e0b;
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(239, 68, 68, 0.85), inset 0 0 12px rgba(245, 158, 11, 0.7);
+    border-color: #ef4444;
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6), inset 0 0 6px rgba(245, 158, 11, 0.4);
+    border-color: #f59e0b;
+  }
+}
+
+.tribute-eligible {
+  animation: tributePulseAnim 1.4s ease-in-out infinite;
+  cursor: pointer !important;
+}
+
+.tribute-selected {
+  border-color: #e11d48 !important;
+  box-shadow: 0 0 24px rgba(225, 29, 72, 0.95), inset 0 0 14px rgba(244, 63, 94, 0.7) !important;
+  transform: translateY(-4px) scale(1.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* =========================================
+   SPELL ACTIVATION ANIMATIONS & OVERLAY
+   ========================================= */
+
+.spell-activation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(13, 11, 8, 0.82) 0%, rgba(4, 3, 2, 0.94) 100%);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  direction: rtl;
+  animation: spellOverlayFade 1.8s ease-out forwards;
+}
+
+@keyframes spellOverlayFade {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes rotateMagicCircle {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.spell-magic-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  border: 2px dashed var(--pharaoh-gold-bright);
+  box-shadow: 0 0 45px rgba(212, 175, 55, 0.5), inset 0 0 35px rgba(212, 175, 55, 0.3);
+  animation: rotateMagicCircle 12s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spellCardAppear {
+  0% {
+    transform: scale(0.4) translateY(40px) rotate(-8deg);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1.12) translateY(-10px) rotate(2deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.0) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
+    transform: scale(1.0) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8) translateY(-30px);
+    opacity: 0;
+  }
+}
+
+.spell-card-floating {
+  animation: spellCardAppear 1.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  box-shadow: 0 0 35px rgba(212, 175, 55, 0.8), 0 16px 40px rgba(0, 0, 0, 0.9);
+  border: 3px solid var(--pharaoh-gold-royal);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+}
+
+/* Specific Spell Visual Effects */
+
+/* 1. Raigeki Lightning Flash */
+@keyframes lightningFlashAnim {
+  0% { opacity: 0; }
+  10% { opacity: 0.95; background: rgba(186, 230, 253, 0.85); }
+  20% { opacity: 0.2; }
+  35% { opacity: 0.9; background: rgba(224, 242, 254, 0.9); }
+  50% { opacity: 0.1; }
+  65% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+.spell-fx-lightning {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2600;
+  animation: lightningFlashAnim 0.8s ease-out forwards;
+}
+
+/* 2. Dark Hole Cosmic Vortex */
+@keyframes darkVortexAnim {
+  0% { transform: scale(0.2) rotate(0deg); opacity: 0; }
+  35% { transform: scale(1.3) rotate(360deg); opacity: 0.95; }
+  75% { transform: scale(1.1) rotate(720deg); opacity: 0.9; }
+  100% { transform: scale(0.1) rotate(1080deg); opacity: 0; }
+}
+
+.spell-fx-vortex {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 280px;
+  height: 280px;
+  margin-top: -140px;
+  margin-left: -140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #000 20%, #4c1d95 65%, rgba(0,0,0,0) 100%);
+  box-shadow: 0 0 60px rgba(147, 51, 234, 0.9), inset 0 0 40px #000;
+  pointer-events: none;
+  z-index: 2600;
+  animation: darkVortexAnim 1.4s ease-in-out forwards;
+}
+
+/* 3. Healing Radiance (Dian Keto) */
+@keyframes healSparkleAnim {
+  0% { transform: scale(0.5); opacity: 0; }
+  40% { transform: scale(1.2); opacity: 0.9; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.spell-fx-heal {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.45) 0%, rgba(5, 150, 105, 0.15) 60%, transparent 100%);
+  pointer-events: none;
+  z-index: 2600;
+  animation: healSparkleAnim 1.2s ease-out forwards;
+}
+
+/* 4. Burn Damage Flame Shockwave */
+@keyframes burnBlastAnim {
+  0% { transform: scale(0.3); opacity: 0; }
+  30% { transform: scale(1.25); opacity: 0.95; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.spell-fx-burn {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.5) 0%, rgba(249, 115, 22, 0.3) 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 2600;
+  animation: burnBlastAnim 1.0s ease-out forwards;
+}
+
+/* 5. Golden Swords Shower */
+@keyframes swordsShowerAnim {
+  0% { transform: translateY(-80px); opacity: 0; }
+  30% { transform: translateY(0); opacity: 1; }
+  80% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(40px); opacity: 0; }
+}
+
+.spell-fx-swords {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 2600;
+  animation: swordsShowerAnim 1.4s ease-out forwards;
+}
+
+/* =========================================
+   PHARAONIC HIEROGLYPHS & DYNAMIC FIELD TERRAINS
+   ========================================= */
+
+@keyframes pharaohHieroglyphsPulse {
+  0%, 100% {
+    opacity: 0.18;
+    filter: drop-shadow(0 0 4px rgba(240, 203, 100, 0.3));
+  }
+  50% {
+    opacity: 0.32;
+    filter: drop-shadow(0 0 10px rgba(240, 203, 100, 0.65));
+  }
+}
+
+.pharaoh-hieroglyphs-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-repeat: repeat;
+  background-size: 320px 320px;
+  animation: pharaohHieroglyphsPulse 6s ease-in-out infinite;
+  transition: opacity 0.5s ease, filter 0.5s ease;
+}
+
+/* Field Theme Specific Color Auras */
+.field-ambient-yami {
+  box-shadow: inset 0 0 120px rgba(107, 33, 168, 0.45);
+}
+
+.field-ambient-umi {
+  box-shadow: inset 0 0 120px rgba(14, 165, 233, 0.45);
+}
+
+.field-ambient-sogen, .field-ambient-forest {
+  box-shadow: inset 0 0 120px rgba(16, 185, 129, 0.45);
+}
+
+.field-ambient-mountain, .field-ambient-wasteland {
+  box-shadow: inset 0 0 120px rgba(217, 119, 6, 0.45);
+}
+
+.field-ambient-burn {
+  box-shadow: inset 0 0 120px rgba(239, 68, 68, 0.5);
+}
+
+.field-ambient-shine, .field-ambient-sanctuary {
+  box-shadow: inset 0 0 120px rgba(250, 204, 21, 0.45);
+}
+
+/* Active Field Cartouche Banner */
+.active-field-cartouche {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(18, 14, 9, 0.92);
+  border: 1px solid var(--pharaoh-gold-bright);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(240, 203, 100, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  z-index: 40;
+}
+
+.active-field-cartouche:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(240, 203, 100, 0.4);
+}
+
+/* =========================================
+   OPPONENT HAND DISPLAY & MOBILE STREAMLINED NAV
+   ========================================= */
+
+.opponent-hand-tray {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3px 10px 6px;
+  background: linear-gradient(180deg, rgba(14, 11, 7, 0.94) 0%, rgba(14, 11, 7, 0.4) 80%, transparent 100%);
+  z-index: 45;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.opponent-hand-card {
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+
+.opponent-hand-card:hover {
+  transform: translateY(4px) scale(1.08) !important;
+  z-index: 10;
+}
+
+@media (max-width: 480px) {
+  .duel-top-nav {
+    padding: 4px 8px !important;
+  }
+  .hide-on-xs {
+    display: none !important;
+  }
+}
+
+/* =========================================
+   PHARAONIC TEMPLE WALL MAIN MENU (TITLE SCREEN)
+   ========================================= */
+
+.temple-wall-container {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 16px 14px;
+  box-sizing: border-box;
+}
+
+.temple-wall-facade {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  margin: auto 0;
+  padding: 26px 22px;
+  background: var(--pharaoh-panel-bg);
+  border: 2px solid var(--pharaoh-stone-border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px var(--pharaoh-modal-shadow), inset 0 1px 0 rgba(240, 203, 100, 0.25);
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 600px) {
+  .temple-wall-container {
+    padding: 8px 6px !important;
+  }
+  .temple-wall-facade {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 20px 12px !important;
+    border-radius: 6px;
+    border-left: none !important;
+    border-right: none !important;
+  }
+}
+
+/* Authentic Carved Stone Tablet Menu Buttons */
+.temple-stele-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1.5px solid var(--pharaoh-stone-border);
+  background: linear-gradient(135deg, rgba(28, 22, 15, 0.95) 0%, rgba(18, 14, 9, 0.98) 100%);
+  color: var(--pharaoh-text-light);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(240, 203, 100, 0.15);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+  text-align: right;
+  direction: rtl;
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="light"] .temple-stele-button {
+  background: linear-gradient(135deg, rgba(245, 238, 219, 0.96) 0%, rgba(232, 218, 185, 0.98) 100%);
+  border-color: #b89f70;
+  box-shadow: 0 4px 12px rgba(100, 75, 25, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.temple-stele-button:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: var(--pharaoh-gold-royal);
+  box-shadow: 0 6px 18px rgba(201, 158, 50, 0.28), inset 0 1px 0 rgba(240, 203, 100, 0.35);
+}
+
+.temple-stele-button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* Primary Solo Duel Stele Button (Gold Grandeur) */
+.temple-stele-primary {
+  border-color: var(--pharaoh-gold-bright) !important;
+  background: linear-gradient(135deg, rgba(45, 34, 18, 0.98) 0%, rgba(24, 18, 10, 0.98) 100%) !important;
+  box-shadow: 0 6px 20px rgba(201, 158, 50, 0.3), inset 0 1px 0 rgba(240, 203, 100, 0.45) !important;
+}
+
+[data-theme="light"] .temple-stele-primary {
+  border-color: #946c0d !important;
+  background: linear-gradient(135deg, rgba(250, 243, 225, 0.98) 0%, rgba(238, 222, 182, 0.98) 100%) !important;
+  box-shadow: 0 6px 20px rgba(148, 108, 13, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+.temple-stele-icon-box {
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(201, 158, 50, 0.12);
+  border: 1px solid var(--pharaoh-stone-border);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.temple-stele-button:hover .temple-stele-icon-box {
+  border-color: var(--pharaoh-gold-bright);
+  background: rgba(201, 158, 50, 0.25);
+  box-shadow: 0 0 10px rgba(240, 203, 100, 0.35);
+}
+
+/* Royal Egyptian Cartouche Title & Hieroglyphs */
+.royal-cartouche-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 480px;
+  margin: 4px auto 10px;
+}
+
+.royal-cartouche-border {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 18px 8px;
+  border: 2px solid var(--pharaoh-gold-bright);
+  border-radius: 40px;
+  background: linear-gradient(180deg, rgba(34, 26, 16, 0.88) 0%, rgba(18, 14, 9, 0.94) 100%);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), inset 0 0 16px rgba(201, 158, 50, 0.22);
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+[data-theme="light"] .royal-cartouche-border {
+  background: linear-gradient(180deg, rgba(255, 252, 242, 0.92) 0%, rgba(242, 230, 204, 0.88) 100%);
+  border-color: #9e7514;
+  box-shadow: 0 4px 16px rgba(120, 82, 8, 0.2), inset 0 0 14px rgba(201, 158, 50, 0.18);
+}
+
+.royal-cartouche-hieroglyphs {
+  font-family: "Segoe UI Historic", "Noto Sans Egyptian Hieroglyphs", "Segoe UI Symbol", sans-serif;
+  font-size: clamp(26px, 7vw, 36px);
+  letter-spacing: clamp(3px, 1.4vw, 7px);
+  color: var(--pharaoh-gold-bright);
+  line-height: 1.25;
+  text-align: center;
+  direction: ltr;
+  text-shadow: 0 0 16px rgba(240, 203, 100, 0.55), 0 2px 4px rgba(0, 0, 0, 0.85);
+  user-select: none;
+}
+
+[data-theme="light"] .royal-cartouche-hieroglyphs {
+  color: #7d5707;
+  text-shadow: 0 1px 3px rgba(100, 75, 25, 0.35);
+}
+
+.royal-cartouche-subtext {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.royal-cartouche-knot {
+  width: 52px;
+  height: 4px;
+  background: var(--pharaoh-gold-bright);
+  border-radius: 2px;
+  margin-top: 6px;
+  box-shadow: 0 0 8px rgba(240, 203, 100, 0.45);
+}
+
+[data-theme="light"] .royal-cartouche-knot {
+  background: #9e7514;
+  box-shadow: 0 1px 4px rgba(120, 82, 8, 0.3);
+}
+
+/* Multiplayer Pulse Animations */
+@keyframes broadcastPulse {
+  0% { transform: scale(0.98); opacity: 0.7; box-shadow: 0 0 0 0 rgba(240, 203, 100, 0.6); }
+  50% { transform: scale(1.02); opacity: 1; box-shadow: 0 0 24px 6px rgba(240, 203, 100, 0.35); }
+  100% { transform: scale(0.98); opacity: 0.7; box-shadow: 0 0 0 0 rgba(240, 203, 100, 0.6); }
+}
+
+.broadcast-pulsing-badge {
+  animation: broadcastPulse 2.2s ease-in-out infinite;
+}
+
+/* Distinctive Pharaoh Multiplayer Connection Animation System */
+@keyframes duelLinkShockwave {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.95;
+    border-color: #fef08a;
+  }
+  60% {
+    opacity: 0.7;
+    border-color: #f0cb64;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(3.2);
+    opacity: 0;
+    border-color: #c99e32;
+  }
+}
+
+@keyframes glyphRingSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes glyphRingCounter {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes cardSlideInRight {
+  0% {
+    transform: translateX(80px) scale(0.85);
+    opacity: 0;
+  }
+  65% {
+    transform: translateX(-6px) scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes cardSlideInLeft {
+  0% {
+    transform: translateX(-80px) scale(0.85);
+    opacity: 0;
+  }
+  65% {
+    transform: translateX(6px) scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes vsClashPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0) rotate(-35deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.35) rotate(10deg);
+    opacity: 1;
+  }
+  80% {
+    transform: translate(-50%, -50%) scale(0.92) rotate(-3deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes laserBeamPulse {
+  0% {
+    opacity: 0.6;
+    filter: drop-shadow(0 0 6px #f0cb64) drop-shadow(0 0 12px rgba(240, 203, 100, 0.4));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 16px #fef08a) drop-shadow(0 0 28px #f59e0b);
+  }
+  100% {
+    opacity: 0.6;
+    filter: drop-shadow(0 0 6px #f0cb64) drop-shadow(0 0 12px rgba(240, 203, 100, 0.4));
+  }
+}
+
+@keyframes laserTravelingPulse {
+  0% { left: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+@keyframes beaconPulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.75); }
+  70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+@keyframes shineSheen {
+  0% { transform: translateX(-160%) skewX(-20deg); }
+  100% { transform: translateX(260%) skewX(-20deg); }
+}
+
+@keyframes countdownScale {
+  0% {
+    transform: scale(2.4);
+    opacity: 0;
+    filter: blur(8px);
+  }
+  35% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  75% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.65);
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+@keyframes duelTextExplosion {
+  0% {
+    transform: scale(0.25) rotate(-10deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) rotate(4deg);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.multiplayer-connect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(30, 22, 12, 0.96) 0%, rgba(8, 6, 4, 0.99) 100%);
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.multiplayer-link-shockwave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  border: 4px solid #f0cb64;
+  pointer-events: none;
+  animation: duelLinkShockwave 2.2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+.multiplayer-link-shockwave-delay {
+  animation-delay: 0.9s;
+}
+
+.duel-btn-shine-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.duel-btn-shine-sheen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: shineSheen 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+
+

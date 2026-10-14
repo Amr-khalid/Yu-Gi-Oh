@@ -1,0 +1,23 @@
+# Large Game Binaries & Data Archives (>100MB / PC Game Executables)
+Mege.dat
+Mege/
+Audio/
+*.dat
+*.exe
+*.exe.bak
+*.exe.original_crack
+*.dll
+*.dll.bak
+*.lnk
+*.ini
+*.log
+
+# Node Dependencies & Build Artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.DS_Store
+Thumbs.db
+.env
+.env.local
