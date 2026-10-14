@@ -112,10 +112,13 @@ npm run parse:decks
 ```
 
 ### 3. بناء تطبيق أندرويد (APK):
-داخل مجلد `mobile/android`:
+تم إعداد وتجهيز مشروع الأندرويد المتكامل عبر Capacitor، وملف التطبيق جاهز ومُجمّع بالكامل:
+- **الملف الجاهز للنقل والتثبيت على هاتفك**:
+  `mobile/YuGiOh-Mobile.apk` (أو `mobile/android/app/build/outputs/apk/debug/app-debug.apk`)
+
+ولإعادة بناء الحزمة في أي وقت بعد أي تعديل، يكفي تشغيل:
 ```bash
-./gradlew assembleRelease
+npm run build:apk
 ```
-سيتم إنشاء ملف الـ APK النهائي في:
-`mobile/android/app/build/outputs/apk/release/app-release.apk`
-قم بنقله إلى أي هاتف أندرويد وتثبيته مباشرة.
+أو عبر فتح مجلد `mobile/android` داخل برنامج **Android Studio** مباشرة.
+
