@@ -1,16 +1,8 @@
-# Large Game Binaries & Data Archives (>100MB / PC Game Executables)
-Mege.dat
-Mege/
-Audio/
-*.dat
-*.exe
-*.exe.bak
-*.exe.original_crack
-*.dll
-*.dll.bak
-*.lnk
-*.ini
-*.log
+# Ignore all PC game files, shaders, decks, and data archives at the root
+/*
+!/mobile/
+!/README.md
+!/.gitignore
 
 # Node Dependencies & Build Artifacts
 node_modules/
@@ -21,3 +13,4 @@ dist/
 Thumbs.db
 .env
 .env.local
+*.log

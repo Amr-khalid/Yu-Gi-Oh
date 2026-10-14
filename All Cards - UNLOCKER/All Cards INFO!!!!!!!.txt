@@ -1,6 +1,0 @@
-
-To unlock all the cards run AllCards.exe (as Administrator if you use Windows 7)
-(If you use Windows 7 or Vista, turn of UAC (User Account Control). To turn it off press start> User image>Change user account control settings)
-
-Then check your desktop, there should be a new folder shortcut "Common". Copy system.dat from this folder in to the "Common" folder.
-
