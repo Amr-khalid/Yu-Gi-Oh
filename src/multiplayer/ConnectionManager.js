@@ -127,9 +127,20 @@ export class ConnectionManager {
               roomCode: this.roomCode,
               hostName: this.myName,
               transport: this.transport,
+              gameMode: this.gameMode,
+              settings: this.tagSettings,
             });
           } else if (this.role === 'client') {
-            this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+            if (this.roomCode && !this.connected) {
+              this.sendWs({
+                type: 'JOIN_ROOM',
+                roomCode: this.roomCode,
+                clientName: this.myName,
+                targetSlotIndex: this.pendingSlotIndex ?? null,
+              });
+            } else {
+              this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+            }
           }
         };
 
@@ -163,13 +174,50 @@ export class ConnectionManager {
     });
   }
 
+  async ensureConnected(customUrl = null) {
+    let targetUrl = customUrl;
+    if (!targetUrl) {
+      if (this.isNative) {
+        targetUrl = `ws://${this.targetHostIp}:9001/yugioh-ws`;
+      } else {
+        const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
+        targetUrl = `${protocol}//${host}/yugioh-ws`;
+      }
+    }
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && (!customUrl || this.currentWsUrl === customUrl)) {
+      return true;
+    }
+
+    if (this.ws && this.ws.readyState === WebSocket.CONNECTING && (!customUrl || this.currentWsUrl === customUrl)) {
+      return new Promise((resolve) => {
+        let count = 0;
+        const interval = setInterval(() => {
+          count++;
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            clearInterval(interval);
+            resolve(true);
+          } else if (!this.ws || this.ws.readyState > WebSocket.OPEN || count >= 35) {
+            clearInterval(interval);
+            resolve(false);
+          }
+        }, 100);
+      });
+    }
+
+    return await this.connectWs(targetUrl);
+  }
+
   initWebSocket() {
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/yugioh-ws`;
-      this.connectWs(wsUrl);
+      const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = typeof window !== 'undefined' ? window.location.host : 'localhost:3000';
+      const wsUrl = `${protocol}//${host}/yugioh-ws`;
+      return this.connectWs(wsUrl);
     } catch (e) {
       console.warn('WebSocket init error:', e);
+      return Promise.resolve(false);
     }
   }
 
@@ -252,6 +300,7 @@ export class ConnectionManager {
     this.teammateHand = [];
     this.latencyMs = 1;
 
+    let targetUrl = null;
     if (this.isNative) {
       try {
         const res = await LocalServer.startServer({ port: 9001 });
@@ -261,15 +310,13 @@ export class ConnectionManager {
       } catch (e) {
         console.error('Error starting native local server:', e);
       }
-      this.notifyStatus();
-      // Connect host webview to local server on device
-      await this.connectWs('ws://127.0.0.1:9001/yugioh-ws');
-    } else {
-      this.notifyStatus();
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        this.initWebSocket();
-      }
+      targetUrl = 'ws://127.0.0.1:9001/yugioh-ws';
     }
+
+    this.notifyStatus();
+
+    // Ensure connection is fully OPEN before announcing room creation
+    await this.ensureConnected(targetUrl);
 
     // Announce to WebSocket server
     this.sendWs({
@@ -413,16 +460,12 @@ export class ConnectionManager {
     const hostIp = (customHostIp && customHostIp.trim()) ? customHostIp.trim() : this.targetHostIp;
     this.targetHostIp = hostIp;
 
+    let targetUrl = null;
     if (this.isNative) {
-      this.notifyStatus();
-      const targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
-      await this.connectWs(targetUrl);
-    } else {
-      this.notifyStatus();
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        this.initWebSocket();
-      }
+      targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
     }
+    this.notifyStatus();
+    await this.ensureConnected(targetUrl);
 
     // Query server for active rooms & start rapid polling
     this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
@@ -477,15 +520,22 @@ export class ConnectionManager {
 
   normalizeRoomCode(raw) {
     if (!raw) return '';
-    const arabicNumerals = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
-    return String(raw)
+    const str = String(raw).trim();
+    // Comprehensive normalization for Arabic-Indic digits (\u0660-\u0669), Eastern Arabic/Persian (\u06F0-\u06F9), full-width, and symbols
+    const arabicIndic = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+    const easternArabic = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+    return str
       .split('')
       .map((c) => {
-        const idx = arabicNumerals.indexOf(c);
-        return idx !== -1 ? String(idx) : c;
+        const idxA = arabicIndic.indexOf(c);
+        if (idxA !== -1) return String(idxA);
+        const idxE = easternArabic.indexOf(c);
+        if (idxE !== -1) return String(idxE);
+        return c;
       })
       .join('')
-      .replace(/[^0-9]/g, '');
+      .replace(/[^0-9]/g, '')
+      .slice(0, 4);
   }
 
   async joinByCode(rawCode, customHostIp, targetSlotIndex = null) {
@@ -495,31 +545,33 @@ export class ConnectionManager {
 
     this.role = 'client';
     this.roomCode = cleanCode;
+    this.pendingSlotIndex = targetSlotIndex;
     this.connected = false;
 
     const hostIp = (customHostIp && customHostIp.trim()) ? customHostIp.trim() : this.targetHostIp;
     this.targetHostIp = hostIp;
 
+    let targetUrl = null;
     if (this.isNative) {
-      const targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.currentWsUrl !== targetUrl) {
-        await this.connectWs(targetUrl);
-      }
-    } else {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        this.initWebSocket();
-      }
+      targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
     }
 
-    // Send join request to WebSocket server
-    this.sendWs({
-      type: 'JOIN_ROOM',
-      roomCode: cleanCode,
-      clientName: this.myName,
-      targetSlotIndex,
-    });
+    this.notifyStatus();
 
-    // Also send local fallback
+    // 1. Ensure WebSocket connection is OPEN before sending join request!
+    const isReady = await this.ensureConnected(targetUrl);
+
+    // 2. Send join request to WebSocket server
+    if (isReady) {
+      this.sendWs({
+        type: 'JOIN_ROOM',
+        roomCode: cleanCode,
+        clientName: this.myName,
+        targetSlotIndex,
+      });
+    }
+
+    // 3. Send fallback via BroadcastChannel (for dual tabs on same computer/browser)
     this.sendLocal({
       type: 'ROOM_CONNECT_REQ',
       roomCode: cleanCode,
@@ -527,6 +579,44 @@ export class ConnectionManager {
       targetSlotIndex,
       senderId: this.instanceId,
     });
+
+    // 4. In case the host just created the room moments ago or network had small jitter,
+    // retry JOIN_ROOM after 850ms and 1700ms if not connected yet
+    if (this.joinRetryTimers) {
+      this.joinRetryTimers.forEach((t) => clearTimeout(t));
+    }
+    this.joinRetryTimers = [];
+
+    const t1 = setTimeout(() => {
+      if (!this.connected && this.role === 'client' && this.roomCode === cleanCode) {
+        this.sendWs({
+          type: 'JOIN_ROOM',
+          roomCode: cleanCode,
+          clientName: this.myName,
+          targetSlotIndex,
+        });
+        this.sendLocal({
+          type: 'ROOM_CONNECT_REQ',
+          roomCode: cleanCode,
+          clientName: this.myName,
+          targetSlotIndex,
+          senderId: this.instanceId,
+        });
+      }
+    }, 850);
+
+    const t2 = setTimeout(() => {
+      if (!this.connected && this.role === 'client' && this.roomCode === cleanCode) {
+        this.sendWs({
+          type: 'JOIN_ROOM',
+          roomCode: cleanCode,
+          clientName: this.myName,
+          targetSlotIndex,
+        });
+      }
+    }, 1700);
+
+    this.joinRetryTimers.push(t1, t2);
 
     return true;
   }
@@ -560,14 +650,24 @@ export class ConnectionManager {
 
     // 2. Error joining room (room code invalid or host offline)
     else if (msg.type === 'ROOM_ERROR') {
+      // If retry timer is active, wait for retries before notifying error
+      if (this.role === 'client' && this.joinRetryTimers && this.joinRetryTimers.length > 0) {
+        this.lastRoomError = msg.message || 'رمز الغرفة غير صحيح أو أن المستضيف غير متصل حالياً.';
+        return;
+      }
       this.connected = false;
       this.peerName = '';
       this.notifyStatus();
-      alert(msg.message || 'رمز الغرفة غير صحيح أو أن المستضيف غير متصل.');
+      alert(msg.message || 'رمز الغرفة غير صحيح أو أن المستضيف غير متصل حالياً.');
     }
 
     // 3. Both Host and Client connected!
     else if (msg.type === 'ROOM_CONNECTED') {
+      if (this.joinRetryTimers) {
+        this.joinRetryTimers.forEach((t) => clearTimeout(t));
+        this.joinRetryTimers = [];
+      }
+      this.lastRoomError = null;
       this.stopRoomPolling();
       this.connected = true;
       if (msg.transport) {
@@ -792,6 +892,11 @@ export class ConnectionManager {
       }
     } else if (msg.type === 'ROOM_CONNECTED_LOCAL' && this.role === 'client' && !this.connected) {
       if (msg.roomCode === this.roomCode) {
+        if (this.joinRetryTimers) {
+          this.joinRetryTimers.forEach((t) => clearTimeout(t));
+          this.joinRetryTimers = [];
+        }
+        this.lastRoomError = null;
         this.connected = true;
         this.gameMode = msg.gameMode || '1v1';
         if (this.gameMode === 'tag_2v2') {
@@ -862,6 +967,11 @@ export class ConnectionManager {
   }
 
   async cancel() {
+    if (this.joinRetryTimers) {
+      this.joinRetryTimers.forEach((t) => clearTimeout(t));
+      this.joinRetryTimers = [];
+    }
+    this.lastRoomError = null;
     this.stopHeartbeat();
     this.stopRoomPolling();
     if (this.role === 'host' && this.roomCode) {

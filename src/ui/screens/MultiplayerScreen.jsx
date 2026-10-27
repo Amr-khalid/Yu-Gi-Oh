@@ -264,8 +264,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
   const [showConnectAnimation, setShowConnectAnimation] = useState(false);
   const [countdownValue, setCountdownValue] = useState(null);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [customHostIp, setCustomHostIp] = useState('192.168.43.1');
+  const [customHostIp, setCustomHostIp] = useState(() => {
+    return (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_last_host_ip') : null) || '192.168.43.1';
+  });
   const [ipMode, setIpMode] = useState('hotspot'); // 'hotspot' | 'custom'
+  const [isConnectingByCode, setIsConnectingByCode] = useState(false);
   const [isMobile, setIsMobile] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth <= 640 : true;
   });
@@ -364,9 +367,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
         hapticManager.vibrate([100, 50, 150, 80, 250]);
         setShowConnectAnimation(true);
         setActionState('idle');
+        setIsConnectingByCode(false);
       } else if (!s.connected) {
         prevConnectedRef.current = false;
         setShowConnectAnimation(false);
+        setIsConnectingByCode(false);
       }
     });
 
@@ -464,9 +469,10 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     soundManager.playClick();
     connectionManager.cancel();
     setActionState('idle');
+    setIsConnectingByCode(false);
   };
 
-  const handleJoinByCodeClick = () => {
+  const handleJoinByCodeClick = async () => {
     const cleanCode = connectionManager.normalizeRoomCode(inputRoomCode);
     if (!cleanCode || cleanCode.length !== 4) {
       alert('اكتب رمز الغرفة المكون من 4 أرقام يا غالي عشان تدخل!');
@@ -475,8 +481,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     soundManager.playDecide();
     hapticManager.triggerCombatVibration('click');
     const target = ipMode === 'hotspot' ? '192.168.43.1' : customHostIp;
-    const ok = connectionManager.joinByCode(cleanCode, target);
+    setActionState('joining');
+    setIsConnectingByCode(true);
+    const ok = await connectionManager.joinByCode(cleanCode, target);
     if (!ok) {
+      setIsConnectingByCode(false);
       alert('رمز الغرفة لازم يكون 4 أرقام بالظبط يا بطل!');
     }
   };
@@ -1992,10 +2001,19 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   </div>
                   <button
                     onClick={handleJoinByCodeClick}
+                    disabled={isConnectingByCode}
                     className="btn-pharaoh-gold"
-                    style={{ padding: '0 20px', height: 46, fontSize: 13.5, fontWeight: 900, whiteSpace: 'nowrap', borderRadius: 8 }}
+                    style={{
+                      padding: '0 20px',
+                      height: 46,
+                      fontSize: 13.5,
+                      fontWeight: 900,
+                      whiteSpace: 'nowrap',
+                      borderRadius: 8,
+                      opacity: isConnectingByCode ? 0.75 : 1,
+                    }}
                   >
-                    ادخل الروم
+                    {isConnectingByCode ? 'جاري الدخول...' : 'ادخل الروم'}
                   </button>
                 </div>
               </div>

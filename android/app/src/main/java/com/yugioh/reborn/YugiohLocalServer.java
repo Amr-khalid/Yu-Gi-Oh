@@ -141,7 +141,17 @@ public class YugiohLocalServer extends WebSocketServer {
                     } catch (Exception e) {
                         Log.e(TAG, "Error sending disconnect message", e);
                     }
-                    rooms.remove(roomCode);
+                    room.hostWs = null;
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(25000);
+                        } catch (InterruptedException ignored) {}
+                        Room r = rooms.get(roomCode);
+                        if (r != null && r.hostWs == null) {
+                            rooms.remove(roomCode);
+                            broadcastActiveRooms();
+                        }
+                    }).start();
                 } else {
                     if ("tag_2v2".equals(room.gameMode)) {
                         for (Slot s : room.slots) {
@@ -199,7 +209,7 @@ public class YugiohLocalServer extends WebSocketServer {
             }
 
             if ("CREATE_ROOM".equals(type)) {
-                String code = msg.optString("roomCode", "").trim();
+                String code = msg.optString("roomCode", "").replaceAll("[^0-9]", "").trim();
                 String hostName = msg.optString("hostName", "المستضيف");
                 String transport = msg.optString("transport", "wifi");
                 String gameMode = msg.optString("gameMode", "1v1");
@@ -209,6 +219,31 @@ public class YugiohLocalServer extends WebSocketServer {
                     settings.put("sharedGraveyard", true);
                     settings.put("lp", 16000);
                     settings.put("timerSec", 60);
+                }
+
+                Room existing = rooms.get(code);
+                if (existing != null) {
+                    existing.hostWs = conn;
+                    existing.hostName = hostName;
+                    existing.transport = transport;
+                    existing.gameMode = gameMode;
+                    existing.settings = settings;
+                    wsToRoom.put(conn, code);
+                    wsIsHost.put(conn, true);
+
+                    JSONObject res = new JSONObject();
+                    res.put("type", "ROOM_CREATED");
+                    res.put("roomCode", code);
+                    res.put("hostName", hostName);
+                    res.put("transport", transport);
+                    res.put("gameMode", gameMode);
+                    res.put("settings", settings);
+                    if ("tag_2v2".equals(gameMode)) {
+                        res.put("slots", existing.getCleanSlotsArray());
+                    }
+                    conn.send(res.toString());
+                    broadcastActiveRooms();
+                    return;
                 }
 
                 Room old = rooms.get(code);
@@ -257,10 +292,19 @@ public class YugiohLocalServer extends WebSocketServer {
             }
 
             if ("JOIN_ROOM".equals(type)) {
-                String code = msg.optString("roomCode", "").trim();
+                String rawCode = msg.optString("roomCode", "");
+                String code = rawCode.replaceAll("[^0-9]", "").trim();
                 String clientName = msg.optString("clientName", "المنافس");
 
                 Room room = rooms.get(code);
+                if (room == null) {
+                    for (Map.Entry<String, Room> entry : rooms.entrySet()) {
+                        if (entry.getKey().replaceAll("[^0-9]", "").equals(code)) {
+                            room = entry.getValue();
+                            break;
+                        }
+                    }
+                }
                 if (room == null || room.hostWs == null || !room.hostWs.isOpen()) {
                     JSONObject err = new JSONObject();
                     err.put("type", "ROOM_ERROR");

@@ -84,17 +84,51 @@ function yugiohMultiplayerPlugin() {
 
             // 1. Host creates a room with 4-digit code (1v1 or Tag 2v2)
             if (msg.type === 'CREATE_ROOM') {
-              const code = String(msg.roomCode).trim();
+              const code = String(msg.roomCode || '').replace(/[^0-9]/g, '').trim();
               currentRoomCode = code;
               isHost = true;
               const gameMode = msg.gameMode || '1v1';
 
-              // Clean any existing room with same code
-              const old = rooms.get(code);
-              if (old && old.hostWs && old.hostWs !== ws && old.hostWs.readyState === WebSocket.OPEN) {
-                try {
-                  old.hostWs.send(JSON.stringify({ type: 'ROOM_REPLACED' }));
-                } catch (e) {}
+              const sanitizeSlots = (slots) => slots.map((s) => ({
+                slotIndex: s.slotIndex,
+                team: s.team,
+                isOccupied: s.isOccupied,
+                isHost: s.isHost,
+                isBot: s.isBot,
+                name: s.name,
+                botDifficulty: s.botDifficulty,
+              }));
+
+              // If this room already exists (e.g. host reconnected after network blip), reclaim it!
+              const existing = rooms.get(code);
+              if (existing) {
+                if (existing.cleanupTimeout) {
+                  clearTimeout(existing.cleanupTimeout);
+                  existing.cleanupTimeout = null;
+                }
+                existing.hostWs = ws;
+                existing.hostName = msg.hostName || existing.hostName;
+                existing.transport = msg.transport || existing.transport;
+                existing.gameMode = gameMode;
+                if (msg.settings) existing.settings = { ...existing.settings, ...msg.settings };
+                if (existing.slots && existing.slots[0]) {
+                  existing.slots[0].ws = ws;
+                  existing.slots[0].name = existing.hostName;
+                }
+                rooms.set(code, existing);
+
+                ws.send(JSON.stringify({
+                  type: 'ROOM_CREATED',
+                  roomCode: code,
+                  hostName: existing.hostName,
+                  transport: existing.transport || 'wifi',
+                  gameMode,
+                  settings: existing.settings,
+                  slots: sanitizeSlots(existing.slots),
+                }));
+
+                broadcastActiveRooms();
+                return;
               }
 
               const defaultSettings = {
@@ -125,16 +159,6 @@ function yugiohMultiplayerPlugin() {
 
               rooms.set(code, roomObj);
 
-              const sanitizeSlots = (slots) => slots.map((s) => ({
-                slotIndex: s.slotIndex,
-                team: s.team,
-                isOccupied: s.isOccupied,
-                isHost: s.isHost,
-                isBot: s.isBot,
-                name: s.name,
-                botDifficulty: s.botDifficulty,
-              }));
-
               ws.send(JSON.stringify({
                 type: 'ROOM_CREATED',
                 roomCode: code,
@@ -151,8 +175,18 @@ function yugiohMultiplayerPlugin() {
 
             // 2. Client joins with 4-digit code
             else if (msg.type === 'JOIN_ROOM') {
-              const code = String(msg.roomCode).trim();
-              const room = rooms.get(code);
+              const code = String(msg.roomCode || '').replace(/[^0-9]/g, '').trim();
+              let room = rooms.get(code);
+
+              if (!room) {
+                // Fallback scan in case code in map had any formatting
+                for (const [k, r] of rooms.entries()) {
+                  if (String(k).replace(/[^0-9]/g, '') === code) {
+                    room = r;
+                    break;
+                  }
+                }
+              }
 
               if (!room || !room.hostWs || room.hostWs.readyState !== WebSocket.OPEN) {
                 ws.send(JSON.stringify({
@@ -549,17 +583,25 @@ function yugiohMultiplayerPlugin() {
             if (room) {
               if (room.gameMode === 'tag_2v2') {
                 if (isHost || ws === room.hostWs) {
-                  for (const s of room.slots) {
-                    if (s.ws && s.ws !== ws && s.ws.readyState === WebSocket.OPEN) {
-                      try {
-                        s.ws.send(JSON.stringify({
-                          type: 'PEER_DISCONNECTED',
-                          reason: 'قام المستضيف بإغلاق الغرفة.',
-                        }));
-                      } catch (e) {}
+                  room.hostWs = null;
+                  if (room.cleanupTimeout) clearTimeout(room.cleanupTimeout);
+                  room.cleanupTimeout = setTimeout(() => {
+                    const r = rooms.get(currentRoomCode);
+                    if (r && !r.hostWs) {
+                      for (const s of r.slots || []) {
+                        if (s.ws && s.ws.readyState === WebSocket.OPEN) {
+                          try {
+                            s.ws.send(JSON.stringify({
+                              type: 'PEER_DISCONNECTED',
+                              reason: 'قام المستضيف بإغلاق الغرفة.',
+                            }));
+                          } catch (e) {}
+                        }
+                      }
+                      rooms.delete(currentRoomCode);
+                      broadcastActiveRooms();
                     }
-                  }
-                  rooms.delete(currentRoomCode);
+                  }, 25000);
                 } else {
                   // Client left a slot
                   const slotIdx = room.slots.findIndex((s) => s.ws === ws);
@@ -608,7 +650,15 @@ function yugiohMultiplayerPlugin() {
                   } catch (e) {}
                 }
                 if (isHost) {
-                  rooms.delete(currentRoomCode);
+                  room.hostWs = null;
+                  if (room.cleanupTimeout) clearTimeout(room.cleanupTimeout);
+                  room.cleanupTimeout = setTimeout(() => {
+                    const r = rooms.get(currentRoomCode);
+                    if (r && !r.hostWs) {
+                      rooms.delete(currentRoomCode);
+                      broadcastActiveRooms();
+                    }
+                  }, 25000);
                 } else {
                   room.clientWs = null;
                   room.clientName = null;
