@@ -678,7 +678,7 @@ export const DuelScreen = ({
 
   // Broadcast lightweight authoritative snapshot of battlefield so ALL devices match 100% in real time
   // Broadcast lightweight authoritative snapshot of battlefield so ALL devices match 100% in real time
-  const broadcastTagFieldSnapshot = (senderSlot, senderTeam) => {
+  const broadcastTagFieldSnapshot = (senderSlot = 0, senderTeam = 0) => {
     if (!isMultiplayer) return;
     const currentState = engine.getState();
     const curP0 = currentState.players[0];
@@ -686,21 +686,28 @@ export const DuelScreen = ({
     if (!curP0 || !curP1) return;
 
     const isHost = connectionManager.role === 'host';
-    const effectiveTeam = (typeof senderTeam === 'number')
-      ? senderTeam
-      : (engine.state?.isTagMode ? (multiplayerData?.myTeam ?? 0) : (isHost ? 0 : 1));
+    // CRITICAL: Determine this physical device's team.
+    // On this device, players[0] is always this device's team, and players[1] is always the opponent team.
+    const deviceTeam = (typeof multiplayerData?.myTeam === 'number')
+      ? multiplayerData.myTeam
+      : (isHost ? 0 : 1);
 
-    const team0 = effectiveTeam === 0 ? curP0 : curP1;
-    const team1 = effectiveTeam === 0 ? curP1 : curP0;
+    // Absolute team0 (Team 0 in match) and team1 (Team 1 in match):
+    const team0 = deviceTeam === 0 ? curP0 : curP1;
+    const team1 = deviceTeam === 0 ? curP1 : curP0;
 
-    const globalTurnTeam = effectiveTeam === 0
+    // Absolute global turn team (0 or 1):
+    const globalTurnTeam = deviceTeam === 0
       ? currentState.currentTurnPlayer
       : (1 - currentState.currentTurnPlayer);
 
+    const mySlot = multiplayerData?.mySlot ?? (isHost ? 0 : 1);
+
     connectionManager.send({
       type: 'TAG_SYNC_FIELD',
-      senderSlot,
-      senderTeam: effectiveTeam,
+      senderSlot: typeof senderSlot === 'number' ? senderSlot : mySlot,
+      senderTeam: deviceTeam,
+      isHostSnapshot: isHost,
       snapshot: {
         turnNumber: currentState.turnNumber,
         phase: currentState.phase,
@@ -846,6 +853,16 @@ export const DuelScreen = ({
             } else if (msg.action === 'activateSetSpellTrap') {
               const targetPlayerIndex = isFromMyTeam ? 0 : 1;
               engine.activateSetSpellTrap(msg.args[0], msg.args[1], targetPlayerIndex);
+            } else if (msg.action === 'declareAttack') {
+              const attackerPlayerIndex = isFromMyTeam ? 0 : 1;
+              engine.declareAttack(msg.args[0], msg.args[1], attackerPlayerIndex);
+            } else if (msg.action === 'directAttack') {
+              const attackerPlayerIndex = isFromMyTeam ? 0 : 1;
+              engine.directAttack(msg.args[0], attackerPlayerIndex);
+            } else if (msg.action === 'advancePhase') {
+              engine.advancePhase(...msg.args);
+            } else if (msg.action === 'endTurn') {
+              engine.endTurn();
             } else if (isFromTeammate) {
               if (msg.action === 'normalSummon') {
                 engine.normalSummonFromTeammate(...msg.args);
@@ -863,6 +880,10 @@ export const DuelScreen = ({
               if (typeof engine[msg.action] === 'function') {
                 engine[msg.action](...msg.args);
               }
+            }
+
+            if (connectionManager.role === 'host') {
+              broadcastTagFieldSnapshot(0, 0);
             }
           } else {
             // 1v1 Remote Duel Action Mirroring
@@ -901,6 +922,10 @@ export const DuelScreen = ({
               engine.changePosition(msg.args[0], msg.args[1], 1);
             } else if (msg.action === 'activateSetSpellTrap') {
               engine.activateSetSpellTrap(msg.args[0], msg.args[1], 1);
+            } else if (msg.action === 'declareAttack') {
+              engine.declareAttack(msg.args[0], msg.args[1], 1);
+            } else if (msg.action === 'directAttack') {
+              engine.directAttack(msg.args[0], 1);
             } else if (msg.action === 'advancePhase') {
               engine.advancePhase(...msg.args);
             } else if (msg.action === 'endTurn') {
@@ -908,11 +933,21 @@ export const DuelScreen = ({
             } else if (typeof engine[msg.action] === 'function') {
               engine[msg.action](...msg.args);
             }
+
+            if (connectionManager.role === 'host') {
+              broadcastTagFieldSnapshot(0, 0);
+            }
           }
         } catch (e) {
           console.error('Failed to execute remote duel action:', e);
         }
       } else if (msg.type === 'TAG_SYNC_FIELD') {
+        // If Host: The host runs the authoritative simulation and server room.
+        // Ignore snapshots from guests to prevent desync/reversion.
+        if (connectionManager.role === 'host' && !msg.isHostSnapshot) {
+          return;
+        }
+
         if (msg.snapshot) {
           if (arenaSyncMode === 'synced' && msg.snapshot.arenaId && chosenArena?.id !== msg.snapshot.arenaId) {
             const synced = getArenaTheme(msg.snapshot.arenaId, theme);
@@ -922,16 +957,47 @@ export const DuelScreen = ({
           const myTeam = multiplayerData?.myTeam ?? (mySlot < 2 ? 0 : 1);
           const { turnNumber, phase, globalTurnTeam, team0, team1 } = msg.snapshot;
 
+          // Reject stale snapshots from older turns
+          if (typeof turnNumber === 'number' && turnNumber < engine.state.turnNumber) {
+            return;
+          }
+
           const myTeamData = myTeam === 0 ? team0 : team1;
           const oppTeamData = myTeam === 0 ? team1 : team0;
 
           const p0Local = engine.state.players[0];
           const p1Local = engine.state.players[1];
 
+          const reconcileZoneList = (localZones, incomingZones, localGrave, incomingGrave) => {
+            if (!Array.isArray(incomingZones)) return localZones;
+            return incomingZones.map((inc, i) => {
+              const loc = localZones?.[i];
+              if (inc && inc.card) {
+                return {
+                  ...inc,
+                  currentAtk: inc.currentAtk ?? inc.card.atk ?? 0,
+                  currentDef: inc.currentDef ?? inc.card.def ?? 0,
+                };
+              }
+              // If incoming says empty, check if local monster was freshly summoned in current turn
+              if (loc && loc.card) {
+                const wasFresh = (loc.turnSummoned === engine.state.turnNumber);
+                const inGrave = (
+                  (Array.isArray(incomingGrave) && incomingGrave.some(c => c && (c.id === loc.card.id || c.name === loc.card.name))) ||
+                  (Array.isArray(localGrave) && localGrave.some(c => c && (c.id === loc.card.id || c.name === loc.card.name)))
+                );
+                if (wasFresh && !inGrave) {
+                  return loc;
+                }
+              }
+              return null;
+            });
+          };
+
           if (p0Local && myTeamData) {
             p0Local.lifePoints = myTeamData.lifePoints;
-            p0Local.monsterZones = myTeamData.monsterZones;
-            p0Local.spellTrapZones = myTeamData.spellTrapZones;
+            p0Local.monsterZones = reconcileZoneList(p0Local.monsterZones, myTeamData.monsterZones, p0Local.graveyard, myTeamData.graveyard);
+            p0Local.spellTrapZones = Array.isArray(myTeamData.spellTrapZones) ? myTeamData.spellTrapZones : p0Local.spellTrapZones;
             if (Array.isArray(myTeamData.graveyard)) {
               p0Local.graveyard = myTeamData.graveyard;
             }
@@ -942,8 +1008,8 @@ export const DuelScreen = ({
 
           if (p1Local && oppTeamData) {
             p1Local.lifePoints = oppTeamData.lifePoints;
-            p1Local.monsterZones = oppTeamData.monsterZones;
-            p1Local.spellTrapZones = oppTeamData.spellTrapZones;
+            p1Local.monsterZones = reconcileZoneList(p1Local.monsterZones, oppTeamData.monsterZones, p1Local.graveyard, oppTeamData.graveyard);
+            p1Local.spellTrapZones = Array.isArray(oppTeamData.spellTrapZones) ? oppTeamData.spellTrapZones : p1Local.spellTrapZones;
             if (Array.isArray(oppTeamData.graveyard)) {
               p1Local.graveyard = oppTeamData.graveyard;
             }

@@ -119,11 +119,15 @@ export class DuelEngine {
         player.hand.splice(0, 1);
       }
 
-      const actualZone = (zoneIndex !== null && zoneIndex !== undefined && player.monsterZones[zoneIndex] === null)
+      const actualZone = (zoneIndex !== null && zoneIndex !== undefined && zoneIndex >= 0 && zoneIndex < 5)
         ? zoneIndex
         : player.monsterZones.findIndex(z => z === null);
 
       if (actualZone !== -1) {
+        const prevSlot = player.monsterZones[actualZone];
+        if (prevSlot && prevSlot.card) {
+          player.graveyard.push(prevSlot.card);
+        }
         player.monsterZones[actualZone] = {
           card,
           position: position || (action === 'SET_MONSTER' ? 'face_down_defense' : 'face_up_attack'),
@@ -146,7 +150,7 @@ export class DuelEngine {
         });
       }
     } else if (action === 'SET_SPELL_TRAP') {
-      const actualZone = (zoneIndex !== null && zoneIndex !== undefined && player.spellTrapZones[zoneIndex] === null)
+      const actualZone = (zoneIndex !== null && zoneIndex !== undefined && zoneIndex >= 0 && zoneIndex < 5)
         ? zoneIndex
         : player.spellTrapZones.findIndex(z => z === null);
 
@@ -156,6 +160,11 @@ export class DuelEngine {
           if (foundIdx !== -1) player.teammateHand.splice(foundIdx, 1);
         } else if (targetTeam === 1 && Array.isArray(player.hand)) {
           player.hand.splice(0, 1);
+        }
+
+        const prevSpell = player.spellTrapZones[actualZone];
+        if (prevSpell && prevSpell.card) {
+          player.graveyard.push(prevSpell.card);
         }
 
         player.spellTrapZones[actualZone] = {
@@ -393,24 +402,42 @@ export class DuelEngine {
     return res;
   }
 
-  declareAttack(attackerZone, targetZone) {
-    const attackerSlot = this.state.players[this.state.currentTurnPlayer].monsterZones[attackerZone];
-    const defenderSlot = this.state.players[1 - this.state.currentTurnPlayer].monsterZones[targetZone];
-    const attackerCard = attackerSlot?.card;
-    const defenderCard = defenderSlot?.card;
-    const defenderPosition = defenderSlot?.position;
+  declareAttack(attackerZone, targetZone, explicitAttackerIndex = null) {
+    const attackerIdx = (explicitAttackerIndex !== null && explicitAttackerIndex !== undefined)
+      ? explicitAttackerIndex
+      : this.state.currentTurnPlayer;
+    const defenderIdx = 1 - attackerIdx;
+
+    if (this.state.phase !== 'BATTLE_STEP') {
+      this.state.phase = 'BATTLE_STEP';
+    }
+
+    const attackerSlot = this.state.players[attackerIdx]?.monsterZones?.[attackerZone];
+    const defenderSlot = this.state.players[defenderIdx]?.monsterZones?.[targetZone];
+    if (!attackerSlot) {
+      console.warn(`[DuelEngine] declareAttack: no attacker monster in zone ${attackerZone} for player ${attackerIdx}`);
+      return null;
+    }
+    if (!defenderSlot) {
+      console.warn(`[DuelEngine] declareAttack: no defender monster in zone ${targetZone} for player ${defenderIdx}`);
+      return null;
+    }
+
+    const attackerCard = attackerSlot.card;
+    const defenderCard = defenderSlot.card;
+    const defenderPosition = defenderSlot.position;
     const attackerAtk = (attackerSlot?.currentAtk !== undefined ? attackerSlot.currentAtk : attackerCard?.atk) || 0;
     const defenderAtk = (defenderSlot?.currentAtk !== undefined ? defenderSlot.currentAtk : defenderCard?.atk) || 0;
     const defenderDef = (defenderSlot?.currentDef !== undefined ? defenderSlot.currentDef : defenderCard?.def) || 0;
 
     const { result } = executeMonsterAttack(
       this.state,
-      this.state.currentTurnPlayer,
+      attackerIdx,
       attackerZone,
       targetZone
     );
     this.notifyAttack({
-      attackerPlayer: this.state.currentTurnPlayer,
+      attackerPlayer: attackerIdx,
       attackerZone,
       targetZone,
       isDirect: false,
@@ -436,23 +463,37 @@ export class DuelEngine {
     return result;
   }
 
-  directAttack(attackerZone) {
-    const attackerSlot = this.state.players[this.state.currentTurnPlayer].monsterZones[attackerZone];
-    const attackerCard = attackerSlot?.card;
+  directAttack(attackerZone, explicitAttackerIndex = null) {
+    const attackerIdx = (explicitAttackerIndex !== null && explicitAttackerIndex !== undefined)
+      ? explicitAttackerIndex
+      : this.state.currentTurnPlayer;
+    const defenderIdx = 1 - attackerIdx;
+
+    if (this.state.phase !== 'BATTLE_STEP') {
+      this.state.phase = 'BATTLE_STEP';
+    }
+
+    const attackerSlot = this.state.players[attackerIdx]?.monsterZones?.[attackerZone];
+    if (!attackerSlot) {
+      console.warn(`[DuelEngine] directAttack: no attacker monster in zone ${attackerZone} for player ${attackerIdx}`);
+      return null;
+    }
+
+    const attackerCard = attackerSlot.card;
     const attackerAtk = (attackerSlot?.currentAtk !== undefined ? attackerSlot.currentAtk : attackerCard?.atk) || 0;
     const { result } = executeDirectAttack(
       this.state,
-      this.state.currentTurnPlayer,
+      attackerIdx,
       attackerZone
     );
     this.notifyAttack({
-      attackerPlayer: this.state.currentTurnPlayer,
+      attackerPlayer: attackerIdx,
       attackerZone,
       targetZone: 0,
       isDirect: true,
       damage: result.damage,
       isDefenseBlocked: false,
-      damagePlayerIdx: 1 - this.state.currentTurnPlayer,
+      damagePlayerIdx: defenderIdx,
       attackerAttribute: attackerCard?.attribute || 'PHARAOH',
       defenderAttribute: 'PHARAOH',
       attackerCard,
