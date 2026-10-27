@@ -9,6 +9,7 @@ import { DuelEngine } from './game/engine/DuelEngine.js';
 import { createPlayerState } from './game/engine/GameState.js';
 import { drawCardForTurnPlayer } from './game/engine/PhaseManager.js';
 import decksData from './data/decks.json';
+import { getPharaohStarterDeck } from './data/defaultStarterDeck.js';
 import { hasValidCardImage } from './game/utils/cardImageHelper.js';
 import { AI_DIFFICULTIES } from './game/ai/AIPlayer.js';
 import { installPharaohAlert } from './game/utils/AlertManager.js';
@@ -135,7 +136,17 @@ export const loadActiveDeckFromStorage = () => {
       // Fallback
     }
   }
-  return null;
+
+  // Initialize with balanced 40-card Pharaoh Legendary Starter Deck on first launch
+  const starter = getPharaohStarterDeck();
+  if (starter && starter.length >= 20) {
+    try {
+      localStorage.setItem('yugioh_active_deck', JSON.stringify(starter));
+      localStorage.setItem('yugioh_active_deck_name', 'مجموعة الفرعون الأسطورية');
+    } catch (e) {}
+    return starter;
+  }
+  return (decksData[0] || {}).mainDeck || [];
 };
 
 export const App = () => {
@@ -241,7 +252,14 @@ export const App = () => {
         return tagEngine;
       }
 
-      const hostCards = (decksData[0] || {}).mainDeck || [];
+      const myActiveDeck = (customDeckCards && customDeckCards.length >= 20)
+        ? customDeckCards
+        : loadActiveDeckFromStorage();
+
+      const hostCards = (myActiveDeck && myActiveDeck.length >= 20)
+        ? myActiveDeck
+        : ((decksData[0] || {}).mainDeck || []);
+
       const clientCards = (decksData[1] || {}).mainDeck || [];
 
       const p0Cards = isHost ? hostCards : clientCards;

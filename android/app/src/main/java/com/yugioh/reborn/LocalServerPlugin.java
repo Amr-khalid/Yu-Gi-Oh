@@ -133,6 +133,39 @@ public class LocalServerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void startAnnouncing(PluginCall call) {
+        String roomCode = call.getString("roomCode", "");
+        String hostName = call.getString("hostName", "المستضيف");
+        String ip = call.getString("ip", getBestLocalIp());
+        int port = call.getInt("port", DEFAULT_PORT);
+        String gameMode = call.getString("gameMode", "1v1");
+
+        try {
+            YugiohDiscovery.startAnnouncing(roomCode, hostName, ip, port, gameMode);
+            JSObject ret = new JSObject();
+            ret.put("announcing", true);
+            ret.put("roomCode", roomCode);
+            call.resolve(ret);
+            Log.i(TAG, "Capacitor started UDP Room Announcing for room #" + roomCode);
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting announce", e);
+            call.reject("Error starting announce: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void stopAnnouncing(PluginCall call) {
+        try {
+            YugiohDiscovery.stopAnnouncing();
+            JSObject ret = new JSObject();
+            ret.put("announcing", false);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Error stopping announce: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void getServerStatus(PluginCall call) {
         boolean isRunning = (server != null);
         String ip = getBestLocalIp();

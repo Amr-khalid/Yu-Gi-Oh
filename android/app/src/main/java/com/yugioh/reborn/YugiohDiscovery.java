@@ -49,9 +49,14 @@ public class YugiohDiscovery {
         isAnnouncing = true;
         announceThread = new Thread(() -> {
             try {
-                announceSocket = new DatagramSocket(DISCOVERY_PORT);
-                announceSocket.setBroadcast(true);
+                announceSocket = new DatagramSocket(null);
                 announceSocket.setReuseAddress(true);
+                announceSocket.setBroadcast(true);
+                try {
+                    announceSocket.bind(new java.net.InetSocketAddress(DISCOVERY_PORT));
+                } catch (Exception bindEx) {
+                    announceSocket.bind(new java.net.InetSocketAddress(0));
+                }
                 announceSocket.setSoTimeout(1000);
 
                 JSONObject announceJson = new JSONObject();

@@ -3,6 +3,7 @@ import { connectionManager } from '../../multiplayer/ConnectionManager.js';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
 import { TagTeamLobbyView } from '../components/TagTeamLobbyView.jsx';
+import { PharaohQRCode } from '../components/PharaohQRCode.jsx';
 import { getRandomArenaTheme } from '../../game/utils/arenaThemes.js';
 
 /* Pure SVG Icons (Zero Emojis, Executive Authentic Egyptian Vector Art) */
@@ -505,6 +506,24 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
       clearTimeout(safetyTimer);
       setIsConnectingByCode(false);
     }
+  };
+
+  const handleQuickJoinRoom = (code, ip = null) => {
+    const cleanCode = connectionManager.normalizeRoomCode(code);
+    if (!cleanCode || cleanCode.length !== 4) return;
+    soundManager.playDecide();
+    hapticManager.triggerCombatVibration('click');
+    setInputRoomCode(cleanCode);
+    setActionState('joining');
+    setIsConnectingByCode(true);
+
+    const safetyTimer = setTimeout(() => {
+      setIsConnectingByCode(false);
+    }, 4500);
+
+    connectionManager.joinByCode(cleanCode, ip).finally(() => {
+      setTimeout(() => setIsConnectingByCode(false), 2000);
+    });
   };
 
   const handleStartBotTagLobby = () => {
@@ -1197,6 +1216,124 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
           </div>
         )}
 
+        {/* Instant Pharaonic Room Radar (Active Nearby Hotspot & Cloud Rooms) */}
+        {actionState === 'idle' && !status.connected && (
+          <div style={{ width: '100%', marginBottom: 14 }}>
+            {status.discoveredRooms && status.discoveredRooms.filter((r) => Date.now() - (r.lastSeen || 0) < 40000).length > 0 ? (
+              <div
+                className="stone-panel"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  border: '2px solid #22c55e',
+                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.18) 0%, rgba(18, 14, 9, 0.98) 100%)',
+                  boxShadow: '0 0 24px rgba(34, 197, 94, 0.35)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        background: '#22c55e',
+                        boxShadow: '0 0 10px #22c55e',
+                      }}
+                    />
+                    <span style={{ fontSize: 13.5, fontWeight: 900, color: '#4ade80' }}>
+                      رادار الفراعنة: تم العثور على غرفة صاحبك!
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+                    جاهزة للعب الآن
+                  </span>
+                </div>
+
+                {status.discoveredRooms
+                  .filter((r) => Date.now() - (r.lastSeen || 0) < 40000)
+                  .map((room) => (
+                    <div
+                      key={room.roomCode}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: 'rgba(0, 0, 0, 0.55)',
+                        border: '1.5px solid var(--pharaoh-gold-bright)',
+                        borderRadius: 8,
+                        padding: '10px 14px',
+                        gap: 10,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                          غرفة: {room.hostName || 'المستضيف'}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--pharaoh-text-gold)' }}>
+                          كود الروم: #{room.roomCode} • {room.gameMode === 'tag_2v2' ? 'فرق 2 ضد 2' : 'فردي 1 ضد 1'}
+                          {room.transport === 'cloud_relay' ? ' (سيرفر سحابي 4G/نت)' : ' (هوت سبوت محلي)'}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleQuickJoinRoom(room.roomCode, room.ip)}
+                        className="btn-pharaoh-gold duel-btn-shine-wrap"
+                        style={{
+                          padding: '10px 18px',
+                          fontSize: 13,
+                          fontWeight: 900,
+                          borderRadius: 6,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          boxShadow: '0 0 16px rgba(201, 158, 50, 0.5)',
+                        }}
+                      >
+                        <span className="duel-btn-shine-sheen" />
+                        <span>ادخل معاه فوراً بنقرة واحدة</span>
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '9px 14px',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px dashed rgba(240, 203, 100, 0.3)',
+                  borderRadius: 20,
+                  fontSize: 11.5,
+                  color: 'var(--pharaoh-text-muted)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: '#38bdf8',
+                      boxShadow: '0 0 6px #38bdf8',
+                    }}
+                  />
+                  <span>رادار البحث التلقائي نشط (سيرفر سحابي 4G/نت + شبكة هوت سبوت)</span>
+                </div>
+                <span style={{ fontSize: 10, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+                  أول ما صاحبك يفتح روم هتظهرلك هنا فوراً!
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tag Team 2v2 Lobby / Room Stele (When Hosting or Joined in Tag Mode) */}
         {(status.gameMode === 'tag_2v2' || (actionState === 'hosting' && selectedMode === 'tag_2v2')) && (
           <TagTeamLobbyView
@@ -1749,6 +1886,13 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   </button>
                 </div>
               </div>
+
+              {/* Pharaonic QR Code & 1-Tap Share */}
+              {status.roomCode && (
+                <div style={{ margin: '0 auto 16px', maxWidth: 380, width: '100%' }}>
+                  <PharaohQRCode roomCode={status.roomCode} hostName={playerName} isLight={isLight} />
+                </div>
+              )}
 
               {/* Network Status & Instructions */}
               <div

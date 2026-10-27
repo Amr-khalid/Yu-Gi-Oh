@@ -559,26 +559,48 @@ export const DeckBuilderScreen = ({
                 </div>
               </div>
 
-              {/* Action: Empty Deck Button */}
-              <button
-                onClick={() => {
-                  if (confirm('عايز تفضي المجموعة دي خالص وتبدأ من جديد؟')) {
-                    saveDeck([]);
-                  }
-                }}
-                className="btn-pharaoh-danger"
-                style={{
-                  padding: '4px 8px',
-                  fontSize: 11,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
-                title="تفريغ المجموعة بالكامل"
-              >
-                <TrashIcon size={12} color="#fff" />
-                <span>فضّي المجموعة</span>
-              </button>
+              {/* Action Buttons: Restore Pharaoh Deck & Empty Deck */}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button
+                  onClick={() => {
+                    const starter = (decksData[0] || {}).mainDeck || [];
+                    saveDeck(starter, 'مجموعة الفرعون الأسطورية');
+                    setDeckName('مجموعة الفرعون الأسطورية');
+                  }}
+                  className="btn-pharaoh-gold"
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: 11,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                  title="استرجاع مجموعة الفرعون المتوازنة الافتراضية (40 كرت)"
+                >
+                  <DeckCardsIcon size={12} color="#000" />
+                  <span>مجموعة الفرعون</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (confirm('عايز تفضي المجموعة دي خالص وتبدأ من جديد؟')) {
+                      saveDeck([]);
+                    }
+                  }}
+                  className="btn-pharaoh-danger"
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: 11,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                  title="تفريغ المجموعة بالكامل"
+                >
+                  <TrashIcon size={12} color="#fff" />
+                  <span>فضّي</span>
+                </button>
+              </div>
             </div>
 
             {/* Active Deck Cards Grid */}
@@ -606,12 +628,32 @@ export const DeckBuilderScreen = ({
                     lineHeight: 1.6,
                   }}
                 >
-                  <div>المجموعة فارغة حالياً.</div>
-                  <div style={{ marginTop: 4, fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 8, color: 'var(--pharaoh-gold-bright)' }}>المجموعة فارغة حالياً</div>
+                  <div style={{ marginBottom: 16, fontSize: 11 }}>
                     {isMobile
-                      ? 'انقر على تبويب "مستودع الكروت" لإضافة بطاقات لمجموعتك.'
-                      : 'اختر بطاقات من المستودع على اليمين لإضافتها.'}
+                      ? 'انقر على تبويب "كتالوج كل الكروت" أو حمّل مجموعة الفرعون المتوازنة بنقرة واحدة.'
+                      : 'اختر بطاقات من الكتالوج على اليمين أو حمّل مجموعة الفرعون المتوازنة بنقرة واحدة.'}
                   </div>
+                  <button
+                    onClick={() => {
+                      const starter = (decksData[0] || {}).mainDeck || [];
+                      saveDeck(starter, 'مجموعة الفرعون الأسطورية');
+                      setDeckName('مجموعة الفرعون الأسطورية');
+                    }}
+                    className="btn-pharaoh-gold"
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: 12,
+                      fontWeight: 900,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      margin: '0 auto',
+                    }}
+                  >
+                    <DeckCardsIcon size={14} color="#000" />
+                    <span>تحميل مجموعة الفرعون المتوازنة (40 كرت)</span>
+                  </button>
                 </div>
               ) : (
                 currentDeckCards.map((card, idx) => (

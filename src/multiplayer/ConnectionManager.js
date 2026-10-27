@@ -1,10 +1,11 @@
 /**
  * ConnectionManager.js
- * True Local-Network Real-Time Transport (Embedded Android Server + Hotspot + WebSocket Relay + Offline Fallback)
- * Works seamlessly on Android APK (Hotspot/Wi-Fi without internet) and on Web/Localhost.
+ * Multi-Tier Dual-Channel Transport (Cloud Relay over WSS + Embedded Android Server + Hotspot UDP Discovery)
+ * Works seamlessly on Android APK (Hotspot/Wi-Fi with zero internet) and anywhere globally over 4G/5G/Internet.
  */
 
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { cloudRelay } from './CloudRelay.js';
 
 // Register native Android LocalServer plugin
 const LocalServer = registerPlugin('LocalServer');
@@ -32,6 +33,7 @@ export class ConnectionManager {
     this.localServerIp = null;
     this.targetHostIp = '192.168.43.1'; // Standard Android Hotspot Gateway IP
     this.isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+    this.seenMessageIds = new Set();
 
     // Tag 2v2 Multiplayer State
     this.gameMode = '1v1'; // '1v1' | 'tag_2v2'
@@ -48,6 +50,37 @@ export class ConnectionManager {
     this.teammateHand = [];
 
     if (typeof window !== 'undefined') {
+      // Setup Universal Cloud Relay Discovery & Messaging
+      try {
+        cloudRelay.startLobbyListening((room) => {
+          if (!room || !room.roomCode) return;
+          const code = this.normalizeRoomCode(room.roomCode);
+          const list = Array.isArray(this.discoveredRooms) ? [...this.discoveredRooms] : [];
+          const existingIdx = list.findIndex(
+            (r) => this.normalizeRoomCode(r.roomCode) === code
+          );
+          const enriched = {
+            ...room,
+            roomCode: code,
+            lastSeen: Date.now(),
+            transport: 'cloud_relay',
+          };
+          if (existingIdx !== -1) {
+            list[existingIdx] = { ...list[existingIdx], ...enriched };
+          } else {
+            list.push(enriched);
+          }
+          this.discoveredRooms = list;
+          this.notifyStatus();
+        });
+
+        cloudRelay.addMessageListener((topic, msg) => {
+          this.handleCloudRelayMessage(topic, msg);
+        });
+      } catch (e) {
+        console.warn('CloudRelay init failed:', e);
+      }
+
       if (!this.isNative) {
         // In browser / dev environment, connect to Vite dev server relay
         this.initWebSocket();
@@ -66,6 +99,7 @@ export class ConnectionManager {
               ...room,
               roomCode: code,
               lastSeen: Date.now(),
+              transport: 'hotspot_udp',
             };
             if (existingIdx !== -1) {
               list[existingIdx] = { ...list[existingIdx], ...enriched };
@@ -335,10 +369,28 @@ export class ConnectionManager {
         if (res && res.ip) {
           this.localServerIp = res.ip;
         }
+        await LocalServer.startAnnouncing({
+          roomCode: this.roomCode,
+          hostName: this.myName,
+          ip: this.localServerIp || '192.168.43.1',
+          port: 9001,
+          gameMode: this.gameMode,
+        });
       } catch (e) {
-        console.error('Error starting native local server:', e);
+        console.error('Error starting native local server or UDP announce:', e);
       }
       targetUrl = 'ws://127.0.0.1:9001/yugioh-ws';
+    }
+
+    // Announce to Cloud Relay (matches duelists over 4G/5G, Internet, and Wi-Fi)
+    try {
+      cloudRelay.hostRoom(this.roomCode, {
+        hostName: this.myName,
+        gameMode: this.gameMode,
+        settings: this.tagSettings,
+      });
+    } catch (e) {
+      console.warn('CloudRelay host error:', e);
     }
 
     this.notifyStatus();
@@ -653,6 +705,16 @@ export class ConnectionManager {
       });
     }
 
+    // Cloud Relay Join (Online anywhere / Mobile 4G / Wi-Fi)
+    try {
+      cloudRelay.joinRoom(cleanCode, {
+        clientName: this.myName,
+        targetSlotIndex,
+      });
+    } catch (e) {
+      console.warn('CloudRelay join error:', e);
+    }
+
     // BroadcastChannel fallback
     this.sendLocal({
       type: 'ROOM_CONNECT_REQ',
@@ -955,6 +1017,91 @@ export class ConnectionManager {
     }
   }
 
+  handleCloudRelayMessage(topic, msg) {
+    if (!msg || !msg.type) return;
+
+    // Deduplicate identical packets
+    const msgKey = msg.msgId || (msg.type + '_' + (msg.timestamp || '') + '_' + (msg.senderSlot ?? ''));
+    if (this.seenMessageIds.has(msgKey)) return;
+    this.seenMessageIds.add(msgKey);
+    if (this.seenMessageIds.size > 250) {
+      const first = this.seenMessageIds.values().next().value;
+      this.seenMessageIds.delete(first);
+    }
+
+    if (msg.type === 'JOIN_REQ' && this.role === 'host' && !this.connected) {
+      if (this.gameMode === 'tag_2v2') {
+        const clientName = msg.clientName || 'الزميل';
+        this.teammateName = clientName;
+        let slots = this.tagSlots && this.tagSlots.length === 4 ? [...this.tagSlots] : [
+          { slotIndex: 0, team: 0, isOccupied: true, isHost: true, isBot: false, name: this.myName },
+          { slotIndex: 1, team: 0, isOccupied: true, isHost: false, isBot: false, name: clientName },
+          { slotIndex: 2, team: 1, isOccupied: true, isHost: false, isBot: true, name: 'سيتو كايبا (بوت)', botDifficulty: 'normal' },
+          { slotIndex: 3, team: 1, isOccupied: true, isHost: false, isBot: true, name: 'يامي ماريك (بوت)', botDifficulty: 'normal' },
+        ];
+        slots[1] = { slotIndex: 1, team: 0, isOccupied: true, isHost: false, isBot: false, name: clientName };
+        this.tagSlots = slots;
+        this.peerName = slots[2]?.name || 'سيتو كايبا (بوت)';
+        this.connected = true;
+        this.transport = 'cloud_relay';
+        this.notifyStatus();
+
+        cloudRelay.publish(`yugioh/rooms/${this.roomCode}/match`, {
+          type: 'ROOM_CONNECTED',
+          roomCode: this.roomCode,
+          gameMode: 'tag_2v2',
+          mySlot: 1,
+          myTeam: 0,
+          hostName: this.myName,
+          clientName: clientName,
+          slots: slots,
+          settings: this.tagSettings,
+          transport: 'cloud_relay',
+          timestamp: Date.now(),
+        });
+      } else {
+        this.peerName = msg.clientName || 'المنافس';
+        this.connected = true;
+        this.transport = 'cloud_relay';
+        this.notifyStatus();
+
+        cloudRelay.publish(`yugioh/rooms/${this.roomCode}/match`, {
+          type: 'ROOM_CONNECTED',
+          roomCode: this.roomCode,
+          gameMode: '1v1',
+          hostName: this.myName,
+          clientName: this.peerName,
+          transport: 'cloud_relay',
+          timestamp: Date.now(),
+        });
+      }
+    } else if (msg.type === 'ROOM_CONNECTED' && this.role === 'client' && !this.connected) {
+      if (this.roomCode && this.normalizeRoomCode(msg.roomCode) === this.normalizeRoomCode(this.roomCode)) {
+        if (this.joinRetryTimers) {
+          this.joinRetryTimers.forEach((t) => clearTimeout(t));
+          this.joinRetryTimers = [];
+        }
+        this.lastRoomError = null;
+        this.connected = true;
+        this.gameMode = msg.gameMode || '1v1';
+        if (this.gameMode === 'tag_2v2') {
+          this.mySlot = typeof msg.mySlot === 'number' ? msg.mySlot : 1;
+          this.myTeam = typeof msg.myTeam === 'number' ? msg.myTeam : 0;
+          this.tagSlots = msg.slots || [];
+          this.tagSettings = msg.settings || this.tagSettings;
+          this.teammateName = msg.hostName || 'المستضيف';
+          this.peerName = msg.slots?.[2]?.name || 'سيتو كايبا (بوت)';
+        } else {
+          this.peerName = msg.hostName || 'المستضيف';
+        }
+        this.transport = 'cloud_relay';
+        this.notifyStatus();
+      }
+    } else {
+      this.handleServerMessage(msg);
+    }
+  }
+
   handleLocalMessage(msg) {
     // Local fallback for dual tabs on same browser
     if (msg.type === 'ROOM_CONNECT_REQ' && this.role === 'host' && !this.connected) {
@@ -1064,9 +1211,14 @@ export class ConnectionManager {
 
   send(message) {
     // 1. Send to WebSocket server
-    const wsSent = this.sendWs(message);
+    this.sendWs(message);
 
-    // 2. Also send to local channel fallback
+    // 2. Also send via Cloud Relay
+    try {
+      cloudRelay.sendGameMessage(message);
+    } catch (e) {}
+
+    // 3. Also send to local channel fallback
     this.sendLocal(message);
   }
 
@@ -1082,12 +1234,17 @@ export class ConnectionManager {
     this.lastRoomError = null;
     this.stopHeartbeat();
     this.stopRoomPolling();
+    try {
+      cloudRelay.stopAnnouncing();
+      cloudRelay.destroy();
+    } catch (e) {}
     if (this.role === 'host' && this.roomCode) {
       this.sendWs({ type: 'CLOSE_ROOM', roomCode: this.roomCode });
     }
     if (this.isNative) {
       try {
         LocalServer.stopDiscovery();
+        LocalServer.stopAnnouncing();
       } catch (e) {}
       if (this.role === 'host') {
         try {
