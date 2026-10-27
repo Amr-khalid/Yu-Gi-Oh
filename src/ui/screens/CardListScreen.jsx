@@ -3,7 +3,7 @@ import cardsData from '../../data/cards.json';
 import { CardDetailModal } from '../components/CardDetailModal.jsx';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
-import { hasValidCardImage } from '../../game/utils/cardImageHelper.js';
+import { hasValidCardImage, getCardImageUrl } from '../../game/utils/cardImageHelper.js';
 
 /* Sleek Pure-SVG Pharaonic & Gaming Icons (Zero Emojis) */
 const ArrowBackIcon = ({ size = 15, color = 'currentColor' }) => (
@@ -495,9 +495,7 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
             }}
           >
             <img
-              src={`/assets/cards/${
-                card.rawFile ? card.rawFile.replace('.bmp', '.png') : card.image.replace('.webp', '.png')
-              }`}
+              src={getCardImageUrl(card, 'full')}
               alt={card.name}
               loading="lazy"
               decoding="async"
@@ -513,9 +511,7 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
                 imageRendering: 'high-quality',
               }}
               onError={(e) => {
-                const fallbackMini = `/assets/cards-mini/${
-                  card.rawFile ? card.rawFile.replace('.bmp', '.png') : card.image.replace('.webp', '.png')
-                }`;
+                const fallbackMini = getCardImageUrl(card, 'mini');
                 if (e.target.src !== fallbackMini) {
                   e.target.src = fallbackMini;
                 } else {

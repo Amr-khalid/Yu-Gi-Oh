@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
+import { getCardImageUrl } from '../../game/utils/cardImageHelper.js';
 
 const SarcophagusIcon = ({ size = 20, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -219,11 +220,8 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
               }}
             >
               {filteredCards.map((card, idx) => {
-                const rawFilename = card.rawFile
-                  ? card.rawFile.replace('.bmp', '.png')
-                  : card.image
-                  ? card.image.replace('.webp', '.png')
-                  : `${card.id}.png`;
+                const artSrc = getCardImageUrl(card, 'art');
+                const fullSrc = getCardImageUrl(card, 'full');
 
                 const typeBadge =
                   card.type === 'monster'
@@ -263,15 +261,14 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                     {/* Card Image */}
                     <div style={{ width: '100%', height: 100, position: 'relative', background: '#0a0805' }}>
                       <img
-                        src={`/assets/cards-art/${rawFilename}`}
+                        src={artSrc}
                         alt={card.name}
                         loading="lazy"
                         className="card-art-enhanced"
                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                         onError={(e) => {
-                          const fallback = `/assets/cards/${rawFilename}`;
-                          if (e.target.src !== fallback) {
-                            e.target.src = fallback;
+                          if (e.target.src !== fullSrc) {
+                            e.target.src = fullSrc;
                           }
                         }}
                       />

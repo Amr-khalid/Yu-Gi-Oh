@@ -27,17 +27,15 @@ export function hasValidCardImage(card) {
  */
 export function getCardImageUrl(card, mode = 'full') {
   if (!card) return '/assets/card_back.png';
-  const raw = card.rawFile
-    ? card.rawFile.replace('.bmp', '.png')
-    : card.image
-    ? card.image.replace('.webp', '.png')
-    : '';
+  const file = card.rawFile || card.image || card.miniImage || '';
+  if (!file) return '/assets/card_back.png';
 
-  if (!raw) return '/assets/card_back.png';
+  const base = file.replace(/\.(bmp|png|webp|jpg)$/i, '');
+  const webp = `${base}.webp`;
 
-  if (mode === 'art') return `/assets/cards-art/${raw}`;
-  if (mode === 'mini') return `/assets/cards-mini/${raw}`;
-  return `/assets/cards/${raw}`;
+  if (mode === 'art') return `/assets/cards-art/${webp}`;
+  if (mode === 'mini') return `/assets/cards-mini/${webp}`;
+  return `/assets/cards/${webp}`;
 }
 
 /**

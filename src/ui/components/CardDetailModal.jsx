@@ -8,6 +8,7 @@ import {
 } from '../../data/arabicCardTranslator.js';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
+import { getCardImageUrl } from '../../game/utils/cardImageHelper.js';
 
 /* Sleek Pure-SVG Icons (Zero Emojis) */
 const CloseIcon = ({ size = 18, color = 'currentColor' }) => (
@@ -68,14 +69,9 @@ export const CardDetailModal = ({ card, onClose, inDuel = false, actionButton = 
   const [viewMode, setViewMode] = useState('art');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
-  const rawFilename = card.rawFile
-    ? card.rawFile.replace('.bmp', '.png')
-    : card.image
-    ? card.image.replace('.webp', '.png')
-    : '';
-
-  const fullCardSrc = `/assets/cards/${rawFilename}`;
-  const artSrc = `/assets/cards-art/${rawFilename}`;
+  const fullCardSrc = getCardImageUrl(card, 'full');
+  const artSrc = getCardImageUrl(card, 'art');
+  const miniSrc = getCardImageUrl(card, 'mini');
   const currentSrc = viewMode === 'art' ? artSrc : fullCardSrc;
 
   const isMonster = card.type === 'monster';
@@ -181,7 +177,7 @@ export const CardDetailModal = ({ card, onClose, inDuel = false, actionButton = 
                   if (e.target.src.includes('/assets/cards-art/')) {
                     e.target.src = fullCardSrc;
                   } else if (e.target.src.includes('/assets/cards/')) {
-                    e.target.src = `/assets/cards-mini/${rawFilename}`;
+                    e.target.src = miniSrc;
                   } else {
                     e.target.src = '/assets/card_back.png';
                   }
@@ -324,7 +320,7 @@ export const CardDetailModal = ({ card, onClose, inDuel = false, actionButton = 
                     if (e.target.src.includes('/assets/cards-art/')) {
                       e.target.src = fullCardSrc;
                     } else if (e.target.src.includes('/assets/cards/')) {
-                      e.target.src = `/assets/cards-mini/${rawFilename}`;
+                      e.target.src = miniSrc;
                     } else {
                       e.target.src = '/assets/card_back.png';
                     }

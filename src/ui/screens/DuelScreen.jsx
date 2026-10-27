@@ -3923,7 +3923,7 @@ export const DuelScreen = ({
               <div className="sever-slash-container">
                 <div className="sever-half top-half">
                   <img
-                    src={`/assets/cards-art/${destroyAnimation.card.rawFile ? destroyAnimation.card.rawFile.replace('.bmp', '.png') : destroyAnimation.card.image.replace('.webp', '.png')}`}
+                    src={getCardImageUrl(destroyAnimation.card, 'art')}
                     alt={destroyAnimation.card.name}
                     onError={(e) => { e.target.src = '/assets/card_back.png'; }}
                   />
@@ -3931,7 +3931,7 @@ export const DuelScreen = ({
                 <div className="sever-slash-line" />
                 <div className="sever-half bottom-half">
                   <img
-                    src={`/assets/cards-art/${destroyAnimation.card.rawFile ? destroyAnimation.card.rawFile.replace('.bmp', '.png') : destroyAnimation.card.image.replace('.webp', '.png')}`}
+                    src={getCardImageUrl(destroyAnimation.card, 'art')}
                     alt={destroyAnimation.card.name}
                     onError={(e) => { e.target.src = '/assets/card_back.png'; }}
                   />
@@ -3944,7 +3944,7 @@ export const DuelScreen = ({
                 {destroyAnimation.fx?.type === 'arcane_dissolve' && <div className="arcane-rune-ring" />}
                 <div className="destroy-particles-burst" />
                 <img
-                  src={`/assets/cards-art/${destroyAnimation.card.rawFile ? destroyAnimation.card.rawFile.replace('.bmp', '.png') : destroyAnimation.card.image.replace('.webp', '.png')}`}
+                  src={getCardImageUrl(destroyAnimation.card, 'art')}
                   alt={destroyAnimation.card.name}
                   className="card-art-enhanced"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }}
@@ -3979,7 +3979,7 @@ export const DuelScreen = ({
           >
             {p1.graveyard.length > 0 ? (
               <img
-                src={`/assets/cards-art/${p1.graveyard[p1.graveyard.length - 1].rawFile ? p1.graveyard[p1.graveyard.length - 1].rawFile.replace('.bmp', '.png') : p1.graveyard[p1.graveyard.length - 1].image.replace('.webp', '.png')}`}
+                src={getCardImageUrl(p1.graveyard[p1.graveyard.length - 1], 'art')}
                 alt="Graveyard Top"
                 className="card-art-enhanced"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }}
@@ -4076,7 +4076,6 @@ export const DuelScreen = ({
             const isOpponentTarget = isAttackerSelected && slot !== null;
             const isDefense = slot && (slot.position === 'face_up_defense' || slot.position === 'face_down_defense');
             const attrClass = slot?.card?.attribute ? `attr-${slot.card.attribute.toLowerCase()}` : '';
-            const rawFilename = slot?.card ? (slot.card.rawFile ? slot.card.rawFile.replace('.bmp', '.png') : slot.card.image.replace('.webp', '.png')) : null;
             const isLunging = activeAttackMotion?.attackerPlayer === 1 && activeAttackMotion?.attackerZone === idx;
             const isImpacted = activeAttackMotion?.targetPlayer === 1 && activeAttackMotion?.targetZone === idx && activeAttackMotion?.step === 'impact';
 
@@ -4318,8 +4317,8 @@ export const DuelScreen = ({
               >
                 <img
                   src={
-                    state.activeFieldSpell.card?.rawFile
-                      ? `/assets/cards-art/${state.activeFieldSpell.card.rawFile.replace('.bmp', '.png')}`
+                    state.activeFieldSpell.card
+                      ? getCardImageUrl(state.activeFieldSpell.card, 'art')
                       : state.activeFieldSpell.bgImage || '/assets/fie_desert.png'
                   }
                   alt={state.activeFieldSpell.name}
@@ -4584,7 +4583,6 @@ export const DuelScreen = ({
             const selectedCardAction = selectedCard ? getCardActionState(selectedCard) : null;
             const isBeaconActive = !slot && selectedHandIndex !== null && selectedCard?.type === 'monster' && selectedCardAction?.canSummon && selectedCardAction?.reqTributes === 0;
             const attrClass = slot?.card?.attribute ? `attr-${slot.card.attribute.toLowerCase()}` : '';
-            const rawFilename = slot?.card ? (slot.card.rawFile ? slot.card.rawFile.replace('.bmp', '.png') : slot.card.image.replace('.webp', '.png')) : null;
             const isLunging = activeAttackMotion?.attackerPlayer === 0 && activeAttackMotion?.attackerZone === idx;
             const isImpacted = activeAttackMotion?.targetPlayer === 0 && activeAttackMotion?.targetZone === idx && activeAttackMotion?.step === 'impact';
 
@@ -4856,7 +4854,7 @@ export const DuelScreen = ({
           >
             {p0.graveyard.length > 0 ? (
               <img
-                src={`/assets/cards-art/${p0.graveyard[p0.graveyard.length - 1].rawFile ? p0.graveyard[p0.graveyard.length - 1].rawFile.replace('.bmp', '.png') : p0.graveyard[p0.graveyard.length - 1].image.replace('.webp', '.png')}`}
+                src={getCardImageUrl(p0.graveyard[p0.graveyard.length - 1], 'art')}
                 alt="Graveyard Top"
                 className="card-art-enhanced"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }}
@@ -6013,11 +6011,7 @@ export const DuelScreen = ({
           {/* Floating Spell Card */}
           <div className="spell-card-floating">
             <img
-              src={`/assets/cards/${
-                spellAnimation.spellCard.rawFile
-                  ? spellAnimation.spellCard.rawFile.replace('.bmp', '.png')
-                  : spellAnimation.spellCard.image.replace('.webp', '.png')
-              }`}
+              src={getCardImageUrl(spellAnimation.spellCard, 'full')}
               alt={spellAnimation.spellCard.name}
               className="card-art-enhanced"
               style={{
@@ -6029,11 +6023,7 @@ export const DuelScreen = ({
                 borderRadius: 5,
               }}
               onError={(e) => {
-                const fallbackMini = `/assets/cards-mini/${
-                  spellAnimation.spellCard.rawFile
-                    ? spellAnimation.spellCard.rawFile.replace('.bmp', '.png')
-                    : spellAnimation.spellCard.image.replace('.webp', '.png')
-                }`;
+                const fallbackMini = getCardImageUrl(spellAnimation.spellCard, 'mini');
                 if (e.target.src !== fallbackMini) {
                   e.target.src = fallbackMini;
                 }
@@ -6101,11 +6091,7 @@ export const DuelScreen = ({
           {/* Radiating Monster Card with Intense Aura */}
           <div className="monster-card-radiating">
             <img
-              src={`/assets/cards/${
-                monsterEffectAnimation.card.rawFile
-                  ? monsterEffectAnimation.card.rawFile.replace('.bmp', '.png')
-                  : monsterEffectAnimation.card.image?.replace('.webp', '.png') || `${monsterEffectAnimation.card.id}.png`
-              }`}
+              src={getCardImageUrl(monsterEffectAnimation.card, 'full')}
               alt={monsterEffectAnimation.card.name}
               className="card-art-enhanced"
               style={{
@@ -6117,11 +6103,7 @@ export const DuelScreen = ({
                 borderRadius: 6,
               }}
               onError={(e) => {
-                const fallbackMini = `/assets/cards-mini/${
-                  monsterEffectAnimation.card.rawFile
-                    ? monsterEffectAnimation.card.rawFile.replace('.bmp', '.png')
-                    : monsterEffectAnimation.card.image?.replace('.webp', '.png') || `${monsterEffectAnimation.card.id}.png`
-                }`;
+                const fallbackMini = getCardImageUrl(monsterEffectAnimation.card, 'mini');
                 if (e.target.src !== fallbackMini) {
                   e.target.src = fallbackMini;
                 }
