@@ -1,12 +1,23 @@
 package com.yugioh.reborn;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.DhcpInfo;
+import android.net.LinkProperties;
+import android.net.Network;
+import android.net.RouteInfo;
+import android.net.wifi.WifiManager;
+import android.os.Build;
 import android.util.Log;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -42,7 +53,14 @@ public class LocalServerPlugin extends Plugin {
             ret.put("running", true);
             ret.put("port", port);
             ret.put("ip", ip);
-            ret.put("isHotspot", "192.168.43.1".equals(ip));
+            ret.put("isHotspot", "192.168.43.1".equals(ip) || ip.endsWith(".1"));
+
+            JSArray arr = new JSArray();
+            for (String s : getAllLocalIps()) {
+                arr.put(s);
+            }
+            ret.put("allIps", arr);
+
             call.resolve(ret);
             Log.i(TAG, "Local WebSocket Server started on " + ip + ":" + port);
         } catch (Exception e) {
@@ -72,27 +90,9 @@ public class LocalServerPlugin extends Plugin {
 
     @PluginMethod
     public void getGatewayIp(PluginCall call) {
-        try {
-            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getContext().getApplicationContext().getSystemService(android.content.Context.WIFI_SERVICE);
-            if (wm != null) {
-                android.net.DhcpInfo dhcp = wm.getDhcpInfo();
-                if (dhcp != null && dhcp.gateway != 0) {
-                    int ipInt = dhcp.gateway;
-                    String gatewayIp = (ipInt & 0xFF) + "." +
-                            ((ipInt >> 8) & 0xFF) + "." +
-                            ((ipInt >> 16) & 0xFF) + "." +
-                            ((ipInt >> 24) & 0xFF);
-                    JSObject ret = new JSObject();
-                    ret.put("gatewayIp", gatewayIp);
-                    call.resolve(ret);
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to get gateway IP", e);
-        }
+        String gateway = detectGatewayIp(getContext());
         JSObject ret = new JSObject();
-        ret.put("gatewayIp", null);
+        ret.put("gatewayIp", gateway);
         call.resolve(ret);
     }
 
@@ -140,7 +140,14 @@ public class LocalServerPlugin extends Plugin {
         ret.put("running", isRunning);
         ret.put("port", isRunning ? server.getPort() : DEFAULT_PORT);
         ret.put("ip", ip);
-        ret.put("isHotspot", "192.168.43.1".equals(ip));
+        ret.put("isHotspot", "192.168.43.1".equals(ip) || ip.endsWith(".1"));
+
+        JSArray arr = new JSArray();
+        for (String s : getAllLocalIps()) {
+            arr.put(s);
+        }
+        ret.put("allIps", arr);
+
         call.resolve(ret);
     }
 
@@ -149,31 +156,129 @@ public class LocalServerPlugin extends Plugin {
         String ip = getBestLocalIp();
         JSObject ret = new JSObject();
         ret.put("ip", ip);
-        ret.put("isHotspot", "192.168.43.1".equals(ip));
+        ret.put("isHotspot", "192.168.43.1".equals(ip) || ip.endsWith(".1"));
+
+        JSArray arr = new JSArray();
+        for (String s : getAllLocalIps()) {
+            arr.put(s);
+        }
+        ret.put("allIps", arr);
+
         call.resolve(ret);
     }
 
-    private String getBestLocalIp() {
+    public static String detectGatewayIp(Context context) {
+        if (context == null) return null;
+
+        // 1. ConnectivityManager RouteInfo (Standard Android API, zero permissions needed)
+        try {
+            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network activeNet = cm.getActiveNetwork();
+                if (activeNet != null) {
+                    LinkProperties lp = cm.getLinkProperties(activeNet);
+                    if (lp != null) {
+                        for (RouteInfo route : lp.getRoutes()) {
+                            if (route.isDefaultRoute() && route.getGateway() != null) {
+                                String gw = route.getGateway().getHostAddress();
+                                if (gw != null && !gw.isEmpty() && !"0.0.0.0".equals(gw)) {
+                                    Log.i(TAG, "Detected Gateway IP via ConnectivityManager: " + gw);
+                                    return gw;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error checking ConnectivityManager gateway", e);
+        }
+
+        // 2. /proc/net/route Linux kernel route table (Always readable without permissions)
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("/proc/net/route"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.trim().split("\\s+");
+                if (parts.length >= 3 && "00000000".equals(parts[1])) {
+                    long gwHex = Long.parseLong(parts[2], 16);
+                    if (gwHex != 0) {
+                        String gw = (gwHex & 0xFF) + "." +
+                                ((gwHex >> 8) & 0xFF) + "." +
+                                ((gwHex >> 16) & 0xFF) + "." +
+                                ((gwHex >> 24) & 0xFF);
+                        br.close();
+                        Log.i(TAG, "Detected Gateway IP via /proc/net/route: " + gw);
+                        return gw;
+                    }
+                }
+            }
+            br.close();
+        } catch (Exception ignored) {}
+
+        // 3. WifiManager DhcpInfo fallback
+        try {
+            WifiManager wm = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null) {
+                DhcpInfo dhcp = wm.getDhcpInfo();
+                if (dhcp != null && dhcp.gateway != 0) {
+                    int ipInt = dhcp.gateway;
+                    String gw = (ipInt & 0xFF) + "." +
+                            ((ipInt >> 8) & 0xFF) + "." +
+                            ((ipInt >> 16) & 0xFF) + "." +
+                            ((ipInt >> 24) & 0xFF);
+                    Log.i(TAG, "Detected Gateway IP via DhcpInfo: " + gw);
+                    return gw;
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return null;
+    }
+
+    public static List<String> getAllLocalIps() {
+        List<String> all = new ArrayList<>();
         try {
             List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
-            List<String> hotspotIps = new ArrayList<>();
+            for (NetworkInterface intf : interfaces) {
+                if (intf.isLoopback()) continue;
+                Enumeration<InetAddress> addrs = intf.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress addr = addrs.nextElement();
+                    if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
+                        String sAddr = addr.getHostAddress();
+                        if (sAddr != null && !sAddr.startsWith("127.") && !sAddr.startsWith("169.254.") && !all.contains(sAddr)) {
+                            all.add(sAddr);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return all;
+    }
+
+    public static String getBestLocalIp() {
+        try {
+            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            List<String> apIps = new ArrayList<>();
             List<String> wifiIps = new ArrayList<>();
             List<String> otherIps = new ArrayList<>();
 
             for (NetworkInterface intf : interfaces) {
-                if (intf.isLoopback() || !intf.isUp()) continue;
+                if (intf.isLoopback()) continue;
+                String name = intf.getName() != null ? intf.getName().toLowerCase() : "";
 
                 Enumeration<InetAddress> addrs = intf.getInetAddresses();
                 while (addrs.hasMoreElements()) {
                     InetAddress addr = addrs.nextElement();
                     if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
                         String sAddr = addr.getHostAddress();
-                        if (sAddr != null) {
-                            if ("192.168.43.1".equals(sAddr)) {
-                                hotspotIps.add(sAddr);
-                            } else if (sAddr.startsWith("192.168.")) {
+                        if (sAddr != null && !sAddr.startsWith("127.") && !sAddr.startsWith("169.254.")) {
+                            if (name.contains("ap") || name.contains("softap") || name.contains("swlan") || name.contains("tether")) {
+                                apIps.add(sAddr);
+                            } else if (name.contains("wlan") || sAddr.startsWith("192.168.")) {
                                 wifiIps.add(sAddr);
-                            } else if (sAddr.startsWith("10.") || sAddr.startsWith("172.")) {
+                            } else {
                                 otherIps.add(sAddr);
                             }
                         }
@@ -181,12 +286,12 @@ public class LocalServerPlugin extends Plugin {
                 }
             }
 
-            if (!hotspotIps.isEmpty()) return hotspotIps.get(0);
+            if (!apIps.isEmpty()) return apIps.get(0);
             if (!wifiIps.isEmpty()) return wifiIps.get(0);
             if (!otherIps.isEmpty()) return otherIps.get(0);
         } catch (Exception e) {
             Log.e(TAG, "Error discovering local IP", e);
         }
-        return "127.0.0.1";
+        return "192.168.43.1";
     }
 }

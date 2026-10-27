@@ -461,7 +461,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     soundManager.playClick();
     hapticManager.triggerCombatVibration('click');
     setActionState('joining');
-    const target = ipMode === 'hotspot' ? '192.168.43.1' : customHostIp;
+    const target = ipMode === 'custom' && customHostIp.trim() ? customHostIp.trim() : null;
     connectionManager.join('wifi', playerName, target);
   };
 
@@ -485,13 +485,25 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     );
     const target = (matchedRoom && matchedRoom.ip)
       ? matchedRoom.ip
-      : (ipMode === 'hotspot' ? '192.168.43.1' : customHostIp);
+      : (ipMode === 'custom' && customHostIp.trim() ? customHostIp.trim() : null);
+
     setActionState('joining');
     setIsConnectingByCode(true);
-    const ok = await connectionManager.joinByCode(cleanCode, target);
-    if (!ok) {
+
+    const safetyTimer = setTimeout(() => {
       setIsConnectingByCode(false);
-      alert('كود الروم لازم يكون 4 أرقام بالظبط يا وحش!');
+    }, 4500);
+
+    try {
+      const ok = await connectionManager.joinByCode(cleanCode, target);
+      if (!ok) {
+        clearTimeout(safetyTimer);
+        setIsConnectingByCode(false);
+        alert('كود الروم لازم يكون 4 أرقام بالظبط يا وحش!');
+      }
+    } catch (e) {
+      clearTimeout(safetyTimer);
+      setIsConnectingByCode(false);
     }
   };
 
@@ -1747,7 +1759,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ color: 'var(--pharaoh-text-muted)', fontWeight: 700 }}>عنوان الـ IP:</span>
+                  <span style={{ color: 'var(--pharaoh-text-muted)', fontWeight: 700 }}>عنوان الـ IP للمستضيف:</span>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, direction: 'ltr' }}>
                     <span style={{ color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
                       {status.ipOrDevice || '192.168.43.1'}
@@ -1758,7 +1770,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   </div>
                 </div>
                 <div>
-                  خلّي صاحبك يكتب الكود ده عنده علشان يدخل معاك في الماتش فوراً.
+                  لو صاحبك متصل بالهوت سبوت بتاعك هيدخل بالكود تلقائياً. لو على راوتر البيت وطلب منه IP اكتبله الرقم اللي فوق.
                 </div>
               </div>
 
@@ -1845,20 +1857,20 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   <button
                     onClick={() => {
                       setIpMode('hotspot');
-                      setCustomHostIp('192.168.43.1');
-                      connectionManager.join('wifi', playerName, '192.168.43.1');
+                      setCustomHostIp('');
+                      connectionManager.join('wifi', playerName, null);
                     }}
                     className={ipMode === 'hotspot' ? 'btn-pharaoh-gold' : 'btn-pharaoh-stone'}
                     style={{ flex: 1, padding: '9px 0', fontSize: 12, fontWeight: 900, borderRadius: 6 }}
                   >
-                    هوت سبوت (Hotspot)
+                    هوت سبوت (تلقائي)
                   </button>
                   <button
                     onClick={() => setIpMode('custom')}
                     className={ipMode === 'custom' ? 'btn-pharaoh-gold' : 'btn-pharaoh-stone'}
                     style={{ flex: 1, padding: '9px 0', fontSize: 12, fontWeight: 900, borderRadius: 6 }}
                   >
-                    واي فاي عادي (IP)
+                    راوتر / يدوي (IP)
                   </button>
                 </div>
                 {ipMode === 'custom' ? (
@@ -1889,8 +1901,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                     </button>
                   </div>
                 ) : (
-                  <div style={{ fontSize: 11.5, color: 'var(--pharaoh-text-muted)', marginTop: 4 }}>
-                    ● متصل بنقطة اتصال المستضيف (IP: 192.168.43.1)
+                  <div style={{ fontSize: 11.5, color: 'var(--pharaoh-text-muted)', marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>● البحث التلقائي عبر بوابة الهوت سبوت</span>
+                    <span style={{ direction: 'ltr', color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+                      {status.targetHostIp || '192.168.43.1'}
+                    </span>
                   </div>
                 )}
               </div>

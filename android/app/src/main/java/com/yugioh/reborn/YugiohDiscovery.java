@@ -141,7 +141,11 @@ public class YugiohDiscovery {
                 listenSocket = new DatagramSocket(null);
                 listenSocket.setReuseAddress(true);
                 listenSocket.setBroadcast(true);
-                listenSocket.bind(new java.net.InetSocketAddress(0)); // Ephemeral port for receiving replies
+                try {
+                    listenSocket.bind(new java.net.InetSocketAddress(DISCOVERY_PORT));
+                } catch (Exception bindEx) {
+                    listenSocket.bind(new java.net.InetSocketAddress(0));
+                }
                 listenSocket.setSoTimeout(800);
 
                 // Send immediate broadcast probe
@@ -150,10 +154,10 @@ public class YugiohDiscovery {
                 probeJson.put("timestamp", System.currentTimeMillis());
                 byte[] probeData = probeJson.toString().getBytes(StandardCharsets.UTF_8);
 
-                List<InetAddress> broadcastAddresses = getBroadcastAddresses();
-                for (InetAddress bAddr : broadcastAddresses) {
+                List<InetAddress> targets = getProbeTargets(context);
+                for (InetAddress target : targets) {
                     try {
-                        DatagramPacket probePacket = new DatagramPacket(probeData, probeData.length, bAddr, DISCOVERY_PORT);
+                        DatagramPacket probePacket = new DatagramPacket(probeData, probeData.length, target, DISCOVERY_PORT);
                         listenSocket.send(probePacket);
                     } catch (Exception ignored) {}
                 }
@@ -163,10 +167,10 @@ public class YugiohDiscovery {
 
                 while (isListening && !Thread.currentThread().isInterrupted()) {
                     long now = System.currentTimeMillis();
-                    if (now - lastProbe >= 1500) {
-                        for (InetAddress bAddr : broadcastAddresses) {
+                    if (now - lastProbe >= 1200) {
+                        for (InetAddress target : targets) {
                             try {
-                                DatagramPacket probePacket = new DatagramPacket(probeData, probeData.length, bAddr, DISCOVERY_PORT);
+                                DatagramPacket probePacket = new DatagramPacket(probeData, probeData.length, target, DISCOVERY_PORT);
                                 listenSocket.send(probePacket);
                             } catch (Exception ignored) {}
                         }
@@ -204,7 +208,7 @@ public class YugiohDiscovery {
         });
         listenThread.setDaemon(true);
         listenThread.start();
-        Log.i(TAG, "Started UDP Room Discovery Listener");
+        Log.i(TAG, "Started UDP Room Discovery Listener on port " + DISCOVERY_PORT);
     }
 
     public static synchronized void stopListening() {
@@ -222,6 +226,28 @@ public class YugiohDiscovery {
         releaseMulticastLock();
     }
 
+    private static List<InetAddress> getProbeTargets(Context context) {
+        List<InetAddress> list = new ArrayList<>(getBroadcastAddresses());
+        // Add common unicast hotspot host targets to bypass AP multicast blocks
+        String[] unicasts = new String[]{"192.168.43.1", "192.168.49.1", "192.168.50.1"};
+        for (String u : unicasts) {
+            try {
+                InetAddress addr = InetAddress.getByName(u);
+                if (!list.contains(addr)) list.add(addr);
+            } catch (Exception ignored) {}
+        }
+        if (context != null) {
+            String gw = LocalServerPlugin.detectGatewayIp(context);
+            if (gw != null && !gw.isEmpty()) {
+                try {
+                    InetAddress gwAddr = InetAddress.getByName(gw);
+                    if (!list.contains(gwAddr)) list.add(gwAddr);
+                } catch (Exception ignored) {}
+            }
+        }
+        return list;
+    }
+
     private static List<InetAddress> getBroadcastAddresses() {
         List<InetAddress> list = new ArrayList<>();
         try {
@@ -235,7 +261,7 @@ public class YugiohDiscovery {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             if (interfaces != null) {
                 for (NetworkInterface intf : Collections.list(interfaces)) {
-                    if (intf.isLoopback() || !intf.isUp()) continue;
+                    if (intf.isLoopback()) continue;
                     for (InterfaceAddress ifAddr : intf.getInterfaceAddresses()) {
                         InetAddress broadcast = ifAddr.getBroadcast();
                         if (broadcast != null && !list.contains(broadcast)) {

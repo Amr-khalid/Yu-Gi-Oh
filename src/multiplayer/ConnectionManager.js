@@ -178,10 +178,10 @@ export class ConnectionManager {
         };
 
         ws.onclose = () => {
-          if (!this.connected && (this.role === 'host' || this.role === 'client')) {
-            // Auto reconnect after brief pause
+          if (this.connected && (this.role === 'host' || this.role === 'client') && this.currentWsUrl === url) {
+            // Auto reconnect after brief pause if we had an established connection
             setTimeout(() => {
-              if (!this.connected && this.currentWsUrl) {
+              if (this.connected && this.currentWsUrl) {
                 this.connectWs(this.currentWsUrl);
               }
             }, 1800);
@@ -291,9 +291,13 @@ export class ConnectionManager {
 
   startRoomPolling() {
     this.stopRoomPolling();
-    this.pollInterval = setInterval(() => {
+    this.pollInterval = setInterval(async () => {
       if (!this.connected && this.role === 'client') {
-        this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+        } else {
+          await this.scanAndConnectHost();
+        }
       }
     }, 1200);
   }
@@ -473,6 +477,59 @@ export class ConnectionManager {
     this.send(payload);
   }
 
+  async scanAndConnectHost(preferredIp = null) {
+    if (!this.isNative) {
+      const ok = await this.ensureConnected();
+      if (ok) this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+      return ok;
+    }
+
+    const candidateIps = [];
+
+    // 1. Explicit preferred/custom IP
+    if (preferredIp && typeof preferredIp === 'string' && preferredIp.trim()) {
+      candidateIps.push(preferredIp.trim());
+    }
+
+    // 2. Android DHCP Gateway IP (Host hotspot gateway)
+    try {
+      const gwRes = await LocalServer.getGatewayIp();
+      if (gwRes && gwRes.gatewayIp && !candidateIps.includes(gwRes.gatewayIp)) {
+        candidateIps.push(gwRes.gatewayIp);
+      }
+    } catch (e) {}
+
+    // 3. Any IPs from already discovered rooms
+    for (const r of (this.discoveredRooms || [])) {
+      if (r && r.ip && !candidateIps.includes(r.ip)) {
+        candidateIps.push(r.ip);
+      }
+    }
+
+    // 4. Standard Hotspot defaults
+    const defaults = ['192.168.43.1', '192.168.49.1', '192.168.50.1'];
+    for (const d of defaults) {
+      if (!candidateIps.includes(d)) candidateIps.push(d);
+    }
+
+    for (const ip of candidateIps) {
+      const url = `ws://${ip}:9001/yugioh-ws`;
+      const ok = await this.connectWs(url, 950);
+      if (ok) {
+        this.targetHostIp = ip;
+        this.notifyStatus();
+        this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+        return true;
+      }
+    }
+
+    if (candidateIps[0]) {
+      this.targetHostIp = candidateIps[0];
+      this.notifyStatus();
+    }
+    return false;
+  }
+
   async join(transport, myName, customHostIp) {
     this.role = 'client';
     this.transport = transport;
@@ -481,21 +538,18 @@ export class ConnectionManager {
     this.peerName = '';
     this.latencyMs = 1;
 
-    const hostIp = (customHostIp && customHostIp.trim()) ? customHostIp.trim() : this.targetHostIp;
-    this.targetHostIp = hostIp;
-
-    let targetUrl = null;
     if (this.isNative) {
-      targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
       try {
         LocalServer.startDiscovery();
       } catch (e) {}
     }
-    this.notifyStatus();
-    await this.ensureConnected(targetUrl);
 
-    // Query server for active rooms & start rapid polling
-    this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+    this.notifyStatus();
+
+    // Auto-discover and connect to the active host server!
+    await this.scanAndConnectHost(customHostIp);
+
+    // Start rapid room polling
     this.startRoomPolling();
 
     return true;
@@ -575,90 +629,31 @@ export class ConnectionManager {
     this.pendingSlotIndex = targetSlotIndex;
     this.connected = false;
 
-    let targetUrl = null;
-    if (this.isNative) {
-      // Determine candidate IPs in priority order
-      const candidateIps = [];
+    // Check if any discovered room matches this code
+    const matchingRoom = (this.discoveredRooms || []).find(
+      (r) => this.normalizeRoomCode(r.roomCode) === cleanCode
+    );
+    const chosenIp = (matchingRoom && matchingRoom.ip)
+      ? matchingRoom.ip
+      : (customHostIp && customHostIp.trim() ? customHostIp.trim() : null);
 
-      // 1. Direct discovered room matching this exact code!
-      const matchingRoom = (this.discoveredRooms || []).find(
-        (r) => this.normalizeRoomCode(r.roomCode) === cleanCode
-      );
-      if (matchingRoom && matchingRoom.ip && !candidateIps.includes(matchingRoom.ip)) {
-        candidateIps.push(matchingRoom.ip);
-      }
-
-      // 2. Custom host IP if user explicitly typed one
-      if (customHostIp && customHostIp.trim() && !candidateIps.includes(customHostIp.trim())) {
-        candidateIps.push(customHostIp.trim());
-      }
-
-      // 3. DHCP Gateway IP (the phone whose hotspot or Wi-Fi router we are connected to)
-      try {
-        const gwRes = await LocalServer.getGatewayIp();
-        if (gwRes && gwRes.gatewayIp && !candidateIps.includes(gwRes.gatewayIp)) {
-          candidateIps.push(gwRes.gatewayIp);
-        }
-      } catch (e) {}
-
-      // 4. Any other discovered room IPs
-      for (const r of (this.discoveredRooms || [])) {
-        if (r.ip && !candidateIps.includes(r.ip)) {
-          candidateIps.push(r.ip);
-        }
-      }
-
-      // 5. Standard Hotspot / Wi-Fi fallback IPs
-      const defaultIps = ['192.168.43.1', '192.168.49.1', '192.168.50.1'];
-      for (const def of defaultIps) {
-        if (!candidateIps.includes(def)) candidateIps.push(def);
-      }
-
-      this.targetHostIp = candidateIps[0] || '192.168.43.1';
-      targetUrl = `ws://${this.targetHostIp}:9001/yugioh-ws`;
-
-      this.notifyStatus();
-
-      // Attempt primary candidate with fast fallback race
-      let isReady = await this.ensureConnected(targetUrl);
-
-      // If first candidate failed and we have others, try them swiftly!
-      if (!isReady && candidateIps.length > 1) {
-        for (let i = 1; i < candidateIps.length; i++) {
-          const altIp = candidateIps[i];
-          const altUrl = `ws://${altIp}:9001/yugioh-ws`;
-          isReady = await this.connectWs(altUrl, 1400);
-          if (isReady) {
-            this.targetHostIp = altIp;
-            targetUrl = altUrl;
-            break;
-          }
-        }
-      }
-
-      if (isReady) {
-        this.sendWs({
-          type: 'JOIN_ROOM',
-          roomCode: cleanCode,
-          clientName: this.myName,
-          targetSlotIndex,
-        });
-      }
+    let isReady = false;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && (!chosenIp || this.targetHostIp === chosenIp)) {
+      isReady = true;
     } else {
-      // Browser / dev server
-      this.notifyStatus();
-      const isReady = await this.ensureConnected();
-      if (isReady) {
-        this.sendWs({
-          type: 'JOIN_ROOM',
-          roomCode: cleanCode,
-          clientName: this.myName,
-          targetSlotIndex,
-        });
-      }
+      isReady = await this.scanAndConnectHost(chosenIp);
     }
 
-    // Also send local BroadcastChannel fallback
+    if (isReady) {
+      this.sendWs({
+        type: 'JOIN_ROOM',
+        roomCode: cleanCode,
+        clientName: this.myName,
+        targetSlotIndex,
+      });
+    }
+
+    // BroadcastChannel fallback
     this.sendLocal({
       type: 'ROOM_CONNECT_REQ',
       roomCode: cleanCode,
@@ -667,8 +662,6 @@ export class ConnectionManager {
       senderId: this.instanceId,
     });
 
-    // In case the host just created the room moments ago or network had small jitter,
-    // retry JOIN_ROOM after 850ms and 1700ms if not connected yet
     if (this.joinRetryTimers) {
       this.joinRetryTimers.forEach((t) => clearTimeout(t));
     }
@@ -676,12 +669,25 @@ export class ConnectionManager {
 
     const t1 = setTimeout(() => {
       if (!this.connected && this.role === 'client' && this.roomCode === cleanCode) {
-        this.sendWs({
-          type: 'JOIN_ROOM',
-          roomCode: cleanCode,
-          clientName: this.myName,
-          targetSlotIndex,
-        });
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.sendWs({
+            type: 'JOIN_ROOM',
+            roomCode: cleanCode,
+            clientName: this.myName,
+            targetSlotIndex,
+          });
+        } else {
+          this.scanAndConnectHost(chosenIp).then((ok) => {
+            if (ok) {
+              this.sendWs({
+                type: 'JOIN_ROOM',
+                roomCode: cleanCode,
+                clientName: this.myName,
+                targetSlotIndex,
+              });
+            }
+          });
+        }
         this.sendLocal({
           type: 'ROOM_CONNECT_REQ',
           roomCode: cleanCode,
@@ -690,21 +696,22 @@ export class ConnectionManager {
           senderId: this.instanceId,
         });
       }
-    }, 850);
+    }, 600);
 
     const t2 = setTimeout(() => {
       if (!this.connected && this.role === 'client' && this.roomCode === cleanCode) {
-        this.sendWs({
-          type: 'JOIN_ROOM',
-          roomCode: cleanCode,
-          clientName: this.myName,
-          targetSlotIndex,
-        });
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.sendWs({
+            type: 'JOIN_ROOM',
+            roomCode: cleanCode,
+            clientName: this.myName,
+            targetSlotIndex,
+          });
+        }
       }
-    }, 1700);
+    }, 1400);
 
     this.joinRetryTimers.push(t1, t2);
-
     return true;
   }
 
