@@ -591,6 +591,12 @@ public class YugiohLocalServer extends WebSocketServer {
 
             // Forward all other in-room game and sync messages (DUEL_ACTION, TAG_SYNC_FIELD, DUEL_ARENA_SYNC, SURRENDER, etc.) to peer socket(s)
             String code = wsToRoom.get(conn);
+            if (code == null) {
+                code = msg.optString("roomCode", null);
+                if (code != null) {
+                    wsToRoom.put(conn, code);
+                }
+            }
             if (code != null) {
                 Room room = rooms.get(code);
                 if (room != null) {

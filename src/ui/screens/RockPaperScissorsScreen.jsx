@@ -123,25 +123,34 @@ export const RockPaperScissorsScreen = ({
   const isHost = isMultiplayer ? (multiplayerData?.isHost ?? false) : true;
   const isLight = theme === 'light';
 
-  // In Tag Team mode or when no remote peer is connected, treat opponent as an AI bot
+  const playerChoiceRef = useRef(null);
+  const opponentChoiceIdRef = useRef(null);
+  const isRevealingRef = useRef(false);
+
+  // In Tag Team mode, opponent can be a bot if that specific slot is marked isBot.
+  // In 1v1 multiplayer, opponent is ALWAYS the real human friend!
   const isTag = multiplayerData?.gameMode === 'tag_2v2';
   const oppSlotIndex = (multiplayerData?.myTeam === 1) ? 0 : 2;
   const oppSlot = multiplayerData?.slots?.[oppSlotIndex];
-  const isOpponentBot = !isMultiplayer || !connectionManager.connected || (isTag ? (!oppSlot || Boolean(oppSlot.isBot)) : false);
+  const isOpponentBot = !isMultiplayer || (isTag && Boolean(oppSlot?.isBot));
 
-  // Play Janken theme audio on mount
+  // Play Janken theme audio on mount and announce presence to peer
   useEffect(() => {
     soundManager.playJankenBgm();
+    if (isMultiplayer) {
+      connectionManager.send({ type: 'JANKEN_HELLO' });
+    }
     return () => {
       soundManager.stopJankenBgm();
     };
-  }, []);
+  }, [isMultiplayer]);
 
   // Watchdog fallback: ONLY when playing solo against a bot, never in real multiplayer against a human friend
   useEffect(() => {
     if (!isMultiplayer && gameState === 'WAITING_OPPONENT' && playerChoice && !opponentChoiceId) {
       const watchdog = setTimeout(() => {
         const oppRandom = CHOICES[Math.floor(Math.random() * CHOICES.length)];
+        opponentChoiceIdRef.current = oppRandom.id;
         setOpponentChoiceId(oppRandom.id);
         startRevealSequence(playerChoice, oppRandom.id);
       }, 3500);
@@ -154,11 +163,28 @@ export const RockPaperScissorsScreen = ({
     if (!isMultiplayer) return;
 
     const unsubMsg = connectionManager.onMessage((msg) => {
+      // 0. Peer greeted or mounted: re-broadcast my choice if already locked
+      if (msg.type === 'JANKEN_HELLO') {
+        if (playerChoiceRef.current) {
+          connectionManager.send({
+            type: 'JANKEN_CHOICE',
+            choiceId: playerChoiceRef.current.id,
+          });
+        }
+      }
+
       // 1. Opponent locked their choice
-      if (msg.type === 'JANKEN_CHOICE') {
+      else if (msg.type === 'JANKEN_CHOICE') {
+        opponentChoiceIdRef.current = msg.choiceId;
         setOpponentChoiceId(msg.choiceId);
         setOpponentLocked(true);
         soundManager.playClick();
+        hapticManager.triggerCombatVibration('click');
+
+        // If local player already made their choice, trigger synchronized clash reveal immediately!
+        if (playerChoiceRef.current && !isRevealingRef.current) {
+          startRevealSequence(playerChoiceRef.current, msg.choiceId);
+        }
       }
 
       // 2. Opponent decided who goes first
@@ -185,12 +211,15 @@ export const RockPaperScissorsScreen = ({
 
   // Synchronized clash trigger when both choices are locked in multiplayer
   useEffect(() => {
-    if (isMultiplayer && playerChoice && opponentChoiceId && gameState === 'WAITING_OPPONENT') {
+    if (isMultiplayer && playerChoice && opponentChoiceId && gameState === 'WAITING_OPPONENT' && !isRevealingRef.current) {
       startRevealSequence(playerChoice, opponentChoiceId);
     }
   }, [isMultiplayer, playerChoice, opponentChoiceId, gameState]);
 
   const startRevealSequence = (myChoice, oppChoiceId) => {
+    if (isRevealingRef.current) return;
+    isRevealingRef.current = true;
+
     setGameState('REVEALING');
     setRevealCount(1);
     soundManager.play('janken');
@@ -244,6 +273,7 @@ export const RockPaperScissorsScreen = ({
     soundManager.playDecide();
     hapticManager.triggerCombatVibration('click');
     setPlayerChoice(choice);
+    playerChoiceRef.current = choice;
 
     if (isMultiplayer) {
       // Send choice to peer over WebSocket / local channel
@@ -257,19 +287,18 @@ export const RockPaperScissorsScreen = ({
         setGameState('WAITING_OPPONENT');
         setTimeout(() => {
           const oppRandom = CHOICES[Math.floor(Math.random() * CHOICES.length)];
+          opponentChoiceIdRef.current = oppRandom.id;
           setOpponentChoiceId(oppRandom.id);
           startRevealSequence(choice, oppRandom.id);
         }, 500);
         return;
       }
 
-      if (opponentChoiceId) {
+      setGameState('WAITING_OPPONENT');
+
+      if (opponentChoiceIdRef.current && !isRevealingRef.current) {
         // Both choices ready! Start reveal sequence
-        setGameState('WAITING_OPPONENT');
-        startRevealSequence(choice, opponentChoiceId);
-      } else {
-        // Wait for peer to lock their choice
-        setGameState('WAITING_OPPONENT');
+        startRevealSequence(choice, opponentChoiceIdRef.current);
       }
     } else {
       // Solo AI Duel: Pick random AI choice
@@ -314,6 +343,9 @@ export const RockPaperScissorsScreen = ({
   };
 
   const handleLocalReset = () => {
+    isRevealingRef.current = false;
+    playerChoiceRef.current = null;
+    opponentChoiceIdRef.current = null;
     setGameState('CHOOSING');
     setPlayerChoice(null);
     setOpponentChoice(null);
@@ -428,54 +460,80 @@ export const RockPaperScissorsScreen = ({
           طوبة ورقة مقص — قرعة البداية
         </h1>
 
-        <div style={{ fontSize: 12, color: 'var(--pharaoh-text-gold)', marginBottom: 18, fontWeight: 700 }}>
-          {playerDeckName} <span style={{ color: 'var(--pharaoh-text-muted)' }}>ضد</span> {opponentName}
-          {isMultiplayer && (
-            <span style={{ marginRight: 8, color: '#4ade80', fontSize: 11 }}>
-              • ماتش أونلاين مباشر
-            </span>
-          )}
+        {/* Live Multiplayer Peer Head-to-Head Banner */}
+        <div
+          style={{
+            width: '100%',
+            maxWidth: 480,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: isLight ? 'rgba(245, 237, 216, 0.75)' : 'rgba(20, 16, 10, 0.8)',
+            border: isLight ? '1px solid rgba(180, 83, 9, 0.3)' : '1px solid var(--pharaoh-stone-border)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            marginBottom: 16,
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+          }}
+        >
+          {/* Player (You) */}
+          <div style={{ flex: 1, textAlign: 'right' }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+              {playerDeckName} (أنت)
+            </div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, marginTop: 3 }}>
+              {playerChoice ? (
+                <span style={{ color: '#4ade80' }}>● تم قفل اختيارك بنجاح</span>
+              ) : (
+                <span style={{ color: '#f59e0b', animation: 'beaconPulse 1.4s infinite' }}>● اختر سلاحك دلوقتي...</span>
+              )}
+            </div>
+          </div>
+
+          {/* Central VS Badge */}
+          <div
+            style={{
+              padding: '6px 12px',
+              borderRadius: 20,
+              border: '1px solid var(--pharaoh-gold-bright)',
+              background: isLight ? '#fffcf5' : 'rgba(30, 24, 16, 0.9)',
+              color: 'var(--pharaoh-gold-bright)',
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: 1,
+            }}
+          >
+            ضد
+          </div>
+
+          {/* Opponent (Peer) */}
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: isLight ? '#dc2626' : '#f87171' }}>
+              {opponentName} {isMultiplayer ? '(صاحبك)' : ''}
+            </div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, marginTop: 3 }}>
+              {opponentLocked ? (
+                <span style={{ color: '#4ade80' }}>● اختار وقَفَل لوحه الحجري</span>
+              ) : (
+                <span style={{ color: 'var(--pharaoh-text-muted)', animation: 'beaconPulse 1.4s infinite' }}>● لسه بيختار...</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* State 1: CHOOSING / WAITING */}
         {(gameState === 'CHOOSING' || gameState === 'WAITING_OPPONENT') && (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {/* Guidance Banner */}
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--pharaoh-text-gold)', marginBottom: 14 }}>
-              {gameState === 'WAITING_OPPONENT'
-                ? 'اخترت خلاص! مستنيين الخصم يختار...'
+            {/* Live Interactive Guidance */}
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--pharaoh-text-gold)', marginBottom: 14 }}>
+              {playerChoice && opponentLocked
+                ? 'الاتنين اختاروا خلاص! جاري بدء التصادم الفرعوني...'
+                : playerChoice && !opponentLocked
+                ? `قَفَلْت على [${playerChoice.name}]! في انتظار ${opponentName} يقفل اختياره...`
+                : !playerChoice && opponentLocked
+                ? `${opponentName} قفل اختياره ومستنيك! اختر سلاحك دلوقتي فوراً:`
                 : 'دوس على اختيارك علشان نحدد مين اللي هيبدأ الأول في الماتش:'}
             </div>
-
-            {/* Multiplayer Peer Status Badge */}
-            {isMultiplayer && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  background: 'rgba(201, 158, 50, 0.12)',
-                  border: '1px solid var(--pharaoh-gold-dark)',
-                  borderRadius: 20,
-                  padding: '5px 16px',
-                  marginBottom: 16,
-                  fontSize: 11.5,
-                  color: 'var(--pharaoh-text-light)',
-                }}
-              >
-                {opponentLocked ? (
-                  <>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-                    <span style={{ color: '#4ade80', fontWeight: 800 }}>الخصم اختار خلاص!</span>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', animation: 'beaconPulse 1.4s infinite' }} />
-                    <span style={{ color: 'var(--pharaoh-text-muted)' }}>الخصم لسه بيختار...</span>
-                  </>
-                )}
-              </div>
-            )}
 
             {/* 3 Sacred Stele Cards */}
             <div

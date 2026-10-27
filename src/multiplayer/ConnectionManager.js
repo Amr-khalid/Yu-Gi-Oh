@@ -1249,6 +1249,9 @@ export class ConnectionManager {
   }
 
   send(message) {
+    if (this.roomCode && typeof message === 'object' && message !== null && !message.roomCode) {
+      message.roomCode = this.roomCode;
+    }
     // 1. Send to WebSocket server
     this.sendWs(message);
 
