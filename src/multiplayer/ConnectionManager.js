@@ -559,11 +559,23 @@ export class ConnectionManager {
       candidateIps.push(preferredIp.trim());
     }
 
-    // 2. Android DHCP Gateway IP (Host hotspot gateway)
+    // 2. Android DHCP Gateway IP (Host hotspot gateway or Router IP)
     try {
       const gwRes = await LocalServer.getGatewayIp();
       if (gwRes && gwRes.gatewayIp && !candidateIps.includes(gwRes.gatewayIp)) {
         candidateIps.push(gwRes.gatewayIp);
+      }
+    } catch (e) {}
+
+    // 2.5 Peers from ARP cache (discovers host on same Wi-Fi router or hotspot automatically)
+    try {
+      const hsRes = await LocalServer.checkHotspotStatus();
+      if (hsRes && Array.isArray(hsRes.peers)) {
+        for (const p of hsRes.peers) {
+          if (p && typeof p === 'string' && !candidateIps.includes(p)) {
+            candidateIps.push(p);
+          }
+        }
       }
     } catch (e) {}
 

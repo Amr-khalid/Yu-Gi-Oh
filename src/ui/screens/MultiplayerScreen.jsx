@@ -476,8 +476,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     soundManager.playClick();
     hapticManager.triggerCombatVibration('click');
     setActionState('joining');
-    const target = ipMode === 'custom' && customHostIp.trim() ? customHostIp.trim() : null;
-    connectionManager.join('wifi', playerName, target);
+    connectionManager.join('wifi', playerName);
   };
 
   const handleCancelAction = () => {
@@ -498,9 +497,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     const matchedRoom = (status.discoveredRooms || []).find(
       (r) => connectionManager.normalizeRoomCode(r.roomCode) === cleanCode
     );
-    const target = (matchedRoom && matchedRoom.ip)
-      ? matchedRoom.ip
-      : (ipMode === 'custom' && customHostIp.trim() ? customHostIp.trim() : null);
+    const target = (matchedRoom && matchedRoom.ip) ? matchedRoom.ip : null;
 
     setActionState('joining');
     setIsConnectingByCode(true);
@@ -2078,75 +2075,35 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               </div>
               <PharaohHieroglyphRibbon opacity={0.6} style={{ marginBottom: 14 }} />
 
-              {/* Connection Mode Toggle (Hotspot vs Custom Wi-Fi) */}
+              {/* Universal Zero-Config Connection Banner (Hotspot & Router Auto-Link) */}
               <div
                 style={{
-                  background: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid var(--pharaoh-stone-border)',
+                  background: 'rgba(201, 158, 50, 0.1)',
+                  border: '1px solid rgba(240, 203, 100, 0.3)',
                   borderRadius: 8,
-                  padding: '12px 14px',
+                  padding: '10px 14px',
                   marginBottom: 14,
-                  textAlign: 'right',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', marginBottom: 8 }}>
-                  طريقة الاتصال بموبايل صاحبك:
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                  <button
-                    onClick={() => {
-                      setIpMode('hotspot');
-                      setCustomHostIp('');
-                      connectionManager.join('wifi', playerName, null);
-                    }}
-                    className={ipMode === 'hotspot' ? 'btn-pharaoh-gold' : 'btn-pharaoh-stone'}
-                    style={{ flex: 1, padding: '9px 0', fontSize: 12, fontWeight: 900, borderRadius: 6 }}
-                  >
-                    هوت سبوت (تلقائي)
-                  </button>
-                  <button
-                    onClick={() => setIpMode('custom')}
-                    className={ipMode === 'custom' ? 'btn-pharaoh-gold' : 'btn-pharaoh-stone'}
-                    style={{ flex: 1, padding: '9px 0', fontSize: 12, fontWeight: 900, borderRadius: 6 }}
-                  >
-                    راوتر / يدوي (IP)
-                  </button>
-                </div>
-                {ipMode === 'custom' ? (
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 8 }}>
-                    <input
-                      type="text"
-                      placeholder="مثال: 192.168.1.15"
-                      value={customHostIp}
-                      onChange={(e) => setCustomHostIp(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 10px',
-                        fontSize: 13,
-                        direction: 'ltr',
-                        textAlign: 'center',
-                        borderRadius: 6,
-                        background: 'var(--pharaoh-stone-card)',
-                        border: '1px solid var(--pharaoh-gold-dark)',
-                        color: 'var(--pharaoh-gold-bright)',
-                      }}
-                    />
-                    <button
-                      onClick={() => connectionManager.join('wifi', playerName, customHostIp)}
-                      className="btn-pharaoh-stone"
-                      style={{ padding: '8px 14px', fontSize: 12, fontWeight: 800 }}
-                    >
-                      تحديث
-                    </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, textAlign: 'right' }}>
+                  <WifiIcon size={18} color="var(--pharaoh-gold-bright)" />
+                  <div>
+                    <div style={{ fontSize: 12.5, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                      اتصال تلقائي ذكي (راوتر واي فاي أو هوت سبوت)
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
+                      بدون الحاجة لكتابة أي IP، اكتب الكود بس وادخل فوراً!
+                    </div>
                   </div>
-                ) : (
-                  <div style={{ fontSize: 11.5, color: 'var(--pharaoh-text-muted)', marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>● البحث التلقائي عبر بوابة الهوت سبوت</span>
-                    <span style={{ direction: 'ltr', color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
-                      {status.targetHostIp || '192.168.43.1'}
-                    </span>
-                  </div>
-                )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#4ade80', fontWeight: 800 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />
+                  <span>تلقائي</span>
+                </div>
               </div>
 
               {/* Direct Room Code Input Box (Royal Cartouche) */}
@@ -2259,7 +2216,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         onClick={() => {
                           soundManager.playDecide();
                           hapticManager.triggerCombatVibration('click');
-                          const target = room.ip || (ipMode === 'hotspot' ? '192.168.43.1' : customHostIp);
+                          const target = room.ip || null;
                           connectionManager.joinByCode(room.roomCode, target);
                         }}
                         className="btn-pharaoh-gold"

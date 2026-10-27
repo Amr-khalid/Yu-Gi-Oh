@@ -581,42 +581,24 @@ public class YugiohLocalServer extends WebSocketServer {
                 return;
             }
 
-            if ("DUEL_ACTION".equals(type) ||
-                "TAG_SYNC_FIELD".equals(type) ||
-                "TAG_SYNC_HAND".equals(type) ||
-                "TEAM_PING".equals(type) ||
-                "SURRENDER".equals(type) ||
-                "HANDSHAKE_ACK".equals(type) ||
-                type.startsWith("JANKEN_")) {
-                String code = wsToRoom.get(conn);
-                if (code != null) {
-                    Room room = rooms.get(code);
-                    if (room != null) {
-                        String payload = msg.toString();
-                        for (WebSocket ws : room.getAllActiveSockets()) {
-                            if (ws != conn && ws.isOpen()) {
-                                try { ws.send(payload); } catch (Exception ignored) {}
-                            }
+            if ("GET_ACTIVE_ROOMS".equals(type)) {
+                sendActiveRooms(conn);
+                return;
+            }
+
+            // Forward all other in-room game and sync messages (DUEL_ACTION, TAG_SYNC_FIELD, DUEL_ARENA_SYNC, SURRENDER, etc.) to peer socket(s)
+            String code = wsToRoom.get(conn);
+            if (code != null) {
+                Room room = rooms.get(code);
+                if (room != null) {
+                    String payload = msg.toString();
+                    for (WebSocket ws : room.getAllActiveSockets()) {
+                        if (ws != conn && ws.isOpen()) {
+                            try { ws.send(payload); } catch (Exception ignored) {}
                         }
                     }
                 }
                 return;
-            }
-
-            if ("CLOSE_ROOM".equals(type)) {
-                String code = msg.optString("roomCode", wsToRoom.get(conn));
-                if (code != null) {
-                    rooms.remove(code);
-                    wsToRoom.remove(conn);
-                    wsIsHost.remove(conn);
-                    YugiohDiscovery.stopAnnouncing();
-                    broadcastActiveRooms();
-                }
-                return;
-            }
-
-            if ("GET_ACTIVE_ROOMS".equals(type)) {
-                sendActiveRooms(conn);
             }
         } catch (Exception e) {
             Log.e(TAG, "Error handling message", e);

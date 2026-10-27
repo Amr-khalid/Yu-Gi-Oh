@@ -256,14 +256,13 @@ export const App = () => {
         ? customDeckCards
         : loadActiveDeckFromStorage();
 
-      const hostCards = (myActiveDeck && myActiveDeck.length >= 20)
+      // On BOTH Host and Client, p0 is the LOCAL player!
+      const p0Cards = (myActiveDeck && myActiveDeck.length >= 20)
         ? myActiveDeck
         : ((decksData[0] || {}).mainDeck || []);
 
-      const clientCards = (decksData[1] || {}).mainDeck || [];
+      const p1Cards = (decksData[1] || {}).mainDeck || [];
 
-      const p0Cards = isHost ? hostCards : clientCards;
-      const p1Cards = isHost ? clientCards : hostCards;
       const p0Name = myName || (isHost ? 'يوجي' : 'سيتو كايبا');
       const p1Name = peerName || (isHost ? 'سيتو كايبا' : 'يوجي');
 
@@ -273,10 +272,21 @@ export const App = () => {
       const p0State = createPlayerState(0, p0Name, p0Cards, p0Seed);
       const p1State = createPlayerState(1, p1Name, p1Cards, p1Seed);
 
-      const customEngine = new DuelEngine(p0Cards, p1Cards, p0Name, p1Name, undefined, startingPlayer);
+      // Determine local starting player:
+      // startingPlayer = 0 means Host starts globally.
+      // For Host: local starting player is 0 (Host is p0).
+      // For Client: local starting player is 1 (Host is p1).
+      const globalStartingPlayer = startingPlayer ?? 0;
+      const localStartingPlayer = isHost ? globalStartingPlayer : (1 - globalStartingPlayer);
+
+      const customEngine = new DuelEngine(p0Cards, p1Cards, p0Name, p1Name, undefined, localStartingPlayer);
       customEngine.state.players = [p0State, p1State];
-      customEngine.state.currentTurnPlayer = startingPlayer;
-      drawCardForTurnPlayer(customEngine.state);
+      customEngine.state.currentTurnPlayer = localStartingPlayer;
+
+      // Draw initial card only if it's currently local player's turn (p0)
+      if (localStartingPlayer === 0) {
+        drawCardForTurnPlayer(customEngine.state);
+      }
       customEngine.state.phase = 'MAIN1';
 
       return customEngine;
@@ -327,12 +337,9 @@ export const App = () => {
   const handleStartMultiplayerDuel = (data) => {
     setIsMultiplayer(true);
     setMultiplayerData(data);
-    if (data?.gameMode === 'tag_2v2') {
-      setStartingPlayerIndex(0);
-      setCurrentScreen('duel');
-    } else {
-      setCurrentScreen('janken');
-    }
+    setStartingPlayerIndex(data?.startingPlayer ?? 0);
+    // In both 1v1 and 2v2 multiplayer, launch directly to duel after synchronized countdown!
+    setCurrentScreen('duel');
   };
 
   return (

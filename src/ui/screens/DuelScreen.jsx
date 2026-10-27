@@ -677,24 +677,30 @@ export const DuelScreen = ({
   };
 
   // Broadcast lightweight authoritative snapshot of battlefield so ALL devices match 100% in real time
+  // Broadcast lightweight authoritative snapshot of battlefield so ALL devices match 100% in real time
   const broadcastTagFieldSnapshot = (senderSlot, senderTeam) => {
-    if (!isMultiplayer || !engine.state?.isTagMode) return;
+    if (!isMultiplayer) return;
     const currentState = engine.getState();
     const curP0 = currentState.players[0];
     const curP1 = currentState.players[1];
     if (!curP0 || !curP1) return;
 
-    const team0 = senderTeam === 0 ? curP0 : curP1;
-    const team1 = senderTeam === 0 ? curP1 : curP0;
+    const isHost = connectionManager.role === 'host';
+    const effectiveTeam = (typeof senderTeam === 'number')
+      ? senderTeam
+      : (engine.state?.isTagMode ? (multiplayerData?.myTeam ?? 0) : (isHost ? 0 : 1));
 
-    const globalTurnTeam = senderTeam === 0
+    const team0 = effectiveTeam === 0 ? curP0 : curP1;
+    const team1 = effectiveTeam === 0 ? curP1 : curP0;
+
+    const globalTurnTeam = effectiveTeam === 0
       ? currentState.currentTurnPlayer
       : (1 - currentState.currentTurnPlayer);
 
     connectionManager.send({
       type: 'TAG_SYNC_FIELD',
       senderSlot,
-      senderTeam,
+      senderTeam: effectiveTeam,
       snapshot: {
         turnNumber: currentState.turnNumber,
         phase: currentState.phase,
@@ -722,9 +728,7 @@ export const DuelScreen = ({
   useEffect(() => {
     if (isMultiplayer && connectionManager.role === 'host') {
       const initTimer = setTimeout(() => {
-        if (engine.state?.isTagMode) {
-          broadcastTagFieldSnapshot(0, 0);
-        }
+        broadcastTagFieldSnapshot(0, 0);
         if (chosenArena?.id && arenaSyncMode === 'synced') {
           connectionManager.send({
             type: 'DUEL_ARENA_SYNC',
@@ -748,13 +752,11 @@ export const DuelScreen = ({
       mySlot = multiplayerData?.mySlot ?? (connectionManager.role === 'host' ? 0 : 1);
       myTeam = multiplayerData?.myTeam ?? (mySlot < 2 ? 0 : 1);
 
-      if (engine.state?.isTagMode) {
-        const activeHand = engine.state.currentTurnPlayer === 0 ? p0?.hand : p1?.hand;
-        if (action === 'normalSummon' || action === 'setMonster') {
-          cardData = activeHand?.[args[0]] || null;
-        } else if (action === 'setSpellTrap' || action === 'activateSpell') {
-          cardData = activeHand?.[args[0]] || null;
-        }
+      const activeHand = engine.state.currentTurnPlayer === 0 ? p0?.hand : p1?.hand;
+      if (action === 'normalSummon' || action === 'setMonster') {
+        cardData = activeHand?.[args[0]] || null;
+      } else if (action === 'setSpellTrap' || action === 'activateSpell') {
+        cardData = activeHand?.[args[0]] || null;
       }
 
       const isBotAction = engine.state?.isTagMode && connectionManager.role === 'host' && engine.state.currentTurnPlayer === 1;
@@ -776,8 +778,8 @@ export const DuelScreen = ({
 
       if (engine.state?.isTagMode) {
         connectionManager.syncTeammateHand(engine.state.players[0]?.hand || []);
-        broadcastTagFieldSnapshot(actionSlot, actionTeam);
       }
+      broadcastTagFieldSnapshot(actionSlot, actionTeam);
     }
 
     return res;
@@ -863,7 +865,47 @@ export const DuelScreen = ({
               }
             }
           } else {
-            if (typeof engine[msg.action] === 'function') {
+            // 1v1 Remote Duel Action Mirroring
+            const oppName = p1?.name || 'المنافس';
+            if ((msg.action === 'normalSummon' || msg.action === 'setMonster') && msg.card) {
+              const position = msg.action === 'setMonster' ? 'face_down_defense' : (msg.args[2] || 'face_up_attack');
+              const zoneIndex = msg.args[1];
+              const tributes = msg.args[3] || [];
+              engine.applyTagFieldAction({
+                targetTeam: 1, // Opponent zone (p1)
+                action: position === 'face_down_defense' ? 'SET_MONSTER' : 'SUMMON',
+                card: msg.card,
+                zoneIndex,
+                position,
+                tributes,
+              });
+              showGameToast(`المنافس ${oppName} استدعى ${msg.card.name || 'وحش'} في الساحة!`, 2500);
+            } else if (msg.action === 'setSpellTrap' && msg.card) {
+              const zoneIndex = msg.args[1];
+              engine.applyTagFieldAction({
+                targetTeam: 1,
+                action: 'SET_SPELL_TRAP',
+                card: msg.card,
+                zoneIndex,
+              });
+              showGameToast(`المنافس ${oppName} وضع ورقة مقلوبة!`, 2500);
+            } else if (msg.action === 'activateSpell' && msg.card) {
+              engine.applyTagFieldAction({
+                targetTeam: 1,
+                action: 'ACTIVATE_SPELL',
+                card: msg.card,
+                zoneIndex: msg.args[1],
+              });
+              showGameToast(`المنافس ${oppName} فعّل سحر: ${msg.card.name || ''}!`, 2500);
+            } else if (msg.action === 'changePosition') {
+              engine.changePosition(msg.args[0], msg.args[1], 1);
+            } else if (msg.action === 'activateSetSpellTrap') {
+              engine.activateSetSpellTrap(msg.args[0], msg.args[1], 1);
+            } else if (msg.action === 'advancePhase') {
+              engine.advancePhase(...msg.args);
+            } else if (msg.action === 'endTurn') {
+              engine.endTurn();
+            } else if (typeof engine[msg.action] === 'function') {
               engine[msg.action](...msg.args);
             }
           }
@@ -871,7 +913,7 @@ export const DuelScreen = ({
           console.error('Failed to execute remote duel action:', e);
         }
       } else if (msg.type === 'TAG_SYNC_FIELD') {
-        if (engine.state?.isTagMode && msg.snapshot) {
+        if (msg.snapshot) {
           if (arenaSyncMode === 'synced' && msg.snapshot.arenaId && chosenArena?.id !== msg.snapshot.arenaId) {
             const synced = getArenaTheme(msg.snapshot.arenaId, theme);
             if (synced) setChosenArena(synced);
