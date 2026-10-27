@@ -3,7 +3,6 @@ import { connectionManager } from '../../multiplayer/ConnectionManager.js';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
 import { TagTeamLobbyView } from '../components/TagTeamLobbyView.jsx';
-import { PharaohQRCode } from '../components/PharaohQRCode.jsx';
 import { getRandomArenaTheme } from '../../game/utils/arenaThemes.js';
 
 /* Pure SVG Icons (Zero Emojis, Executive Authentic Egyptian Vector Art) */
@@ -1886,13 +1885,6 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   </button>
                 </div>
               </div>
-
-              {/* Pharaonic QR Code & 1-Tap Share */}
-              {status.roomCode && (
-                <div style={{ margin: '0 auto 16px', maxWidth: 380, width: '100%' }}>
-                  <PharaohQRCode roomCode={status.roomCode} hostName={playerName} isLight={isLight} />
-                </div>
-              )}
 
               {/* Network Status & Instructions */}
               <div
