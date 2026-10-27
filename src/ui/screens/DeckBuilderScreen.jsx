@@ -4,6 +4,7 @@ import allCardsData from '../../data/cards.json';
 import { CardDetailModal } from '../components/CardDetailModal.jsx';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
+import { hasValidCardImage } from '../../game/utils/cardImageHelper.js';
 
 /* Sleek Pure-SVG Pharaonic & Gaming Icons (Zero Emojis) */
 const ArrowBackIcon = ({ size = 15, color = 'currentColor' }) => (
@@ -181,13 +182,16 @@ export const DeckBuilderScreen = ({
   };
 
   const handleAddCard = (card) => {
+    if (!hasValidCardImage(card)) {
+      return;
+    }
     if (currentDeckCards.length >= 60) {
-      alert('الحد الأقصى للمجموعة هو 60 بطاقة.');
+      alert('المجموعة ماتزيدش عن 60 كارت يا بطل علشان تلعب بتركيز!');
       return;
     }
     const copies = currentDeckCards.filter((c) => c.id === card.id || c.cardCode === card.cardCode).length;
     if (copies >= 3) {
-      alert('لا يمكن إضافة أكثر من 3 نسخ من نفس البطاقة.');
+      alert('ماينفعش تحط أكتر من 3 نسخ من نفس الكارت يا صاحبي، ده القانون الرسمي!');
       return;
     }
     soundManager.playCardMove();
@@ -218,6 +222,9 @@ export const DeckBuilderScreen = ({
 
   const filteredLibrary = useMemo(() => {
     let result = allCardsData.filter((c) => {
+      // Exclude cards without verified images
+      if (!hasValidCardImage(c)) return false;
+
       const matchSearch =
         c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -238,15 +245,17 @@ export const DeckBuilderScreen = ({
     return result;
   }, [searchTerm, typeFilter, attributeFilter, levelFilter, sortBy]);
 
+  const isLight = theme === 'light';
+
   // Elements attribute map with thematic Pharaonic gem colors
   const attributeColors = {
     all: { label: 'الكل', color: 'var(--pharaoh-text-gold)', dot: '#d4af37' },
-    LIGHT: { label: 'ضوء', color: '#fef08a', dot: '#eab308' },
-    DARK: { label: 'ظلام', color: '#c084fc', dot: '#9333ea' },
-    WATER: { label: 'ماء', color: '#38bdf8', dot: '#0284c7' },
-    FIRE: { label: 'نار', color: '#f87171', dot: '#dc2626' },
-    EARTH: { label: 'أرض', color: '#fbbf24', dot: '#d97706' },
-    WIND: { label: 'رياح', color: '#4ade80', dot: '#16a34a' },
+    LIGHT: { label: 'ضوء', color: isLight ? '#854d0e' : '#fef08a', dot: '#eab308' },
+    DARK: { label: 'ظلام', color: isLight ? '#7e22ce' : '#c084fc', dot: '#9333ea' },
+    WATER: { label: 'ماء', color: isLight ? '#0369a1' : '#38bdf8', dot: '#0284c7' },
+    FIRE: { label: 'نار', color: isLight ? '#b91c1c' : '#f87171', dot: '#dc2626' },
+    EARTH: { label: 'أرض', color: isLight ? '#92400e' : '#fbbf24', dot: '#d97706' },
+    WIND: { label: 'رياح', color: isLight ? '#15803d' : '#4ade80', dot: '#16a34a' },
   };
 
   return (
@@ -293,7 +302,7 @@ export const DeckBuilderScreen = ({
             title="رجوع للقائمة الرئيسية"
           >
             <ArrowBackIcon size={14} color="var(--pharaoh-gold-bright)" />
-            {!isMobile && <span>رجوع</span>}
+            {!isMobile && <span>الرئيسية</span>}
           </button>
 
           {onToggleTheme && (
@@ -431,7 +440,7 @@ export const DeckBuilderScreen = ({
             }}
             title="تحميل مجموعة فرعونية جاهزة"
           >
-            <option value="" disabled>المجموعات (42)...</option>
+            <option value="" disabled>نقّي مجموعة جاهزة (42)...</option>
             {decksData.map((d, idx) => (
               <option key={`preset-${idx}`} value={idx}>
                 {d.name} ({d.mainDeckCount})
@@ -468,7 +477,7 @@ export const DeckBuilderScreen = ({
             }}
           >
             <DeckCardsIcon size={14} color="currentColor" />
-            <span>المجموعة الحالية ({totalCount}/60)</span>
+            <span>كروت مجموعتك الحالية ({totalCount}/60)</span>
           </button>
 
           <button
@@ -488,7 +497,7 @@ export const DeckBuilderScreen = ({
             }}
           >
             <FilterIcon size={13} color="currentColor" />
-            <span>مستودع الكروت ({filteredLibrary.length})</span>
+            <span>كتالوج كل الكروت ({filteredLibrary.length})</span>
           </button>
         </div>
       )}
@@ -539,12 +548,12 @@ export const DeckBuilderScreen = ({
                   {totalCount < 40 ? (
                     <>
                       <AlertIcon size={11} color="#ef4444" />
-                      <span>تحتاج {40 - totalCount} كرت</span>
+                      <span>ناقصك {40 - totalCount} كرت عشان تبدأ</span>
                     </>
                   ) : (
                     <>
                       <CheckIcon size={11} color="#10b981" />
-                      <span>قانونية ومكتملة</span>
+                      <span>المجموعة مظبوطة وجاهزة للمعركة</span>
                     </>
                   )}
                 </div>
@@ -553,7 +562,7 @@ export const DeckBuilderScreen = ({
               {/* Action: Empty Deck Button */}
               <button
                 onClick={() => {
-                  if (confirm('هل تريد تفريغ المجموعة بالكامل؟')) {
+                  if (confirm('عايز تفضي المجموعة دي خالص وتبدأ من جديد؟')) {
                     saveDeck([]);
                   }
                 }}
@@ -568,7 +577,7 @@ export const DeckBuilderScreen = ({
                 title="تفريغ المجموعة بالكامل"
               >
                 <TrashIcon size={12} color="#fff" />
-                <span>تفريغ</span>
+                <span>فضّي المجموعة</span>
               </button>
             </div>
 
@@ -642,6 +651,9 @@ export const DeckBuilderScreen = ({
                         }`;
                         if (e.target.src !== fallbackMini) {
                           e.target.src = fallbackMini;
+                        } else {
+                          const parent = e.target.closest('[id^="deck-slot-"]') || e.target.parentElement;
+                          if (parent) parent.style.display = 'none';
                         }
                       }}
                     />
@@ -804,10 +816,10 @@ export const DeckBuilderScreen = ({
                   }}
                   title="طريقة الترتيب"
                 >
-                  <option value="atk">الأعلى هجوماً</option>
-                  <option value="def">الأعلى دفاعاً</option>
-                  <option value="level">المستوى</option>
-                  <option value="name">أبجدي</option>
+                  <option value="atk">أعلى هجوم</option>
+                  <option value="def">أعلى دفاع</option>
+                  <option value="level">النجوم (المستوى)</option>
+                  <option value="name">بالحروف الأبجدية</option>
                 </select>
               </div>
 
@@ -841,9 +853,9 @@ export const DeckBuilderScreen = ({
                       alignItems: 'center',
                       gap: 3,
                     }}
-                    title="بطاقات الوحوش"
+                    title="كروت الوحوش"
                   >
-                    <MonsterIcon size={11} color={typeFilter === 'monster' ? '#120e06' : '#f59e0b'} />
+                    <MonsterIcon size={11} color={typeFilter === 'monster' ? '#ffffff' : '#f59e0b'} />
                     <span>وحوش</span>
                   </button>
 
@@ -858,9 +870,9 @@ export const DeckBuilderScreen = ({
                       alignItems: 'center',
                       gap: 3,
                     }}
-                    title="بطاقات السحر"
+                    title="كروت السحر"
                   >
-                    <SpellIcon size={11} color={typeFilter === 'spell' ? '#120e06' : '#0d9488'} />
+                    <SpellIcon size={11} color={typeFilter === 'spell' ? '#ffffff' : '#0d9488'} />
                     <span>سحر</span>
                   </button>
 
@@ -875,9 +887,9 @@ export const DeckBuilderScreen = ({
                       alignItems: 'center',
                       gap: 3,
                     }}
-                    title="بطاقات الفخ"
+                    title="كروت الفخ"
                   >
-                    <TrapIcon size={11} color={typeFilter === 'trap' ? '#120e06' : '#e11d48'} />
+                    <TrapIcon size={11} color={typeFilter === 'trap' ? '#ffffff' : '#e11d48'} />
                     <span>فخاخ</span>
                   </button>
                 </div>
@@ -896,12 +908,12 @@ export const DeckBuilderScreen = ({
                       borderRadius: 4,
                       fontSize: 10,
                     }}
-                    title="تصفية حسب المستوى"
+                    title="تصفية حسب عدد النجوم"
                   >
-                    <option value="all">كل الرتب</option>
+                    <option value="all">كل النجوم</option>
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((lvl) => (
                       <option key={`lvl-${lvl}`} value={lvl}>
-                        رتبة {lvl}
+                        {lvl} نجوم
                       </option>
                     ))}
                   </select>
@@ -1026,6 +1038,9 @@ export const DeckBuilderScreen = ({
                       }`;
                       if (e.target.src !== fallbackMini) {
                         e.target.src = fallbackMini;
+                      } else {
+                        const parent = e.target.parentElement;
+                        if (parent) parent.style.display = 'none';
                       }
                     }}
                   />
@@ -1083,10 +1098,10 @@ export const DeckBuilderScreen = ({
                       justifyContent: 'center',
                       gap: 3,
                     }}
-                    title="إضافة للمجموعة الحالية"
+                    title="ضيفه لمجموعتك"
                   >
-                    <PlusIcon size={10} color="#120e06" />
-                    <span>إضافة</span>
+                    <PlusIcon size={10} color="#ffffff" />
+                    <span>ضيفه لمجموعتك</span>
                   </button>
                 </div>
               ))}
@@ -1117,8 +1132,8 @@ export const DeckBuilderScreen = ({
               gap: 6,
             }}
           >
-            <PlusIcon size={14} color="#120e06" />
-            <span>إضافة للمجموعة الحالية</span>
+            <PlusIcon size={14} color="#ffffff" />
+            <span>ضيفه لمجموعتك دلوقتي</span>
           </button>
         }
       />

@@ -7,12 +7,13 @@
 
 class HapticController {
   constructor() {
-    this.enabled = localStorage.getItem('yugioh_vibration_enabled') !== 'false';
-    this.vibrateOnDamage = localStorage.getItem('yugioh_vib_damage') !== 'false';
-    this.vibrateOnDestroy = localStorage.getItem('yugioh_vib_destroy') !== 'false';
-    this.vibrateOnDirectAttack = localStorage.getItem('yugioh_vib_direct') !== 'false';
-    this.vibrateOnTrap = localStorage.getItem('yugioh_vib_trap') !== 'false';
-    this.vibrateOnGameOver = localStorage.getItem('yugioh_vib_gameover') !== 'false';
+    const hasStorage = typeof localStorage !== 'undefined';
+    this.enabled = hasStorage ? localStorage.getItem('yugioh_vibration_enabled') !== 'false' : true;
+    this.vibrateOnDamage = hasStorage ? localStorage.getItem('yugioh_vib_damage') !== 'false' : true;
+    this.vibrateOnDestroy = hasStorage ? localStorage.getItem('yugioh_vib_destroy') !== 'false' : true;
+    this.vibrateOnDirectAttack = hasStorage ? localStorage.getItem('yugioh_vib_direct') !== 'false' : true;
+    this.vibrateOnTrap = hasStorage ? localStorage.getItem('yugioh_vib_trap') !== 'false' : true;
+    this.vibrateOnGameOver = hasStorage ? localStorage.getItem('yugioh_vib_gameover') !== 'false' : true;
   }
 
   isSupported() {
@@ -25,7 +26,9 @@ class HapticController {
 
   setEnabled(val) {
     this.enabled = !!val;
-    localStorage.setItem('yugioh_vibration_enabled', this.enabled ? 'true' : 'false');
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('yugioh_vibration_enabled', this.enabled ? 'true' : 'false');
+    }
   }
 
   setOption(key, val) {
@@ -42,7 +45,7 @@ class HapticController {
     if (key === 'trap') this.vibrateOnTrap = !!val;
     if (key === 'gameover') this.vibrateOnGameOver = !!val;
 
-    if (storageKeys[key]) {
+    if (typeof localStorage !== 'undefined' && storageKeys[key]) {
       localStorage.setItem(storageKeys[key], val ? 'true' : 'false');
     }
   }
@@ -105,6 +108,31 @@ class HapticController {
       case 'click':
         // Subtle tactile button tap
         this.vibrate([25]);
+        break;
+
+      case 'powerSummon':
+        if (!this.vibrateOnDamage) return;
+        const monsterAtk = metadata.atk || 0;
+        if (monsterAtk >= 3000) {
+          // Legendary divine monster (Blue-Eyes, Dark Magician of Chaos, Exodia, God cards)
+          this.vibrate([220, 80, 320, 80, 220]);
+        } else if (monsterAtk >= 2500) {
+          // Powerful heroic summon (Dark Magician, Red-Eyes, Summoned Skull)
+          this.vibrate([160, 60, 220]);
+        } else {
+          // High level summon
+          this.vibrate([110, 50, 130]);
+        }
+        break;
+
+      case 'shuffle':
+        // Riffle shuffle vibration flurry
+        this.vibrate([30, 40, 30, 40, 35, 35, 45]);
+        break;
+
+      case 'turnChange':
+        // Crisp dual-pulse haptic signal for turn initiative switch
+        this.vibrate([45, 35, 65]);
         break;
 
       default:

@@ -5,13 +5,18 @@
 
 import { checkWinConditions } from './WinCondition.js';
 import { drawCardForTurnPlayer } from './PhaseManager.js';
+import { resolveMonsterEffect, isTrapNegated, isIndestructibleByBattle } from './MonsterEffects.js';
+import { shuffleDeck } from './GameState.js';
+import { resolveSpellEffect as dispatchSpellEffect } from './SpellEffects.js';
+import { resolveTrapEffect as dispatchTrapEffect } from './TrapEffects.js';
 
 export const FIELD_SPELLS = {
   yami: {
     key: 'yami',
     name: 'Yami',
     arabicName: 'ساحة الظلام (Yami)',
-    bgImage: '/assets/fie_yami.png',
+    bgImage: '/assets/fie_dark.png',
+    bgLight: '/assets/fie_dark_light.png',
     themeClass: 'field-theme-yami',
     arabicSummary: '+200 هجوم ودفاع للوحوش الساحرة والشياطين / -200 للجنيات',
     getModifier(card) {
@@ -32,6 +37,7 @@ export const FIELD_SPELLS = {
     name: 'Umi',
     arabicName: 'ساحة المحيط (Umi)',
     bgImage: '/assets/fie_umi.png',
+    bgLight: '/assets/fie_umi_light.png',
     themeClass: 'field-theme-umi',
     arabicSummary: '+200 هجوم ودفاع للوحوش المائية والرعدية والأسماك / -200 للآلات والنارية',
     getModifier(card) {
@@ -51,7 +57,8 @@ export const FIELD_SPELLS = {
     key: 'sogen',
     name: 'Sogen',
     arabicName: 'ساحة المروج (Sogen)',
-    bgImage: '/assets/fie_sougen.png',
+    bgImage: '/assets/fie_desert.png',
+    bgLight: '/assets/fie_desert_light.png',
     themeClass: 'field-theme-sogen',
     arabicSummary: '+200 هجوم ودفاع للمحاربين والمحاربين الوحوش',
     getModifier(card) {
@@ -68,7 +75,8 @@ export const FIELD_SPELLS = {
     key: 'forest',
     name: 'Forest',
     arabicName: 'ساحة الغابة (Forest)',
-    bgImage: '/assets/fie_mori.png',
+    bgImage: '/assets/fie_desert.png',
+    bgLight: '/assets/fie_desert_light.png',
     themeClass: 'field-theme-forest',
     arabicSummary: '+200 هجوم ودفاع للحشرات والوحوش الكاسرة والنباتية',
     getModifier(card) {
@@ -85,7 +93,8 @@ export const FIELD_SPELLS = {
     key: 'mountain',
     name: 'Mountain',
     arabicName: 'ساحة الجبل (Mountain)',
-    bgImage: '/assets/fie_yama.png',
+    bgImage: '/assets/fie_desert.png',
+    bgLight: '/assets/fie_desert_light.png',
     themeClass: 'field-theme-mountain',
     arabicSummary: '+200 هجوم ودفاع للتنانين والوحوش المجنحة والرعدية',
     getModifier(card) {
@@ -102,7 +111,8 @@ export const FIELD_SPELLS = {
     key: 'wasteland',
     name: 'Wasteland',
     arabicName: 'ساحة الأراضي القاحلة (Wasteland)',
-    bgImage: '/assets/fie_kouya.png',
+    bgImage: '/assets/fie_desert.png',
+    bgLight: '/assets/fie_desert_light.png',
     themeClass: 'field-theme-wasteland',
     arabicSummary: '+200 هجوم ودفاع للديناصورات والزومبي والصخور',
     getModifier(card) {
@@ -119,7 +129,8 @@ export const FIELD_SPELLS = {
     key: 'gaia',
     name: 'Gaia Power',
     arabicName: 'ساحة قوة الأرض (Gaia Power)',
-    bgImage: '/assets/fie_gaia.png',
+    bgImage: '/assets/fie_desert.png',
+    bgLight: '/assets/fie_desert_light.png',
     themeClass: 'field-theme-gaia',
     arabicSummary: '+500 هجوم و -400 دفاع لوحوش عنصر الأرض',
     getModifier(card) {
@@ -132,6 +143,7 @@ export const FIELD_SPELLS = {
     name: 'Molten Destruction',
     arabicName: 'ساحة الدمار المنصهر (Molten Destruction)',
     bgImage: '/assets/fie_burn.png',
+    bgLight: '/assets/fie_burn_light.png',
     themeClass: 'field-theme-burn',
     arabicSummary: '+500 هجوم و -400 دفاع لوحوش عنصر النار',
     getModifier(card) {
@@ -143,7 +155,8 @@ export const FIELD_SPELLS = {
     key: 'shine',
     name: 'Luminous Spark',
     arabicName: 'ساحة الشرارة المضيئة (Luminous Spark)',
-    bgImage: '/assets/fie_shine.png',
+    bgImage: '/assets/fie_light.png',
+    bgLight: '/assets/fie_light.png',
     themeClass: 'field-theme-shine',
     arabicSummary: '+500 هجوم و -400 دفاع لوحوش عنصر النور',
     getModifier(card) {
@@ -155,7 +168,8 @@ export const FIELD_SPELLS = {
     key: 'sanctuary',
     name: 'Chorus of Sanctuary',
     arabicName: 'ساحة كورال الملاذ (Sanctuary)',
-    bgImage: '/assets/fie_sanctu.png',
+    bgImage: '/assets/fie_light.png',
+    bgLight: '/assets/fie_light.png',
     themeClass: 'field-theme-sanctuary',
     arabicSummary: '+500 دفاع لجميع الوحوش في وضع الدفاع',
     getModifier(card, slot) {
@@ -181,16 +195,77 @@ export function recalculateAllMonsterStats(state) {
   const activeField = state.activeFieldSpell;
   const config = activeField ? FIELD_SPELLS[activeField.key] : null;
 
-  for (const player of state.players) {
+  let totalMachines = 0;
+  for (const p of state.players) {
+    for (const s of p.monsterZones) {
+      if (s && s.card && (s.card.race === 'Machine' || s.card.type?.toLowerCase().includes('machine'))) {
+        totalMachines++;
+      }
+    }
+  }
+
+  for (let pIdx = 0; pIdx < state.players.length; pIdx++) {
+    const player = state.players[pIdx];
+    const hasCommandKnight = player.monsterZones.some(s => s && (s.card.name || '').toLowerCase().includes('command knight'));
+    const hasGadget = player.monsterZones.some(s => s && (s.card.name || '').toLowerCase().includes('gadget'));
+
     for (const slot of player.monsterZones) {
       if (slot && slot.card) {
         let atk = slot.card.atk;
         let def = slot.card.def;
+        const name = (slot.card.name || '').toLowerCase();
+
+        // 1. Field Spell modifier
         if (config && config.getModifier) {
           const mod = config.getModifier(slot.card, slot);
           atk += mod.atk;
           def += mod.def;
         }
+
+        // 2. Slifer the Sky Dragon (1000 ATK/DEF per hand card)
+        if (name.includes('slifer the sky dragon')) {
+          atk = (player.hand.length) * 1000;
+          def = (player.hand.length) * 1000;
+        }
+
+        // 3. Machine King (+100 ATK per Machine on field)
+        if (name.includes('machine king')) {
+          atk += totalMachines * 100;
+        }
+
+        // 4. Command Knight (+400 ATK to all friendly Warriors)
+        if (hasCommandKnight && (slot.card.race === 'Warrior' || slot.card.type?.toLowerCase().includes('warrior'))) {
+          atk += 400;
+        }
+
+        // 5. Shadow Ghoul (+100 ATK per monster in GY)
+        if (name.includes('shadow ghoul')) {
+          const gyCount = player.graveyard.filter(c => c.type === 'monster').length;
+          atk += gyCount * 100;
+        }
+
+        // 6. Gren Maju Da Eiza (+400 ATK/DEF per banished card)
+        if (name.includes('gren maju')) {
+          const banCount = (player.banished?.length || 0);
+          atk = banCount * 400;
+          def = banCount * 400;
+        }
+
+        // 7. King of the Skull Servants (+1000 ATK per Skull Servant / King in GY)
+        if (name.includes('king of the skull servants')) {
+          const skullCount = player.graveyard.filter(c => (c.name || '').toLowerCase().includes('skull servant') || (c.name || '').toLowerCase().includes('king of the skull')).length;
+          atk = skullCount * 1000;
+        }
+
+        // 8. Boot-Up Soldier (+2000 ATK if Gadget on field)
+        if (name.includes('boot-up soldier') && hasGadget) {
+          atk += 2000;
+        }
+
+        // Preserve temporary buffs (e.g. Rush Recklessly, Metalmorph, etc.)
+        if (slot.buffAtk) atk += slot.buffAtk;
+        if (slot.buffDef) def += slot.buffDef;
+
         slot.currentAtk = Math.max(0, atk);
         slot.currentDef = Math.max(0, def);
       }
@@ -209,21 +284,25 @@ export function normalSummon(
   const player = state.players[playerIndex];
 
   if (state.phase !== 'MAIN1' && state.phase !== 'MAIN2') {
-    throw new Error('لا يمكن الاستدعاء إلا في المرحلة الرئيسية الأولى أو الثانية');
+    throw new Error('ماتقدرش تنزل وحوش إلا في المرحلة الأولى أو التانية بس');
   }
   if (state.currentTurnPlayer !== playerIndex) {
-    throw new Error('ليس دورك حالياً');
+    throw new Error('مش دورك دلوقتي');
   }
   if (player.normalSummonsRemaining <= 0) {
-    throw new Error('استنفدت الاستدعاء العادي لهذا الدور');
+    throw new Error(
+      state.isTagMode
+        ? 'فريقكم استنفد كل استدعاءات الوحوش العادية للدور ده (الوحشين نزلوا خلاص)'
+        : 'نزلت وحش خلاص في الدور ده (استنفدت استدعاءك)'
+    );
   }
 
   const card = player.hand[handIndex];
   if (!card) {
-    throw new Error('لم يتم العثور على البطاقة المحددة في اليد');
+    throw new Error('الكارت ده مش موجود في إيدك');
   }
   if (card.type !== 'monster') {
-    throw new Error('البطاقة المحددة ليست وحشاً');
+    throw new Error('الكارت ده مش وحش');
   }
 
   let requiredTributes = 0;
@@ -231,13 +310,17 @@ export function normalSummon(
   else if (card.level >= 5) requiredTributes = 1;
 
   if (tributeZoneIndices.length < requiredTributes) {
-    throw new Error(`يتطلب الوحش ذو المستوى ${card.level} التضحية بـ ${requiredTributes} وحش من ساحتك.`);
+    throw new Error(`الوحش ده مستواه ${card.level} ومحتاج تضحي بـ ${requiredTributes} وحش من ملعبك علشان تنزله.`);
   }
 
-  // Validate that all specified tribute zones actually have a monster
+  // Validate that all specified tribute zones actually have a monster and are not tokens
   for (const tZone of tributeZoneIndices) {
-    if (!player.monsterZones[tZone]) {
-      throw new Error(`الخانة ${tZone + 1} لا تحتوي على وحش لتقديمه كتضحية.`);
+    const tSlot = player.monsterZones[tZone];
+    if (!tSlot) {
+      throw new Error(`الخانة ${tZone + 1} مافيهاش وحش علشان تضحي بيه.`);
+    }
+    if (tSlot.isToken || (tSlot.card && tSlot.card.subType === 'token')) {
+      throw new Error(`ماتقدرش تضحي بتوكن خروف كبش الفداء علشان تنزل وحش تضحية.`);
     }
   }
 
@@ -249,7 +332,7 @@ export function normalSummon(
       player.graveyard.push(tSlot.card);
       player.monsterZones[tZone] = null;
       tributedNames.push(tSlot.card.name);
-      state.lastLog.push(`تمت التضحية بالوحش ${tSlot.card.name}!`);
+      state.lastLog.push(`ضحى بالوحش ${tSlot.card.name}!`);
     }
   }
 
@@ -260,7 +343,7 @@ export function normalSummon(
   }
 
   if (targetZone === -1 || targetZone === null) {
-    throw new Error('جميع خانات الوحوش ممتلئة');
+    throw new Error('كل خانات الوحوش عندك مليانة');
   }
 
   player.hand.splice(handIndex, 1);
@@ -281,46 +364,117 @@ export function normalSummon(
   player.monsterZones[targetZone] = slot;
 
   const isSet = position === 'face_down_defense';
-  const desc = isSet ? 'وحشاً مقلوباً في وضع الدفاع' : `${card.name} (هجوم: ${card.atk} / دفاع: ${card.def})`;
+  const desc = isSet ? 'وحش مقلوب في وضع الدفاع' : `${card.name} (هجوم: ${card.atk} / دفاع: ${card.def})`;
   if (requiredTributes > 0) {
-    state.lastLog.push(`استدعاء تضحية: قدم ${player.name} (${tributedNames.join(' و ')}) واستدعى ${desc} في الخانة ${targetZone + 1}.`);
+    state.lastLog.push(`استدعاء تضحية: ${player.name} ضحى بـ (${tributedNames.join(' و ')}) ونزّل ${desc} في الخانة ${targetZone + 1}.`);
   } else {
-    state.lastLog.push(`استدعى ${player.name} ${desc} في الخانة ${targetZone + 1}.`);
+    state.lastLog.push(`${player.name} نزّل ${desc} في الخانة ${targetZone + 1}.`);
   }
 
-  // Check reactive traps like Trap Hole
-  checkSummonTraps(state, playerIndex, card, slot);
+  // Trigger onSummon monster effect if applicable
+  if (card.subType === 'effect' && position !== 'face_down_defense') {
+    resolveMonsterEffect(state, playerIndex, card, 'onSummon', { zoneIndex: targetZone });
+  }
+
+  // Check reactive traps like Trap Hole (negated if Jinzo is active)
+  if (!isTrapNegated(state)) {
+    checkSummonTraps(state, playerIndex, card, slot);
+  } else {
+    state.lastLog.push('تأثير جينزو (Jinzo) موقف ومعطل كل الفخاخ في الملعب!');
+  }
 
   return { state, targetZone, requiredTributes, tributedNames };
 }
 
-export function changeMonsterPosition(state, playerIndex, zoneIndex) {
+/**
+ * Central monster destruction dispatcher.
+ * Handles removing monster from zone, pushing to graveyard, and triggering onDestroy effects.
+ * Triggers properly even if monster was face-down when destroyed by spell, trap, battle, or effect!
+ */
+export function destroyMonsterSlot(state, playerIndex, zoneIndex, reason = 'card_effect', sourceCard = null) {
+  const player = state.players[playerIndex];
+  if (!player) return null;
+  const slot = player.monsterZones[zoneIndex];
+  if (!slot) return null;
+
+  const card = slot.card;
+  const wasFaceDown = slot.position === 'face_down_defense';
+  const previousAtk = slot.currentAtk;
+  const previousDef = slot.currentDef;
+
+  // Battle destruction immunity check
+  if (reason === 'battle' && (isIndestructibleByBattle(card, sourceCard ? { currentAtk: sourceCard.atk, card: sourceCard } : null) || state.wabokuActivePlayer === playerIndex || player.zeroBattleDamage)) {
+    state.lastLog.push(`ميزة خاصة: صمد ${card.name} وما ماتش في المعركة دي!`);
+    return null;
+  }
+
+  // Remove monster from field zone and push to player's graveyard
+  player.monsterZones[zoneIndex] = null;
+  player.graveyard.push(card);
+
+  // Trigger onDestroy monster effect (triggers even if destroyed while face-down!)
+  let effectResult = null;
+  if (card && card.subType === 'effect') {
+    try {
+      effectResult = resolveMonsterEffect(state, playerIndex, card, 'onDestroy', {
+        wasFaceDown,
+        reason,
+        sourceCard,
+        zoneIndex,
+      });
+    } catch (e) {
+      console.warn(`Failed to resolve onDestroy for ${card.name}:`, e);
+    }
+  }
+
+  return {
+    destroyedCard: card,
+    playerIndex,
+    zoneIndex,
+    wasFaceDown,
+    previousAtk,
+    previousDef,
+    effectResult,
+  };
+}
+
+export function changeMonsterPosition(state, playerIndex, zoneIndex, context = {}) {
   const player = state.players[playerIndex];
   const slot = player.monsterZones[zoneIndex];
 
-  if (!slot) throw new Error('لا يوجد وحش في هذه الخانة');
-  if (state.currentTurnPlayer !== playerIndex) throw new Error('ليس دورك');
-  if (state.phase !== 'MAIN1' && state.phase !== 'MAIN2') throw new Error('تغيير الوضع متاح فقط في المرحلة الرئيسية');
-  if (!slot.canChangePosition) throw new Error('تم تغيير وضع الوحش أو استدعاؤه في نفس هذا الدور');
+  if (!slot) throw new Error('مافيش وحش في الخانة دي');
+  if (state.currentTurnPlayer !== playerIndex) throw new Error('مش دورك دلوقتي');
+  if (state.phase !== 'MAIN1' && state.phase !== 'MAIN2') throw new Error('ماتقدرش تغير وضع الوحش إلا في المرحلة الأولى أو التانية');
+  if (!slot.canChangePosition) throw new Error('الوحش ده نزّلته أو غيرت وضعه خلاص في نفس الدور ده');
 
+  const wasFaceDown = slot.position === 'face_down_defense';
+  let flipResult = null;
   if (slot.position === 'face_up_attack') {
     slot.position = 'face_up_defense';
-    state.lastLog.push(`تم تحويل ${slot.card.name} إلى وضع الدفاع.`);
+    state.lastLog.push(`اتحوّل ${slot.card.name} لوضع الدفاع.`);
   } else {
     slot.position = 'face_up_attack';
-    state.lastLog.push(`تم تحويل ${slot.card.name} إلى وضع الهجوم.`);
+    state.lastLog.push(`اتحوّل ${slot.card.name} لوضع الهجوم.`);
+    if (wasFaceDown && slot.card.subType === 'effect') {
+      flipResult = resolveMonsterEffect(state, playerIndex, slot.card, 'flip', {
+        zoneIndex,
+        destroyMonster: destroyMonsterSlot,
+        targetZoneIndex: context.targetZoneIndex,
+        targetZoneIndices: context.targetZoneIndices,
+      });
+    }
   }
 
   slot.canChangePosition = false;
-  return state;
+  return { state, flipResult, wasFaceDown };
 }
 
 export function setSpellTrap(state, playerIndex, handIndex, zoneIndex) {
   const player = state.players[playerIndex];
-  if (player.spellTrapZones[zoneIndex] !== null) throw new Error('خانة السحر والفخاخ مشغولة');
+  if (player.spellTrapZones[zoneIndex] !== null) throw new Error('الخانة دي مليانة كارت سحر أو فخ');
 
   const card = player.hand[handIndex];
-  if (card.type !== 'spell' && card.type !== 'trap') throw new Error('البطاقة ليست سحراً أو فخاً');
+  if (card.type !== 'spell' && card.type !== 'trap') throw new Error('الكارت ده مش سحر ولا فخ');
 
   player.hand.splice(handIndex, 1);
 
@@ -331,7 +485,7 @@ export function setSpellTrap(state, playerIndex, handIndex, zoneIndex) {
   };
 
   player.spellTrapZones[zoneIndex] = slot;
-  state.lastLog.push(`وضع ${player.name} بطاقة مقلوبة في خانة السحر/الفخاخ ${zoneIndex + 1}.`);
+  state.lastLog.push(`${player.name} حط كارت مقلوب في خانة السحر/الفخاخ ${zoneIndex + 1}.`);
 
   return state;
 }
@@ -340,10 +494,10 @@ export function activateSpell(state, playerIndex, handIndex, targetContext = nul
   const player = state.players[playerIndex];
   const card = player.hand[handIndex];
 
-  if (!card || card.type !== 'spell') throw new Error('البطاقة ليست بطاقة سحر');
+  if (!card || card.type !== 'spell') throw new Error('الكارت ده مش كارت سحر');
 
   player.hand.splice(handIndex, 1);
-  state.lastLog.push(`تفعيل بطاقة السحر: ${card.name}!`);
+  state.lastLog.push(`تشغيل كارت السحر: ${card.name}!`);
 
   const effectMeta = resolveSpellEffect(state, playerIndex, card, targetContext);
 
@@ -354,7 +508,15 @@ export function activateSpell(state, playerIndex, handIndex, targetContext = nul
   return { state, effectMeta, spellCard: card };
 }
 
-function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
+export function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
+  return dispatchSpellEffect(state, playerIndex, spell, targetContext, {
+    destroyMonsterSlot,
+    recalculateAllMonsterStats,
+    FIELD_SPELLS,
+  });
+}
+
+function _legacyResolveSpellEffect(state, playerIndex, spell, targetContext = null) {
   const player = state.players[playerIndex];
   const opponent = state.players[1 - playerIndex];
   const name = (spell.name || '').toLowerCase();
@@ -433,11 +595,11 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
   // 2. Raigeki (Destroy all opponent monsters)
   if (name.includes('raigeki')) {
     let destroyed = 0;
+    const oppIdx = 1 - playerIndex;
     for (let i = 0; i < 5; i++) {
       const slot = opponent.monsterZones[i];
       if (slot) {
-        opponent.graveyard.push(slot.card);
-        opponent.monsterZones[i] = null;
+        destroyMonsterSlot(state, oppIdx, i, 'card_effect', card);
         destroyed++;
       }
     }
@@ -447,18 +609,19 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
       title: 'ضربة الصاعقة (Raigeki)',
       desc: `صاعقة هائلة دمرت جميع وحوش ${opponent.name} (${destroyed} وحش)!`,
       destroyedCount: destroyed,
+      targetAffected: { playerIndex: oppIdx, zoneIndex: -1, actionText: 'صاعقة ريجيكي دمرت الساحة!', effectType: 'destroy_all' },
     };
   }
 
   // 3. Dark Hole (Destroy all monsters on field)
   if (name.includes('dark hole')) {
     let destroyed = 0;
-    for (const p of [player, opponent]) {
+    const oppIdx = 1 - playerIndex;
+    for (const pIdx of [0, 1]) {
       for (let i = 0; i < 5; i++) {
-        const slot = p.monsterZones[i];
+        const slot = state.players[pIdx].monsterZones[i];
         if (slot) {
-          p.graveyard.push(slot.card);
-          p.monsterZones[i] = null;
+          destroyMonsterSlot(state, pIdx, i, 'card_effect', card);
           destroyed++;
         }
       }
@@ -469,6 +632,7 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
       title: 'الثقب الأسود (Dark Hole)',
       desc: `ثقب كوني أسود ابتلع ودمر جميع وحوش الساحة (${destroyed} وحش)!`,
       destroyedCount: destroyed,
+      targetAffected: { playerIndex: oppIdx, zoneIndex: -1, actionText: 'الثقب الأسود ابتلع الوحوش!', effectType: 'destroy_all' },
     };
   }
 
@@ -521,7 +685,7 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
   // 4b. Premature Burial (Pay 800 LP, special summon 1 monster from your graveyard)
   if (name.includes('premature burial')) {
     if (player.lifePoints <= 800) {
-      throw new Error('نقاط حياتك غير كافية لدفع تكلفة الدفن المبكر (800 نقطة حياة)');
+      throw new Error('نقاط حياتك ما تكفيش تدفع 800 علشان تشغل الدفن المبكر');
     }
     player.lifePoints -= 800;
     let target = targetContext?.selectedTargetCard;
@@ -653,17 +817,25 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
     }
   }
 
-  // 5. Change of Heart (Take control of opponent's strongest monster)
+  // 5. Change of Heart (Take control of opponent's monster)
   if (name.includes('change of heart')) {
-    const oppMonsters = opponent.monsterZones
-      .map((slot, idx) => ({ slot, idx }))
-      .filter(item => item.slot !== null);
+    const oppIdx = 1 - playerIndex;
+    let targetIdx = targetContext?.targetZoneIndex;
+    let target = null;
+    if (targetIdx !== undefined && targetIdx !== null && opponent.monsterZones[targetIdx]) {
+      target = { slot: opponent.monsterZones[targetIdx], idx: targetIdx };
+    } else {
+      const oppMonsters = opponent.monsterZones
+        .map((slot, idx) => ({ slot, idx }))
+        .filter(item => item.slot !== null);
+      if (oppMonsters.length > 0) {
+        oppMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        target = oppMonsters[0];
+      }
+    }
 
-    if (oppMonsters.length > 0) {
-      oppMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
-      const target = oppMonsters[0];
+    if (target) {
       const emptyZone = player.monsterZones.findIndex(z => z === null);
-
       if (emptyZone !== -1) {
         player.monsterZones[emptyZone] = target.slot;
         opponent.monsterZones[target.idx] = null;
@@ -673,6 +845,7 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
           title: 'تغيير القلب (Change of Heart)',
           desc: `تمت السيطرة على وحش الخصم ${target.slot.card.name} ونقله إلى صفوفك!`,
           targetCard: target.slot.card,
+          targetAffected: { playerIndex: oppIdx, zoneIndex: target.idx, actionText: 'تمت السيطرة على الوحش!', effectType: 'control' },
         };
       }
     }
@@ -681,11 +854,16 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
   // 6. Swords of Revealing Light (Flip all opponent face-down monsters face-up & seal attacks)
   if (name.includes('swords') || name.includes('revealing light')) {
     let revealed = 0;
+    const oppIdx = 1 - playerIndex;
     for (let i = 0; i < 5; i++) {
       const slot = opponent.monsterZones[i];
       if (slot && slot.position === 'face_down_defense') {
         slot.position = 'face_up_defense';
         revealed++;
+        // Trigger flip effect according to official Yu-Gi-Oh! rules
+        if (slot.card?.subType === 'effect') {
+          resolveMonsterEffect(state, oppIdx, slot.card, 'flip', { sourceCard: card, destroyMonster: destroyMonsterSlot });
+        }
       }
     }
     state.lastLog.push(`سيوف النور الكاشف! كشفت وحوش الخصم وشلت قدرتهم على الهجوم.`);
@@ -694,6 +872,7 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
       title: 'سيوف النور الكاشف (Swords of Revealing Light)',
       desc: `أضاءت سيوف النور الساحة وكشفت ${revealed} وحوش مقلوبة وشلت هجوم الخصم!`,
       revealedCount: revealed,
+      targetAffected: { playerIndex: oppIdx, zoneIndex: -1, actionText: 'انكشفت الوحوش وانشلت حركتها!', effectType: 'seal' },
     };
   }
 
@@ -724,6 +903,7 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
 
   // 8. Fissure (Destroy opponent monster with lowest ATK)
   if (name.includes('fissure')) {
+    const oppIdx = 1 - playerIndex;
     const oppFaceUp = opponent.monsterZones
       .map((slot, idx) => ({ slot, idx }))
       .filter(item => item.slot !== null && item.slot.position !== 'face_down_defense');
@@ -731,35 +911,46 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
     if (oppFaceUp.length > 0) {
       oppFaceUp.sort((a, b) => (a.slot.currentAtk || 0) - (b.slot.currentAtk || 0));
       const target = oppFaceUp[0];
-      opponent.graveyard.push(target.slot.card);
-      opponent.monsterZones[target.idx] = null;
-      state.lastLog.push(`الشق (Fissure)! دمر وحش الخصم ${target.slot.card.name}.`);
+      const targetCard = target.slot.card;
+      destroyMonsterSlot(state, oppIdx, target.idx, 'card_effect', card);
+      state.lastLog.push(`الشق (Fissure)! دمر وحش الخصم ${targetCard.name}.`);
       return {
         type: 'fissure',
         title: 'الشق الأرضي (Fissure)',
-        desc: `انشقت الأرض وابتلعت أضعف وحوش الخصم: ${target.slot.card.name}!`,
-        targetCard: target.slot.card,
+        desc: `انشقت الأرض وابتلعت أضعف وحوش الخصم: ${targetCard.name}!`,
+        targetCard: targetCard,
+        targetAffected: { playerIndex: oppIdx, zoneIndex: target.idx, actionText: 'انشقت الأرض وابتلعته!', effectType: 'destroy' },
       };
     }
   }
 
   // 9. Tribute to The Doomed (Destroy 1 target opponent monster)
   if (name.includes('tribute to the doomed')) {
-    const oppMonsters = opponent.monsterZones
-      .map((slot, idx) => ({ slot, idx }))
-      .filter(item => item.slot !== null);
+    const oppIdx = 1 - playerIndex;
+    let targetIdx = targetContext?.targetZoneIndex;
+    let target = null;
+    if (targetIdx !== undefined && targetIdx !== null && opponent.monsterZones[targetIdx]) {
+      target = { slot: opponent.monsterZones[targetIdx], idx: targetIdx };
+    } else {
+      const oppMonsters = opponent.monsterZones
+        .map((slot, idx) => ({ slot, idx }))
+        .filter(item => item.slot !== null);
+      if (oppMonsters.length > 0) {
+        oppMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        target = oppMonsters[0];
+      }
+    }
 
-    if (oppMonsters.length > 0) {
-      oppMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
-      const target = oppMonsters[0];
-      opponent.graveyard.push(target.slot.card);
-      opponent.monsterZones[target.idx] = null;
-      state.lastLog.push(`قربان للهلاك! دمر وحش الخصم ${target.slot.card.name}.`);
+    if (target) {
+      const targetCard = target.slot.card;
+      destroyMonsterSlot(state, oppIdx, target.idx, 'card_effect', card);
+      state.lastLog.push(`قربان للهلاك! دمر وحش الخصم ${targetCard.name}.`);
       return {
         type: 'tribute_doomed',
         title: 'قربان للهلاك (Tribute to The Doomed)',
-        desc: `تم القضاء على أقوى وحوش الخصم: ${target.slot.card.name}!`,
-        targetCard: target.slot.card,
+        desc: `تم القضاء على وحش الخصم: ${targetCard.name}!`,
+        targetCard: targetCard,
+        targetAffected: { playerIndex: oppIdx, zoneIndex: target.idx, actionText: 'تم القضاء عليه بالقربان!', effectType: 'destroy' },
       };
     }
   }
@@ -789,8 +980,8 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
     };
   }
 
-  // 12. De-Spell (Destroy 1 opponent Spell/Trap)
-  if (name.includes('de-spell')) {
+  // 12. Mystical Space Typhoon / De-Spell (Destroy 1 opponent Spell/Trap)
+  if (name.includes('mystical space typhoon') || name.includes('space typhoon') || name.includes('de-spell')) {
     const oppST = opponent.spellTrapZones
       .map((slot, idx) => ({ slot, idx }))
       .filter(item => item.slot !== null);
@@ -799,11 +990,287 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
       const target = oppST[0];
       opponent.graveyard.push(target.slot.card);
       opponent.spellTrapZones[target.idx] = null;
-      state.lastLog.push(`إلغاء السحر (De-Spell)! دمر بطاقة سحر/فخ لـ ${opponent.name}.`);
+      state.lastLog.push(`إعصار الفضاء الغامض! دمر بطاقة سحر/فخ لـ ${opponent.name}.`);
       return {
-        type: 'de_spell',
-        title: 'إلغاء السحر (De-Spell)',
-        desc: `تم إبطال وتدمير بطاقة سحر/فخ من ساحة الخصم!`,
+        type: 'mst',
+        title: 'إعصار الفضاء الغامض (MST)',
+        desc: `رياح فضائية عاتية دمرت بطاقة سحر/فخ من ساحة الخصم!`,
+      };
+    } else if (state.activeFieldSpell && state.activeFieldSpell.playerIndex !== playerIndex) {
+      const destroyedField = state.activeFieldSpell.card;
+      state.players[state.activeFieldSpell.playerIndex].graveyard.push(destroyedField);
+      state.activeFieldSpell = null;
+      recalculateAllMonsterStats(state);
+      state.lastLog.push(`إعصار الفضاء الغامض! دمر سحر الساحة النشط.`);
+      return {
+        type: 'mst',
+        title: 'إعصار الفضاء الغامض (MST)',
+        desc: `دمر إعصار الفضاء سحر الساحة النشط!`,
+      };
+    }
+  }
+
+  // 12b. Graceful Charity (Draw 3 cards, discard 2 cards)
+  if (name.includes('graceful charity') || name.includes('charity')) {
+    for (let i = 0; i < 3; i++) {
+      if (player.deck.length > 0) {
+        player.hand.push(player.deck.shift());
+      }
+    }
+    let discardedCount = 0;
+    while (player.hand.length > 0 && discardedCount < 2) {
+      player.graveyard.push(player.hand.pop());
+      discardedCount++;
+    }
+    state.lastLog.push(`إحسان كريم (Graceful Charity)! سحب ${player.name} 3 بطاقات وتخلص من بطاقتين إلى المقبرة.`);
+    checkWinConditions(state);
+    return {
+      type: 'graceful_charity',
+      title: 'إحسان كريم (Graceful Charity)',
+      desc: `سحب ${player.name} 3 بطاقات من مجموعته ثم ألقى بطاقتين في المقبرة!`,
+      cardsDrawn: 3,
+      cardsDiscarded: discardedCount,
+    };
+  }
+
+  // 12c. Card Destruction (Both players discard hand and draw equal count)
+  if (name.includes('card destruction')) {
+    const p0Count = player.hand.length;
+    const p1Count = opponent.hand.length;
+
+    while (player.hand.length > 0) player.graveyard.push(player.hand.pop());
+    while (opponent.hand.length > 0) opponent.graveyard.push(opponent.hand.pop());
+
+    for (let i = 0; i < p0Count; i++) {
+      if (player.deck.length > 0) player.hand.push(player.deck.shift());
+    }
+    for (let i = 0; i < p1Count; i++) {
+      if (opponent.deck.length > 0) opponent.hand.push(opponent.deck.shift());
+    }
+
+    state.lastLog.push(`تدمير البطاقات (Card Destruction)! تخلص كلا اللاعبين من أوراق يدهما وسحبا أوراقاً بديلة بنفس العدد.`);
+    checkWinConditions(state);
+    return {
+      type: 'card_destruction',
+      title: 'تدمير البطاقات (Card Destruction)',
+      desc: `رمى كلا اللاعبين أوراق أيديهم في المقبرة وسحب كل منهما نفس عدد البطاقات المفقودة!`,
+    };
+  }
+
+  // 12d. Snatch Steal (Take control of 1 opponent face-up monster)
+  if (name.includes('snatch steal')) {
+    const oppIdx = 1 - playerIndex;
+    let targetIdx = targetContext?.targetZoneIndex;
+    let target = null;
+    if (targetIdx !== undefined && targetIdx !== null && opponent.monsterZones[targetIdx] && opponent.monsterZones[targetIdx].position !== 'face_down_defense') {
+      target = { slot: opponent.monsterZones[targetIdx], idx: targetIdx };
+    } else {
+      const oppMonsters = opponent.monsterZones
+        .map((slot, idx) => ({ slot, idx }))
+        .filter(item => item.slot !== null && item.slot.position !== 'face_down_defense');
+      if (oppMonsters.length > 0) {
+        oppMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        target = oppMonsters[0];
+      }
+    }
+
+    if (target) {
+      const emptyZone = player.monsterZones.findIndex(z => z === null);
+      if (emptyZone !== -1) {
+        player.monsterZones[emptyZone] = target.slot;
+        opponent.monsterZones[target.idx] = null;
+        state.lastLog.push(`سرقة خاطفة (Snatch Steal)! تمت السيطرة على ${target.slot.card.name}.`);
+        return {
+          type: 'snatch_steal',
+          title: 'سرقة خاطفة (Snatch Steal)',
+          desc: `تمت السيطرة على وحش الخصم ${target.slot.card.name} ونقله إلى ساحتك!`,
+          targetCard: target.slot.card,
+          targetAffected: { playerIndex: oppIdx, zoneIndex: target.idx, actionText: 'تمت السيطرة بالسرقة الخاطفة!', effectType: 'control' },
+        };
+      }
+    }
+  }
+
+  // 12e. Scapegoat (Special summon up to 4 Sheep Tokens in defense)
+  if (name.includes('scapegoat')) {
+    let tokensSummoned = 0;
+    for (let z = 0; z < 5; z++) {
+      if (player.monsterZones[z] === null && tokensSummoned < 4) {
+        player.monsterZones[z] = {
+          card: {
+            id: 999901 + z,
+            cardCode: 9999,
+            name: 'Sheep Token',
+            arabicName: 'رمز الخروف (Sheep Token)',
+            type: 'monster',
+            subType: 'token',
+            race: 'Beast',
+            attribute: 'EARTH',
+            level: 1,
+            atk: 0,
+            def: 0,
+            image: '4818_1.webp',
+            miniImage: '4818_1.webp',
+            description: 'Sheep Token created by Scapegoat. Cannot be tributed for a Tribute Summon.',
+          },
+          position: 'face_up_defense',
+          hasAttacked: false,
+          canChangePosition: false,
+          turnSummoned: state.turnNumber,
+          currentAtk: 0,
+          currentDef: 0,
+          isToken: true,
+        };
+        tokensSummoned++;
+      }
+    }
+    state.lastLog.push(`كبش الفداء (Scapegoat)! استدعى ${player.name} ${tokensSummoned} من رموز الخراف في وضع الدفاع لحماية الساحة!`);
+    return {
+      type: 'scapegoat',
+      title: 'كبش الفداء (Scapegoat)',
+      desc: `ظهرت ${tokensSummoned} رموز خراف لحماية دفاعات ${player.name}!`,
+      tokensCount: tokensSummoned,
+    };
+  }
+
+  // 12f. Riryoku (Reduce 1 monster's ATK by half, add to another monster)
+  if (name.includes('riryoku')) {
+    const oppIdx = 1 - playerIndex;
+    let victimIdx = targetContext?.opponentTargetIndex;
+    let beneficiaryIdx = targetContext?.allyTargetIndex;
+
+    const oppMonsters = opponent.monsterZones
+      .map((slot, idx) => ({ slot, idx }))
+      .filter(item => item.slot !== null && item.slot.position !== 'face_down_defense');
+
+    const myMonsters = player.monsterZones
+      .map((slot, idx) => ({ slot, idx }))
+      .filter(item => item.slot !== null && item.slot.position !== 'face_down_defense');
+
+    if (oppMonsters.length > 0 && myMonsters.length > 0) {
+      let victim = null;
+      let beneficiary = null;
+
+      if (victimIdx !== undefined && victimIdx !== null && opponent.monsterZones[victimIdx]) {
+        victim = { slot: opponent.monsterZones[victimIdx], idx: victimIdx };
+      } else {
+        oppMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        victim = oppMonsters[0];
+      }
+
+      if (beneficiaryIdx !== undefined && beneficiaryIdx !== null && player.monsterZones[beneficiaryIdx]) {
+        beneficiary = { slot: player.monsterZones[beneficiaryIdx], idx: beneficiaryIdx };
+      } else {
+        myMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        beneficiary = myMonsters[0];
+      }
+
+      const halfAtk = Math.floor((victim.slot.currentAtk || victim.slot.card.atk || 0) / 2);
+      victim.slot.currentAtk = Math.max(0, victim.slot.currentAtk - halfAtk);
+      beneficiary.slot.currentAtk = (beneficiary.slot.currentAtk || beneficiary.slot.card.atk) + halfAtk;
+
+      state.lastLog.push(`ريوريوكو (Riryoku)! سلب ${halfAtk} هجوم من ${victim.slot.card.name} وأضافه إلى ${beneficiary.slot.card.name} (هجومه الآن: ${beneficiary.slot.currentAtk})!`);
+      return {
+        type: 'riryoku',
+        title: 'ريوريوكو (Riryoku)',
+        desc: `انتقلت ${halfAtk} نقطة هجوم من ${victim.slot.card.name} إلى ${beneficiary.slot.card.name}!`,
+        drainedAtk: halfAtk,
+        victimCard: victim.slot.card,
+        boostedCard: beneficiary.slot.card,
+        targetAffected: { playerIndex: oppIdx, zoneIndex: victim.idx, actionText: `سُلب منه -${halfAtk} هجوم!`, effectType: 'debuff' },
+      };
+    }
+  }
+
+  // 12g. Axe of Despair (+1000 ATK)
+  if (name.includes('axe of despair') || (name.includes('axe') && name.includes('despair'))) {
+    let target = null;
+    const chosenIdx = targetContext?.targetZoneIndex;
+    if (chosenIdx !== undefined && chosenIdx !== null && player.monsterZones[chosenIdx]) {
+      target = { slot: player.monsterZones[chosenIdx], idx: chosenIdx };
+    } else {
+      const myMonsters = player.monsterZones
+        .map((slot, idx) => ({ slot, idx }))
+        .filter(item => item.slot !== null);
+      if (myMonsters.length > 0) {
+        myMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        target = myMonsters[0];
+      }
+    }
+
+    if (target) {
+      target.slot.currentAtk = (target.slot.currentAtk || target.slot.card.atk) + 1000;
+      state.lastLog.push(`فأس اليأس (Axe of Despair)! زاد هجوم ${target.slot.card.name} بمقدار +1000 نقطة (أصبح ${target.slot.currentAtk})!`);
+      return {
+        type: 'buff_atk',
+        title: 'فأس اليأس (Axe of Despair)',
+        desc: `سلاح فأس اليأس الأسطوري منح ${target.slot.card.name} زيادة هائلة +1000 نقطة هجوم!`,
+        boostAtk: 1000,
+        targetCard: target.slot.card,
+      };
+    }
+  }
+
+  // 12h. Mage Power (+500 ATK/DEF per Spell/Trap on controller's field)
+  if (name.includes('mage power')) {
+    let target = null;
+    const chosenIdx = targetContext?.targetZoneIndex;
+    if (chosenIdx !== undefined && chosenIdx !== null && player.monsterZones[chosenIdx]) {
+      target = { slot: player.monsterZones[chosenIdx], idx: chosenIdx };
+    } else {
+      const myMonsters = player.monsterZones
+        .map((slot, idx) => ({ slot, idx }))
+        .filter(item => item.slot !== null);
+      if (myMonsters.length > 0) {
+        myMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        target = myMonsters[0];
+      }
+    }
+
+    if (target) {
+      const stCount = player.spellTrapZones.filter(z => z !== null).length + (state.activeFieldSpell && state.activeFieldSpell.playerIndex === playerIndex ? 1 : 0);
+      const boost = Math.max(500, stCount * 500);
+      target.slot.currentAtk = (target.slot.currentAtk || target.slot.card.atk) + boost;
+      target.slot.currentDef = (target.slot.currentDef || target.slot.card.def) + boost;
+      state.lastLog.push(`قوة الساحر (Mage Power)! زادت قوى ${target.slot.card.name} بمقدار +${boost} هجوم ودفاع (${stCount} بطاقة سحر/فخ × 500)!`);
+      return {
+        type: 'mage_power',
+        title: 'قوة الساحر (Mage Power)',
+        desc: `طاقة السحر والفخاخ زادت هجوم ودفاع ${target.slot.card.name} بـ +${boost} نقطة!`,
+        boost,
+        targetCard: target.slot.card,
+      };
+    }
+  }
+
+  // 12i. United We Stand (+800 ATK/DEF per face-up monster controlled)
+  if (name.includes('united we stand')) {
+    let target = null;
+    const chosenIdx = targetContext?.targetZoneIndex;
+    if (chosenIdx !== undefined && chosenIdx !== null && player.monsterZones[chosenIdx]) {
+      target = { slot: player.monsterZones[chosenIdx], idx: chosenIdx };
+    } else {
+      const myMonsters = player.monsterZones
+        .map((slot, idx) => ({ slot, idx }))
+        .filter(item => item.slot !== null);
+      if (myMonsters.length > 0) {
+        myMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        target = myMonsters[0];
+      }
+    }
+
+    if (target) {
+      const faceUpCount = player.monsterZones.filter(z => z !== null && z.position !== 'face_down_defense').length;
+      const boost = Math.max(800, faceUpCount * 800);
+      target.slot.currentAtk = (target.slot.currentAtk || target.slot.card.atk) + boost;
+      target.slot.currentDef = (target.slot.currentDef || target.slot.card.def) + boost;
+      state.lastLog.push(`في الاتحاد قوة (United We Stand)! زادت قوى ${target.slot.card.name} بمقدار +${boost} هجوم ودفاع (${faceUpCount} وحش × 800)!`);
+      return {
+        type: 'united_we_stand',
+        title: 'في الاتحاد قوة (United We Stand)',
+        desc: `روح الوحدة عززت هجوم ودفاع ${target.slot.card.name} بـ +${boost} نقطة!`,
+        boost,
+        targetCard: target.slot.card,
       };
     }
   }
@@ -825,13 +1292,21 @@ function resolveSpellEffect(state, playerIndex, spell, targetContext = null) {
     name.includes('power');
 
   if (isBuffSpell) {
-    const myMonsters = player.monsterZones
-      .map((slot, idx) => ({ slot, idx }))
-      .filter(item => item.slot !== null);
+    let target = null;
+    const chosenIdx = targetContext?.targetZoneIndex;
+    if (chosenIdx !== undefined && chosenIdx !== null && player.monsterZones[chosenIdx]) {
+      target = { slot: player.monsterZones[chosenIdx], idx: chosenIdx };
+    } else {
+      const myMonsters = player.monsterZones
+        .map((slot, idx) => ({ slot, idx }))
+        .filter(item => item.slot !== null);
+      if (myMonsters.length > 0) {
+        myMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
+        target = myMonsters[0];
+      }
+    }
 
-    if (myMonsters.length > 0) {
-      myMonsters.sort((a, b) => (b.slot.currentAtk || 0) - (a.slot.currentAtk || 0));
-      const target = myMonsters[0];
+    if (target) {
       target.slot.currentAtk = (target.slot.currentAtk || target.slot.card.atk) + 500;
       state.lastLog.push(`سحر التعزيز: زاد هجوم ${target.slot.card.name} بمقدار +500 نقطة (أصبح ${target.slot.currentAtk})!`);
       return {
@@ -872,11 +1347,14 @@ function checkSummonTraps(state, summoningPlayerIndex, summonedMonster, summoned
   const opponentIndex = 1 - summoningPlayerIndex;
   const opponent = state.players[opponentIndex];
 
+  if (isTrapNegated(state)) return;
+
   for (let i = 0; i < 5; i++) {
     const slot = opponent.spellTrapZones[i];
     if (slot && !slot.faceUp && slot.card.type === 'trap') {
       const trapName = slot.card.name.toLowerCase();
 
+      // 1. Trap Hole: Destroy summoned monster with ATK >= 1000
       if (trapName.includes('trap hole') && summonedMonster.atk >= 1000) {
         slot.faceUp = true;
         opponent.spellTrapZones[i] = null;
@@ -884,12 +1362,74 @@ function checkSummonTraps(state, summoningPlayerIndex, summonedMonster, summoned
 
         const zoneIdx = state.players[summoningPlayerIndex].monsterZones.indexOf(summonedSlot);
         if (zoneIdx !== -1) {
-          state.players[summoningPlayerIndex].monsterZones[zoneIdx] = null;
-          state.players[summoningPlayerIndex].graveyard.push(summonedMonster);
+          destroyMonsterSlot(state, summoningPlayerIndex, zoneIdx, 'trap_effect', slot.card);
           state.lastLog.push(`تفعيل فخ الحفرة (Trap Hole)! سقط ${summonedMonster.name} ودُمر.`);
         }
         break;
       }
+
+      // 2. Torrential Tribute: When monster is summoned, destroy ALL monsters on field!
+      if (trapName.includes('torrential tribute')) {
+        slot.faceUp = true;
+        opponent.spellTrapZones[i] = null;
+        opponent.graveyard.push(slot.card);
+
+        let destroyedCount = 0;
+        for (const pIdx of [0, 1]) {
+          for (let m = 0; m < 5; m++) {
+            if (state.players[pIdx].monsterZones[m]) {
+              destroyMonsterSlot(state, pIdx, m, 'trap_effect', slot.card);
+              destroyedCount++;
+            }
+          }
+        }
+        state.lastLog.push(`تفعيل فخ الجزية الجارفة (Torrential Tribute)! طوفان هائل دمر جميع وحوش الساحة (${destroyedCount} وحش)!`);
+        break;
+      }
     }
   }
+}
+
+export function activateSetCard(state, playerIndex, zoneIndex, targetContext = null) {
+  const player = state.players[playerIndex];
+  const slot = player.spellTrapZones[zoneIndex];
+  if (!slot) throw new Error('مافيش كارت في الخانة دي');
+
+  if (slot.card.type === 'trap') {
+    if (slot.turnSet === state.turnNumber) {
+      throw new Error('ماتقدرش تشغل كارت الفخ في نفس الدور اللي حطيته مقلوب فيه');
+    }
+    if (isTrapNegated(state)) {
+      throw new Error('تأثير جينزو (Jinzo) موقف ومعطل كل الفخاخ في الملعب!');
+    }
+  }
+
+  const card = slot.card;
+  player.spellTrapZones[zoneIndex] = null;
+  state.lastLog.push(`تشغيل الكارت المقلوب: ${card.name}!`);
+
+  let effectMeta = null;
+  if (card.type === 'spell') {
+    effectMeta = resolveSpellEffect(state, playerIndex, card, targetContext);
+    if (effectMeta?.type !== 'field_spell' && card.subType !== 'field') {
+      player.graveyard.push(card);
+    }
+  } else if (card.type === 'trap') {
+    effectMeta = resolveTrapEffect(state, playerIndex, card, targetContext);
+    if (!effectMeta?.stayOnField && card.race !== 'continuous') {
+      player.graveyard.push(card);
+    } else {
+      player.spellTrapZones[zoneIndex] = { card, faceUp: true, turnSet: slot.turnSet };
+    }
+  }
+
+  checkWinConditions(state);
+  return { state, effectMeta, activatedCard: card };
+}
+
+export function resolveTrapEffect(state, playerIndex, trap, targetContext = null) {
+  return dispatchTrapEffect(state, playerIndex, trap, targetContext, {
+    destroyMonsterSlot,
+    recalculateAllMonsterStats,
+  });
 }

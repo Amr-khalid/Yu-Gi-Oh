@@ -41,7 +41,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.88)',
+        backgroundColor: 'var(--pharaoh-modal-backdrop)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         zIndex: 2200,
@@ -80,8 +80,8 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
             alignItems: 'center',
             justifyContent: 'space-between',
             background: isOpponent
-              ? 'linear-gradient(90deg, rgba(127, 29, 29, 0.35), rgba(22, 19, 14, 0.9))'
-              : 'linear-gradient(90deg, rgba(110, 82, 20, 0.35), rgba(22, 19, 14, 0.9))',
+              ? 'linear-gradient(90deg, rgba(127, 29, 29, 0.35), var(--pharaoh-stone-slab))'
+              : 'linear-gradient(90deg, rgba(110, 82, 20, 0.35), var(--pharaoh-stone-slab))',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -105,7 +105,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                 {ownerName}
               </div>
               <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 1 }}>
-                إجمالي البطاقات المدفونة: {cards.length} بطاقة
+                كل الكروت اللي في المقبرة: {cards.length} كارت
               </div>
             </div>
           </div>
@@ -129,7 +129,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
               cursor: 'pointer',
               padding: 0,
             }}
-            title="إغلاق"
+            title="قفل"
           >
             <CloseIcon size={18} />
           </button>
@@ -168,7 +168,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                   background: active
                     ? 'linear-gradient(180deg, #d8ac3b, #a77c1d)'
                     : 'var(--pharaoh-stone-card)',
-                  color: active ? '#120e06' : 'var(--pharaoh-text-muted)',
+                  color: active ? '#ffffff' : 'var(--pharaoh-text-muted)',
                   border: active ? '1px solid #f6d87d' : '1px solid var(--pharaoh-stone-border)',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
@@ -204,10 +204,10 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
             >
               <SarcophagusIcon size={38} color="var(--pharaoh-text-muted)" />
               <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--pharaoh-text-light)' }}>
-                لا توجد بطاقات في هذا التصنيف
+                مافيش كروت في القسم ده
               </div>
               <div style={{ fontSize: 12, color: 'var(--pharaoh-text-muted)' }}>
-                لم يتم إرسال أي بطاقات مطابقة إلى المقبرة حتى الآن.
+                مافيش كروت راحت المقبرة من النوع ده لحد دلوقتي.
               </div>
             </div>
           ) : (
@@ -258,7 +258,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                       e.currentTarget.style.transform = 'none';
                       e.currentTarget.style.borderColor = 'var(--pharaoh-stone-border)';
                     }}
-                    title="انقر لفحص تفاصيل البطاقة وقدرتها"
+                    title="دوس هنا علشان تشوف تفاصيل الكارت وقوته"
                   >
                     {/* Card Image */}
                     <div style={{ width: '100%', height: 100, position: 'relative', background: '#0a0805' }}>
@@ -308,13 +308,14 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                             borderRadius: 2,
                           }}
                         >
-                          ★{card.level}
+                          مستوى {card.level}
                         </div>
                       )}
                     </div>
 
                     {/* Card Name */}
                     <div
+                      className="mini-card-name-box"
                       style={{
                         padding: '4px 5px',
                         fontSize: 10,
@@ -324,7 +325,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         textAlign: 'center',
-                        background: 'rgba(15, 12, 8, 0.95)',
+                        background: 'var(--pharaoh-stone-slab)',
                       }}
                     >
                       {card.name}
@@ -333,6 +334,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                     {/* ATK / DEF for Monsters */}
                     {card.type === 'monster' && (
                       <div
+                        className="mini-card-stats-box"
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -341,11 +343,11 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
                           fontSize: 9,
                           fontWeight: 900,
                           borderTop: '1px solid rgba(240, 203, 100, 0.15)',
-                          background: 'rgba(0, 0, 0, 0.65)',
+                          background: 'var(--pharaoh-slot-bg)',
                         }}
                       >
-                        <span style={{ color: '#fef08a' }}>{card.atk}</span>
-                        <span style={{ color: '#93c5fd' }}>{card.def}</span>
+                        <span className="atk-text" style={{ color: '#f87171' }}>{card.atk}</span>
+                        <span className="def-text" style={{ color: '#60a5fa' }}>{card.def}</span>
                       </div>
                     )}
                   </div>
@@ -367,7 +369,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
           }}
         >
           <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
-            انقر على أي بطاقة لعرض تفاصيلها وقدراتها الكاملة بالعربية.
+            دوس على أي كارت علشان تشوف كل تفاصيله وقوته.
           </div>
           <button
             onClick={() => {
@@ -377,7 +379,7 @@ export const GraveyardModal = ({ isOpen, onClose, cards = [], ownerName = 'ال�
             className="btn-pharaoh-stone"
             style={{ padding: '6px 16px', fontSize: 12 }}
           >
-            إغلاق
+            قفل
           </button>
         </div>
       </div>

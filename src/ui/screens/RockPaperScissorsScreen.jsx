@@ -77,26 +77,26 @@ const SwordIcon = ({ size = 20, color = 'currentColor' }) => (
 const CHOICES = [
   {
     id: 'rock',
-    name: 'صخرة الهرم الأكبر',
-    subname: 'حجرة',
+    name: 'طوبة',
+    subname: 'طوبة',
     beats: 'scissors',
-    ruleText: 'تحطم شفرات الخوبيش وتنكس سيوف المغيرين',
+    ruleText: 'الطوبة بتكسر المقص',
     icon: (color, size) => <SacredRockIcon size={size} color={color} />,
   },
   {
     id: 'paper',
-    name: 'لفافة البردي الملكية',
+    name: 'ورقة',
     subname: 'ورقة',
     beats: 'rock',
-    ruleText: 'تطوق الصخرة الحجرية بحكمة تحوت الأبدية',
+    ruleText: 'الورقة بتلف الطوبة',
     icon: (color, size) => <RoyalPapyrusIcon size={size} color={color} />,
   },
   {
     id: 'scissors',
-    name: 'شفرات الخوبيش البرونزية',
+    name: 'مقص',
     subname: 'مقص',
     beats: 'paper',
-    ruleText: 'تقطع لفافة البردي وتفصل بين الأقدار',
+    ruleText: 'المقص بيقص الورقة',
     icon: (color, size) => <KhopeshBladesIcon size={size} color={color} />,
   },
 ];
@@ -123,6 +123,12 @@ export const RockPaperScissorsScreen = ({
   const isHost = isMultiplayer ? (multiplayerData?.isHost ?? false) : true;
   const isLight = theme === 'light';
 
+  // In Tag Team mode or when no remote peer is connected, treat opponent as an AI bot
+  const isTag = multiplayerData?.gameMode === 'tag_2v2';
+  const oppSlotIndex = (multiplayerData?.myTeam === 1) ? 0 : 2;
+  const oppSlot = multiplayerData?.slots?.[oppSlotIndex];
+  const isOpponentBot = !isMultiplayer || !connectionManager.connected || (isTag ? (!oppSlot || Boolean(oppSlot.isBot)) : false);
+
   // Play Janken theme audio on mount
   useEffect(() => {
     soundManager.playJankenBgm();
@@ -130,6 +136,18 @@ export const RockPaperScissorsScreen = ({
       soundManager.stopJankenBgm();
     };
   }, []);
+
+  // Watchdog fallback: if waiting in WAITING_OPPONENT for more than 4 seconds, auto-roll opponent choice
+  useEffect(() => {
+    if (gameState === 'WAITING_OPPONENT' && playerChoice && !opponentChoiceId) {
+      const watchdog = setTimeout(() => {
+        const oppRandom = CHOICES[Math.floor(Math.random() * CHOICES.length)];
+        setOpponentChoiceId(oppRandom.id);
+        startRevealSequence(playerChoice, oppRandom.id);
+      }, 3500);
+      return () => clearTimeout(watchdog);
+    }
+  }, [gameState, playerChoice, opponentChoiceId]);
 
   // Multiplayer Listener for choices and turn decisions
   useEffect(() => {
@@ -212,6 +230,10 @@ export const RockPaperScissorsScreen = ({
       } else {
         roundWinner = 'opponent';
         soundManager.playDamage();
+        if (isOpponentBot) {
+          const oppDecidesFirst = Math.random() < 0.7;
+          setOpponentTurnDecision(oppDecidesFirst ? 1 : 0);
+        }
       }
 
       soundManager.playAttack();
@@ -234,6 +256,17 @@ export const RockPaperScissorsScreen = ({
         type: 'JANKEN_CHOICE',
         choiceId: choice.id,
       });
+
+      if (isOpponentBot) {
+        // Opponent is an AI bot: auto-generate bot choice after short delay
+        setGameState('WAITING_OPPONENT');
+        setTimeout(() => {
+          const oppRandom = CHOICES[Math.floor(Math.random() * CHOICES.length)];
+          setOpponentChoiceId(oppRandom.id);
+          startRevealSequence(choice, oppRandom.id);
+        }, 500);
+        return;
+      }
 
       if (opponentChoiceId) {
         // Both choices ready! Start reveal sequence
@@ -339,7 +372,7 @@ export const RockPaperScissorsScreen = ({
         width: '100vw',
         backgroundImage: isLight
           ? 'radial-gradient(circle at center, rgba(255, 252, 240, 0.45) 0%, rgba(235, 220, 185, 0.85) 85%), url(/assets/fie_light.png)'
-          : 'radial-gradient(circle at center, rgba(30, 24, 16, 0.85) 0%, rgba(10, 8, 6, 0.98) 85%), url(/assets/fie_desert.png)',
+          : 'radial-gradient(circle at center, rgba(14, 18, 28, 0.38) 0%, rgba(8, 10, 18, 0.86) 85%), url(/assets/fie_night.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         position: 'relative',
@@ -396,14 +429,14 @@ export const RockPaperScissorsScreen = ({
         </div>
 
         <h1 style={{ fontSize: 21, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', marginBottom: 4, letterSpacing: 0.5 }}>
-          طقس القرعة الفرعوني — حسم المبادرة الملكية
+          طوبة ورقة مقص — قرعة البداية
         </h1>
 
         <div style={{ fontSize: 12, color: 'var(--pharaoh-text-gold)', marginBottom: 18, fontWeight: 700 }}>
           {playerDeckName} <span style={{ color: 'var(--pharaoh-text-muted)' }}>ضد</span> {opponentName}
           {isMultiplayer && (
             <span style={{ marginRight: 8, color: '#4ade80', fontSize: 11 }}>
-              • نزال شبكة محلي مباشر
+              • ماتش أونلاين مباشر
             </span>
           )}
         </div>
@@ -414,8 +447,8 @@ export const RockPaperScissorsScreen = ({
             {/* Guidance Banner */}
             <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--pharaoh-text-gold)', marginBottom: 14 }}>
               {gameState === 'WAITING_OPPONENT'
-                ? 'تم قفل لوحك الحجري بنجاح! بانتظار قفل المنافس لاختياره...'
-                : 'المس الرمز الحجري لاختيارك لتحديد من سيبدأ أولاً في المعركة:'}
+                ? 'اخترت خلاص! مستنيين الخصم يختار...'
+                : 'دوس على اختيارك علشان نحدد مين اللي هيبدأ الأول في الماتش:'}
             </div>
 
             {/* Multiplayer Peer Status Badge */}
@@ -437,12 +470,12 @@ export const RockPaperScissorsScreen = ({
                 {opponentLocked ? (
                   <>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-                    <span style={{ color: '#4ade80', fontWeight: 800 }}>المنافس قفل اختياره الملكي!</span>
+                    <span style={{ color: '#4ade80', fontWeight: 800 }}>الخصم اختار خلاص!</span>
                   </>
                 ) : (
                   <>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', animation: 'beaconPulse 1.4s infinite' }} />
-                    <span style={{ color: 'var(--pharaoh-text-muted)' }}>المنافس يتأمل ألواحه لاختيار رمزه...</span>
+                    <span style={{ color: 'var(--pharaoh-text-muted)' }}>الخصم لسه بيختار...</span>
                   </>
                 )}
               </div>
@@ -518,7 +551,7 @@ export const RockPaperScissorsScreen = ({
                 transition: 'all 0.15s ease',
               }}
             >
-              {revealCount === 1 ? 'حجرة...' : revealCount === 2 ? 'ورقة...' : 'مقص!'}
+              {revealCount === 1 ? 'طوبة...' : revealCount === 2 ? 'ورقة...' : 'مقص!'}
             </div>
 
             {/* Slabs Bobbing in Synchronization */}
@@ -539,11 +572,11 @@ export const RockPaperScissorsScreen = ({
                 }}
               >
                 <div style={{ fontSize: 11, color: 'var(--pharaoh-gold-bright)', marginBottom: 8, fontWeight: 800 }}>
-                  لوحك الفرعوني
+                  لوحك الحجري
                 </div>
                 <SacredRockIcon size={46} color="var(--pharaoh-gold-bright)" />
                 <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', marginTop: 8 }}>
-                  يتأهب للصدام
+                  بيستعد للصدام
                 </div>
               </div>
 
@@ -570,7 +603,7 @@ export const RockPaperScissorsScreen = ({
                 </div>
                 <SacredRockIcon size={46} color="var(--pharaoh-gold-royal)" />
                 <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pharaoh-text-gold)', marginTop: 8 }}>
-                  يتربص باللحظة
+                  بيستعد للصدام
                 </div>
               </div>
             </div>
@@ -653,10 +686,10 @@ export const RockPaperScissorsScreen = ({
             {winner === 'tie' && (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', marginBottom: 6 }}>
-                  تعادل الأقدار!
+                  تعادل!
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--pharaoh-text-muted)', marginBottom: 16 }}>
-                  كلاكما كشف نفس الرمز الحجري. أعد الاختيار مرة أخرى لحسم المبادرة الملكية.
+                  انتوا الاتنين اخترتوا نفس الحاجة، العبوا تاني!
                 </div>
                 <button
                   onClick={handleResetTie}
@@ -664,7 +697,7 @@ export const RockPaperScissorsScreen = ({
                   style={{ padding: '11px 28px', fontSize: 14, fontWeight: 900 }}
                 >
                   <span className="duel-btn-shine-sheen" />
-                  إعادة الاختيار الفوري
+                  العب تاني دلوقتي
                 </button>
               </div>
             )}
@@ -674,10 +707,10 @@ export const RockPaperScissorsScreen = ({
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <CrownIcon size={22} color="var(--pharaoh-gold-bright)" />
-                  لقد انتصرت في طقس القرعة!
+                  كسبت القرعة!
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--pharaoh-text-gold)', marginBottom: 18, fontWeight: 700 }}>
-                  لك حق القرار والسيادة الملكية؛ اختر من يبدأ الدور الأول في ساحة المعركة:
+                  عايز تبدأ الأول ولا تلعب التاني؟
                 </div>
 
                 <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 460 }}>
@@ -687,8 +720,8 @@ export const RockPaperScissorsScreen = ({
                     style={{ flex: 1, padding: '13px 10px', fontSize: 13.5, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                   >
                     <span className="duel-btn-shine-sheen" />
-                    <SwordIcon size={18} color="#120e06" />
-                    أنا أبدأ أولاً (الدور الأول لي)
+                    <SwordIcon size={18} color="#ffffff" />
+                    ابدأ الأول
                   </button>
 
                   <button
@@ -697,7 +730,7 @@ export const RockPaperScissorsScreen = ({
                     style={{ flex: 1, padding: '13px 10px', fontSize: 13.5, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                   >
                     <ShieldIcon size={18} color="var(--pharaoh-gold-bright)" />
-                    الخصم يبدأ أولاً (الدور الأول للخصم)
+                    العب التاني
                   </button>
                 </div>
               </div>
@@ -707,20 +740,20 @@ export const RockPaperScissorsScreen = ({
             {winner === 'opponent' && (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#f87171', marginBottom: 4 }}>
-                  فاز {opponentName} بالقرعة!
+                  {opponentName} كسب القرعة!
                 </div>
 
-                {isMultiplayer ? (
+                {isMultiplayer && !isOpponentBot ? (
                   <div style={{ fontSize: 13, color: 'var(--pharaoh-text-gold)', margin: '12px 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', animation: 'beaconPulse 1.4s infinite' }} />
-                    بانتظار قرار {opponentName} لتحديد من سيبدأ أولاً في المعركة...
+                    مستنيين {opponentName} يقرر مين هيبدأ الأول...
                   </div>
                 ) : (
                   <>
                     <div style={{ fontSize: 13, color: 'var(--pharaoh-text-gold)', marginBottom: 18 }}>
                       {opponentTurnDecision === 1
-                        ? `اختار ${opponentName} أن يبدأ هو بالدور الأول للهجوم!`
-                        : `اختار ${opponentName} أن تبدأ أنت بالدور الأول!`}
+                        ? `${opponentName} اختار إنه يبدأ الأول!`
+                        : `${opponentName} اختار إنك تبدأ الأول!`}
                     </div>
 
                     <button
@@ -729,7 +762,7 @@ export const RockPaperScissorsScreen = ({
                       style={{ padding: '13px 36px', fontSize: 14.5, fontWeight: 900 }}
                     >
                       <span className="duel-btn-shine-sheen" />
-                      التقدم إلى ساحة المبارزة
+                      ادخل على الماتش
                     </button>
                   </>
                 )}

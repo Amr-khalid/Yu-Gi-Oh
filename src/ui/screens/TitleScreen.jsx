@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
 import { SettingsModal } from '../components/SettingsModal.jsx';
+import { AIDifficultyModal } from '../components/AIDifficultyModal.jsx';
+import { AI_DIFFICULTIES } from '../../game/ai/AIPlayer.js';
 
 /* Sleek Pure-SVG Pharaonic & Gaming Icons (Zero Emojis) */
 const KhopeshSwordsIcon = ({ size = 22, color = 'currentColor' }) => (
@@ -100,6 +102,175 @@ const MinimizeIcon = ({ size = 16, color = 'currentColor' }) => (
   </svg>
 );
 
+/* Royal Golden Millennium Puzzle Logo with Glowing Pharaonic Aura & Rotating Sacred Glyphs */
+const MillenniumPuzzleLogo = ({ isLight }) => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', marginBottom: 10, position: 'relative' }}>
+      {/* Divine Sunburst Aura & Celestial Glyph Ring */}
+      <div
+        style={{
+          position: 'relative',
+          width: 136,
+          height: 126,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.06)')}
+        onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+      >
+        {/* Soft Radial Divine Sunbeams */}
+        <div className="divine-temple-rays" />
+
+        {/* Rotating Sacred Hieroglyphic Astronomical Ring */}
+        <div className="sacred-glyph-ring">
+          <svg viewBox="0 0 240 240" width="100%" height="100%">
+            <circle cx="120" cy="120" r="108" stroke={isLight ? 'rgba(180, 130, 20, 0.35)' : 'rgba(250, 204, 21, 0.3)'} strokeWidth="1.5" strokeDasharray="3 5" fill="none" />
+            <circle cx="120" cy="120" r="98" stroke={isLight ? 'rgba(180, 130, 20, 0.2)' : 'rgba(250, 204, 21, 0.18)'} strokeWidth="1" fill="none" />
+            {['𓋹', '𓊽', '𓃭', '𓅓', '𓏤', '𓎼', '𓇋', '𓈖'].map((glyph, i) => {
+              const angle = (i * 45) * (Math.PI / 180);
+              const x = 120 + 103 * Math.cos(angle);
+              const y = 120 + 103 * Math.sin(angle);
+              return (
+                <text
+                  key={i}
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fill="var(--pharaoh-gold-bright, #facc15)"
+                  fontSize="13"
+                  opacity={isLight ? 0.75 : 0.85}
+                  style={{ textShadow: '0 0 8px rgba(250, 204, 21, 0.6)' }}
+                >
+                  {glyph}
+                </text>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Millennium Puzzle Base Visual */}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 5,
+            filter: isLight
+              ? 'drop-shadow(0 4px 14px rgba(180, 130, 20, 0.45))'
+              : 'drop-shadow(0 0 24px rgba(250, 204, 21, 0.75)) drop-shadow(0 4px 14px rgba(0,0,0,0.8))',
+          }}
+        >
+          <svg width="102" height="98" viewBox="0 0 120 115" fill="none">
+            <defs>
+              <linearGradient id="puzzleGoldFace" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#fff8db" />
+                <stop offset="30%" stopColor="#fde047" />
+                <stop offset="70%" stopColor="#ca8a04" />
+                <stop offset="100%" stopColor="#713f12" />
+              </linearGradient>
+              <linearGradient id="puzzleGoldSideLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#fef08a" />
+                <stop offset="45%" stopColor="#eab308" />
+                <stop offset="100%" stopColor="#854d0e" />
+              </linearGradient>
+              <linearGradient id="puzzleGoldSideRight" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#fffbeb" />
+                <stop offset="50%" stopColor="#d97706" />
+                <stop offset="100%" stopColor="#451a03" />
+              </linearGradient>
+              <linearGradient id="puzzleRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#fffbeb" />
+                <stop offset="50%" stopColor="#facc15" />
+                <stop offset="100%" stopColor="#854d0e" />
+              </linearGradient>
+              <radialGradient id="puzzleEyeGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="rgba(254, 240, 138, 0.95)" />
+                <stop offset="55%" stopColor="rgba(234, 179, 8, 0.5)" />
+                <stop offset="100%" stopColor="rgba(234, 179, 8, 0)" />
+              </radialGradient>
+            </defs>
+
+            {/* Top Hanging Ring */}
+            <circle cx="60" cy="14" r="10" stroke="url(#puzzleRingGrad)" strokeWidth="4.5" fill="none" />
+            <circle cx="60" cy="14" r="5" stroke="rgba(0,0,0,0.35)" strokeWidth="1" fill="none" />
+
+            {/* Millennium Puzzle Base Shadow */}
+            <polygon points="60,110 8,30 112,30" fill="rgba(0,0,0,0.35)" />
+
+            {/* Inverted Pyramid Facets */}
+            <polygon points="60,108 12,32 60,32" fill="url(#puzzleGoldSideLeft)" stroke="#fef08a" strokeWidth="1" />
+            <polygon points="60,108 108,32 60,32" fill="url(#puzzleGoldSideRight)" stroke="#fef08a" strokeWidth="1" />
+
+            {/* Interlocking Puzzle Seams */}
+            <path d="M 30,58 L 60,74 L 90,58" stroke="#3d2703" strokeWidth="2.5" fill="none" />
+            <path d="M 44,44 L 60,52 L 76,44" stroke="#3d2703" strokeWidth="2" fill="none" />
+            <path d="M 50,86 L 60,92 L 70,86" stroke="#3d2703" strokeWidth="2" fill="none" />
+
+            {/* Golden Highlights */}
+            <path d="M 30,57 L 60,73 L 90,57" stroke="#fffbeb" strokeWidth="1" fill="none" />
+            <path d="M 44,43 L 60,51 L 76,43" stroke="#fffbeb" strokeWidth="1" fill="none" />
+
+            {/* Pulsing Eye Aura */}
+            <g style={{ animation: 'horusEyeGlow 2.5s ease-in-out infinite' }}>
+              <circle cx="60" cy="56" r="22" fill="url(#puzzleEyeGlow)" />
+              <path d="M 46,45 Q 60,39 74,45" stroke="#2a1801" strokeWidth="3" strokeLinecap="round" fill="none" />
+              <path d="M 46,44.5 Q 60,38.5 74,44.5" stroke="#fef08a" strokeWidth="1" strokeLinecap="round" fill="none" />
+              <path d="M 44,55 Q 60,45 76,55 Q 60,65 44,55 Z" fill="#2a1801" stroke="#fef08a" strokeWidth="1.5" />
+              <circle cx="60" cy="55" r="4.5" fill="#fef08a" />
+              <circle cx="60" cy="55" r="2.2" fill="#1c1203" />
+              <path d="M 58,64 L 58,74 L 62,74 L 62,64 Z" fill="#2a1801" />
+              <path d="M 68,61 Q 74,68 70,74 Q 66,74 67,69" stroke="#2a1801" strokeWidth="2" fill="none" strokeLinecap="round" />
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      {/* Main Game Title: YU-GI-OH! */}
+      <div
+        style={{
+          fontFamily: "'Outfit', sans-serif",
+          fontSize: 'clamp(28px, 6.8vw, 40px)',
+          fontWeight: 900,
+          letterSpacing: 3,
+          background: isLight
+            ? 'linear-gradient(180deg, #92400e 0%, #b45309 30%, #d97706 70%, #78350f 100%)'
+            : 'linear-gradient(180deg, #ffffff 0%, #fef08a 25%, #eab308 60%, #ca8a04 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: isLight
+            ? '0 2px 8px rgba(180, 83, 9, 0.25)'
+            : '0 0 20px rgba(234, 179, 8, 0.65), 0 4px 12px rgba(0, 0, 0, 0.9)',
+          lineHeight: 1.1,
+          marginTop: 2,
+          textTransform: 'uppercase',
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+        }}
+      >
+        YU-GI-OH!
+      </div>
+
+      {/* Arabic Subtitle: مبارزة الألفية */}
+      <div
+        style={{
+          fontSize: 'clamp(14px, 3.4vw, 17px)',
+          fontWeight: 800,
+          color: 'var(--pharaoh-gold-bright)',
+          marginTop: 4,
+          letterSpacing: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textShadow: '0 0 12px rgba(250, 204, 21, 0.5), 0 2px 6px rgba(0,0,0,0.7)',
+        }}
+      >
+        <span>مبارزة الألفية الفرعونية</span>
+      </div>
+    </div>
+  );
+};
+
 export const TitleScreen = ({
   onStartDuel,
   onOpenMultiplayer,
@@ -107,10 +278,13 @@ export const TitleScreen = ({
   onOpenCardCatalog,
   theme,
   onToggleTheme,
+  aiDifficulty = 'hard',
+  onSelectAiDifficulty,
 }) => {
   const isLight = theme === 'light';
   const [soundMuted, setSoundMuted] = useState(() => soundManager.isMuted());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDifficultyModalOpen, setIsDifficultyModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(() => {
     if (typeof document === 'undefined') return false;
     return !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -155,14 +329,34 @@ export const TitleScreen = ({
       className="temple-wall-container"
       style={{
         backgroundImage: isLight
-          ? 'radial-gradient(circle at center, rgba(255, 252, 240, 0.42) 0%, rgba(235, 220, 185, 0.82) 85%), url(/assets/fie_light.png)'
-          : 'radial-gradient(circle at center, rgba(30, 24, 16, 0.72) 0%, rgba(10, 8, 6, 0.95) 85%), url(/assets/fie_desert.png)',
+          ? 'radial-gradient(circle at 50% 30%, rgba(255, 252, 240, 0.65) 0%, rgba(235, 220, 185, 0.9) 85%), url(/assets/title_bg.png), url(/assets/fie_light.png)'
+          : 'radial-gradient(circle at 50% 30%, rgba(45, 32, 16, 0.6) 0%, rgba(12, 10, 7, 0.95) 85%), url(/assets/title_bg.png), url(/assets/fie_night.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
         transition: 'background-image 0.5s ease-in-out',
       }}
     >
+      {/* Floating Pharaonic Chamber Light Motes */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 1 }}>
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={`mote-${i}`}
+            style={{
+              position: 'absolute',
+              bottom: `${10 + (i * 15)}%`,
+              left: `${12 + ((i * 29) % 76)}%`,
+              width: i % 2 === 0 ? 4 : 5,
+              height: i % 2 === 0 ? 4 : 5,
+              borderRadius: '50%',
+              background: 'var(--pharaoh-gold-bright, #facc15)',
+              boxShadow: '0 0 10px rgba(250, 204, 21, 0.9), 0 0 20px rgba(234, 179, 8, 0.6)',
+              animation: `templeMoteRise ${5 + (i * 0.9)}s ease-in-out infinite`,
+              animationDelay: `${i * 0.8}s`,
+            }}
+          />
+        ))}
+      </div>
       {/* Ancient Temple Ashlar Masonry Wall Lines */}
       <svg
         style={{
@@ -387,7 +581,7 @@ export const TitleScreen = ({
 
       {/* Main Pharaonic Temple Wall Facade (Full Width on Mobile) */}
       <div className="temple-wall-facade">
-        {/* Architectural Cavetto Cornice with Winged Sun of Ra */}
+        {/* Architectural Cavetto Cornice with Winged Sun of Ra & Millennium Puzzle Logo */}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 12 }}>
           <svg width="220" height="42" viewBox="0 0 280 50" fill="none" style={{ color: stoneColor }}>
             {/* Winged Sun Disc of Ra */}
@@ -401,113 +595,40 @@ export const TitleScreen = ({
             <path d="M 154,24 C 195,14 240,20 265,34 C 230,33 190,29 154,27 Z" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.7" />
           </svg>
 
-          {/* Sacred Eye of Horus (Wedjat) Medallion */}
-          <div
-            style={{
-              margin: '4px 0 10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 76,
-              height: 76,
-              borderRadius: '50%',
-              background: isLight
-                ? 'radial-gradient(circle, rgba(255, 248, 225, 0.95) 0%, rgba(230, 205, 150, 0.6) 80%)'
-                : 'radial-gradient(circle, rgba(45, 36, 20, 0.95) 0%, rgba(18, 14, 9, 0.95) 85%)',
-              border: '2px solid var(--pharaoh-gold-bright)',
-              boxShadow: isLight
-                ? '0 4px 14px rgba(120, 82, 8, 0.3), inset 0 0 14px rgba(201, 158, 50, 0.25)'
-                : '0 0 24px rgba(240, 203, 100, 0.4), inset 0 0 16px rgba(201, 158, 50, 0.3)',
-              position: 'relative',
-            }}
-            title="عين حورس المقدسة (Eye of Horus)"
-          >
-            <svg width="56" height="48" viewBox="0 0 120 100" fill="none">
-              {/* Upper Eyebrow Arch */}
-              <path
-                d="M 12,24 Q 58,6 108,22"
-                stroke="var(--pharaoh-gold-bright)"
-                strokeWidth="4.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-              {/* Upper Eyelid Arch with outer eyeliner extension */}
-              <path
-                d="M 10,44 Q 58,16 100,42 L 114,44"
-                stroke="var(--pharaoh-gold-bright)"
-                strokeWidth="4.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-              {/* Lower Eyelid Arch */}
-              <path
-                d="M 10,44 Q 58,70 100,42"
-                stroke="var(--pharaoh-gold-bright)"
-                strokeWidth="4"
-                strokeLinecap="round"
-                fill="none"
-              />
-              {/* Sacred Pupil & Iris */}
-              <circle cx="58" cy="43" r="13" stroke="var(--pharaoh-gold-bright)" strokeWidth="3" fill="rgba(201, 158, 50, 0.3)" />
-              <circle cx="58" cy="43" r="6" fill="var(--pharaoh-gold-bright)" />
-              {/* Vertical Falcon Tear Line Drop */}
-              <path
-                d="M 54,57 L 54,88 L 60,88 L 60,57 Z"
-                fill="var(--pharaoh-gold-bright)"
-              />
-              {/* Falcon Spiral Tail / Plumage Curl */}
-              <path
-                d="M 76,52 Q 92,68 88,82 Q 85,92 72,90 Q 64,88 66,78 Q 68,70 78,72"
-                stroke="var(--pharaoh-gold-bright)"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </div>
-
-          {/* Royal Pharaonic Cartouche containing Ancient Egyptian Title */}
-          <div className="royal-cartouche-container">
-            <div className="royal-cartouche-border">
-              {/* Ancient Egyptian Hieroglyphic Title */}
-              <div
-                className="royal-cartouche-hieroglyphs"
-                title="𓇋𓏲𓎼𓇋𓏲 𓂝𓎛𓄿 𓈖 𓈙𓄿𓇋 (Yu-Gi-Oh — Clash of Destinies)"
-              >
-                𓇋𓏲𓎼𓇋𓏲 𓂝𓎛𓄿
-              </div>
-
-              {/* Arabic Title & Phonetic Transliteration */}
-
-              {/* Cartouche Tied Shen Knot Base */}
-              <div className="royal-cartouche-knot" />
-            </div>
-          </div>
-
-          {/* Subtitle Cartouche Pill */}
+          {/* Millennium Puzzle Royal Logo */}
+          <MillenniumPuzzleLogo isLight={isLight} />
         </div>
 
-        {/* Monumental Carved Stele Action Tablets (Full Width on Mobile) */}
+        {/* Monumental Carved Stele Action Tablets */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', marginTop: 8 }}>
           {/* 1. Solo Duel vs AI */}
           <button
             onClick={() => {
               soundManager.playDecide();
               hapticManager.triggerCombatVibration('click');
-              onStartDuel();
+              setIsDifficultyModalOpen(true);
             }}
             className="temple-stele-button temple-stele-primary"
           >
+            <div className="temple-stele-sheen" />
             <div className="temple-stele-icon-box" style={{ background: 'rgba(240, 203, 100, 0.25)', borderColor: 'var(--pharaoh-gold-bright)' }}>
               <KhopeshSwordsIcon size={24} color="var(--pharaoh-gold-bright)" />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
-                مبارزة فردية كلاسيكية
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 2 }}>
-                خض معركة فورية ضد سيتو كايبا وذكاء الذكاء الاصطناعي التكتيكي
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                  ادخل ماتش ضد الكمبيوتر
+                </span>
+                <span style={{ fontSize: 10.5, color: 'var(--pharaoh-text-gold)', opacity: 0.9 }}>
+                  {AI_DIFFICULTIES[aiDifficulty]?.name || 'خبير (سيتو كايبا)'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 11, color: '#f59e0b', fontWeight: 800 }}>
+                  المستوى {AI_DIFFICULTIES[aiDifficulty]?.stars || 3}
+                </span>
+                <span className="temple-stele-badge">VS AI</span>
+              </div>
             </div>
           </button>
 
@@ -523,13 +644,11 @@ export const TitleScreen = ({
             <div className="temple-stele-icon-box">
               <ObeliskNetworkIcon size={22} color="var(--pharaoh-text-gold)" />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
-                نزال جماعي محلي (Multiplayer)
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
+                تحدّى صاحبك 
               </span>
-              <span style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 2 }}>
-                اتصال مباشر وجهاً لوجه عبر نقطة الاتصال أو البلوتوث
-              </span>
+              <span className="temple-stele-badge">PVP</span>
             </div>
           </button>
 
@@ -545,13 +664,11 @@ export const TitleScreen = ({
             <div className="temple-stele-icon-box">
               <DeckStackIcon size={22} color="var(--pharaoh-text-gold)" />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
-                بناء وتعديل المجموعة (Decks)
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
+                جهّز وظبّط مجموعتك
               </span>
-              <span style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 2 }}>
-                استعراض 42 مجموعة مبارزة جاهزة وتخصيص استراتيجيتك
-              </span>
+              <span className="temple-stele-badge">42 DECKS</span>
             </div>
           </button>
 
@@ -567,13 +684,11 @@ export const TitleScreen = ({
             <div className="temple-stele-icon-box">
               <PapyrusCatalogIcon size={22} color="var(--pharaoh-text-gold)" />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
-                مكتبة وأرشيف البطاقات (Card Index)
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
+                كتالوج كل الكروت الفرعونية
               </span>
-              <span style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 2 }}>
-                تصفح وفحص 1,114 بطاقة رسمية مع تفاصيل الهجوم والدفاع
-              </span>
+              <span className="temple-stele-badge">1,114</span>
             </div>
           </button>
 
@@ -588,13 +703,11 @@ export const TitleScreen = ({
             <div className="temple-stele-icon-box">
               <TempleGearsIcon size={20} color="var(--pharaoh-text-gold)" />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 14.5, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
-                إعدادات المبارزة والمظهر
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
+                تظبيط اللعبة والماتش
               </span>
-              <span style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 2 }}>
-                التحكم في المؤثرات الصوتية، الاهتزاز، والوضع الفاتح والداكن
-              </span>
+              <span className="temple-stele-badge">CONFIG</span>
             </div>
           </button>
         </div>
@@ -604,15 +717,49 @@ export const TitleScreen = ({
       <div
         style={{
           width: '100%',
-          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
           fontSize: 10.5,
           color: 'var(--pharaoh-text-muted)',
-          letterSpacing: 1,
-          padding: '8px 0 4px',
+          padding: '8px 0 6px',
           zIndex: 30,
         }}
       >
-        صرح الفرعون الأبدي • نظام مستقل 100% بدون إنترنت
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <span style={{ letterSpacing: 1.5, opacity: 0.65 }}>YU-GI-OH! • DUEL MONSTERS</span>
+          <a
+            href="/YuGiOh-Mobile.apk"
+            download="YuGiOh-Mobile.apk"
+            onClick={() => soundManager.playDecide()}
+            style={{
+              textDecoration: 'none',
+              color: 'var(--pharaoh-gold-bright)',
+              background: 'rgba(212, 175, 55, 0.12)',
+              border: '1px solid rgba(212, 175, 55, 0.35)',
+              padding: '3px 10px',
+              borderRadius: 4,
+              fontWeight: 800,
+              fontSize: 10.5,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            نزّل نسخة الموبايل (APK أندرويد)
+          </a>
+        </div>
+
+        {/* Small Decorative Developer Signature */}
+        <div className="pharaoh-dev-credit" style={{ marginTop: 2 }}>
+          <span className="pharaoh-dev-credit-line" />
+          <span className="pharaoh-dev-credit-glyph">𓋹</span>
+          <span>develope by Amr Khalid</span>
+          <span className="pharaoh-dev-credit-glyph">𓋹</span>
+          <span className="pharaoh-dev-credit-line" />
+        </div>
       </div>
 
       {/* Settings Modal */}
@@ -621,6 +768,22 @@ export const TitleScreen = ({
         onClose={() => setIsSettingsOpen(false)}
         theme={theme}
         onToggleTheme={onToggleTheme}
+        aiDifficulty={aiDifficulty}
+        onSelectAiDifficulty={onSelectAiDifficulty}
+      />
+
+      {/* AI Difficulty Selector Modal */}
+      <AIDifficultyModal
+        isOpen={isDifficultyModalOpen}
+        onClose={() => setIsDifficultyModalOpen(false)}
+        selectedDifficulty={aiDifficulty}
+        onSelectDifficulty={(diff) => {
+          if (onSelectAiDifficulty) onSelectAiDifficulty(diff);
+        }}
+        onConfirmStart={() => {
+          setIsDifficultyModalOpen(false);
+          onStartDuel(aiDifficulty);
+        }}
       />
     </div>
   );

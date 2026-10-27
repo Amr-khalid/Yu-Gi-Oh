@@ -1,8 +1,13 @@
 /**
  * ConnectionManager.js
- * True Local-Network Real-Time Transport (WebSocket Server Relay + Offline Fallback)
- * Works seamlessly across devices on the same Wi-Fi/Hotspot network and between browser tabs.
+ * True Local-Network Real-Time Transport (Embedded Android Server + Hotspot + WebSocket Relay + Offline Fallback)
+ * Works seamlessly on Android APK (Hotspot/Wi-Fi without internet) and on Web/Localhost.
  */
+
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+// Register native Android LocalServer plugin
+const LocalServer = registerPlugin('LocalServer');
 
 export class ConnectionManager {
   constructor() {
@@ -22,10 +27,49 @@ export class ConnectionManager {
     this.latencyMs = 1;
     this.pollInterval = null;
     this.pingInterval = null;
+    this.bluetoothDevice = null;
+    this.currentWsUrl = null;
+    this.localServerIp = null;
+    this.targetHostIp = '192.168.43.1'; // Standard Android Hotspot Gateway IP
+    this.isNative = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+
+    // Tag 2v2 Multiplayer State
+    this.gameMode = '1v1'; // '1v1' | 'tag_2v2'
+    this.mySlot = 0; // 0, 1 (Team 0), 2, 3 (Team 1)
+    this.myTeam = 0; // 0 or 1
+    this.tagSlots = [];
+    this.tagSettings = {
+      lifePoints: 16000,
+      summonRule: 'per_player', // 'per_player' | 'team_shared'
+      graveyardShare: true,
+      turnTimer: 90,
+    };
+    this.teammateName = '';
+    this.teammateHand = [];
 
     if (typeof window !== 'undefined') {
-      this.initWebSocket();
+      if (!this.isNative) {
+        // In browser / dev environment, connect to Vite dev server relay
+        this.initWebSocket();
+      } else {
+        // In Android APK, get initial IP address
+        this.queryDeviceIp();
+      }
       this.initLocalFallback();
+    }
+  }
+
+  async queryDeviceIp() {
+    if (this.isNative) {
+      try {
+        const res = await LocalServer.getDeviceIp();
+        if (res && res.ip) {
+          this.localServerIp = res.ip;
+          this.notifyStatus();
+        }
+      } catch (e) {
+        console.warn('Failed to query device IP:', e);
+      }
     }
   }
 
@@ -35,47 +79,95 @@ export class ConnectionManager {
     }
   }
 
+  setTargetHostIp(ip) {
+    if (ip && typeof ip === 'string') {
+      this.targetHostIp = ip.trim();
+    }
+  }
+
+  connectWs(url) {
+    return new Promise((resolve) => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN && this.currentWsUrl === url) {
+        resolve(true);
+        return;
+      }
+
+      if (this.ws) {
+        try {
+          this.ws.onclose = null;
+          this.ws.onerror = null;
+          this.ws.close();
+        } catch (e) {}
+        this.ws = null;
+      }
+
+      this.currentWsUrl = url;
+
+      try {
+        const ws = new WebSocket(url);
+        this.ws = ws;
+
+        let resolved = false;
+        const timeout = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve(false);
+          }
+        }, 3500);
+
+        ws.onopen = () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            resolve(true);
+          }
+          if (this.role === 'host' && this.roomCode && !this.connected) {
+            this.sendWs({
+              type: 'CREATE_ROOM',
+              roomCode: this.roomCode,
+              hostName: this.myName,
+              transport: this.transport,
+            });
+          } else if (this.role === 'client') {
+            this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+          }
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            this.handleServerMessage(msg);
+          } catch (e) {
+            console.error('WS parse error:', e);
+          }
+        };
+
+        ws.onclose = () => {
+          if (!this.connected && (this.role === 'host' || this.role === 'client')) {
+            // Auto reconnect after brief pause
+            setTimeout(() => {
+              if (!this.connected && this.currentWsUrl) {
+                this.connectWs(this.currentWsUrl);
+              }
+            }, 1800);
+          }
+        };
+
+        ws.onerror = (e) => {
+          console.warn('WS network error on:', url);
+        };
+      } catch (err) {
+        console.warn('WebSocket init exception:', err);
+        resolve(false);
+      }
+    });
+  }
+
   initWebSocket() {
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/yugioh-ws`;
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onopen = () => {
-        // Query active rooms on connect
-        this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
-
-        // If host was waiting for opponent when reconnect happened, re-announce
-        if (this.role === 'host' && this.roomCode && !this.connected) {
-          this.sendWs({
-            type: 'CREATE_ROOM',
-            roomCode: this.roomCode,
-            hostName: this.myName,
-          });
-        }
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          this.handleServerMessage(msg);
-        } catch (e) {
-          console.error('WS parse error:', e);
-        }
-      };
-
-      this.ws.onclose = () => {
-        // Try reconnecting periodically if connection dropped
-        setTimeout(() => {
-          if (!this.connected) {
-            this.initWebSocket();
-          }
-        }, 1500);
-      };
-
-      this.ws.onerror = (e) => {
-        console.warn('WS network error, offline fallback active');
-      };
+      this.connectWs(wsUrl);
     } catch (e) {
       console.warn('WebSocket init error:', e);
     }
@@ -141,50 +233,246 @@ export class ConnectionManager {
     }
   }
 
-  host(transport, myName) {
+  async host(transport, myName, gameMode = '1v1', settings = {}) {
     this.stopRoomPolling();
     this.role = 'host';
     this.transport = transport;
     this.myName = myName || this.myName || 'المستضيف';
+    this.gameMode = gameMode;
+    this.mySlot = 0;
+    this.myTeam = 0;
+    if (settings && Object.keys(settings).length > 0) {
+      this.tagSettings = { ...this.tagSettings, ...settings };
+    }
     this.roomCode = String(Math.floor(1000 + Math.random() * 9000));
     this.roomId = 'room_' + this.roomCode;
     this.connected = false;
     this.peerName = '';
+    this.teammateName = '';
+    this.teammateHand = [];
     this.latencyMs = 1;
-    this.notifyStatus();
 
-    // 1. Announce to WebSocket server
+    if (this.isNative) {
+      try {
+        const res = await LocalServer.startServer({ port: 9001 });
+        if (res && res.ip) {
+          this.localServerIp = res.ip;
+        }
+      } catch (e) {
+        console.error('Error starting native local server:', e);
+      }
+      this.notifyStatus();
+      // Connect host webview to local server on device
+      await this.connectWs('ws://127.0.0.1:9001/yugioh-ws');
+    } else {
+      this.notifyStatus();
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        this.initWebSocket();
+      }
+    }
+
+    // Announce to WebSocket server
     this.sendWs({
       type: 'CREATE_ROOM',
       roomCode: this.roomCode,
       hostName: this.myName,
+      transport: this.transport,
+      gameMode: this.gameMode,
+      settings: this.tagSettings,
     });
 
-    // 2. Announce to Local Broadcast fallback
+    // Announce to Local Broadcast fallback
     this.sendLocal({
       type: 'ROOM_ANNOUNCE',
       roomCode: this.roomCode,
       hostName: this.myName,
+      transport: this.transport,
+      gameMode: this.gameMode,
+      settings: this.tagSettings,
       senderId: this.instanceId,
     });
 
-    return Promise.resolve(true);
+    return true;
   }
 
-  join(transport, myName) {
+  updateTagSlot(slotIndex, isBot, botDifficulty = 'normal', botName = '') {
+    if (this.tagSlots && this.tagSlots[slotIndex]) {
+      this.tagSlots[slotIndex] = {
+        ...this.tagSlots[slotIndex],
+        isOccupied: isBot,
+        isBot: !!isBot,
+        botDifficulty: botDifficulty || 'normal',
+        name: isBot ? (botName || 'بوت') : 'شاغر (انضمام أو بوت)',
+      };
+      this.notifyStatus();
+    }
+    this.send({
+      type: 'TAG_UPDATE_SLOT',
+      slotIndex,
+      isBot,
+      botDifficulty,
+      botName,
+    });
+  }
+
+  updateTagSettings(settings) {
+    if (settings) {
+      this.tagSettings = { ...this.tagSettings, ...settings };
+      this.send({
+        type: 'TAG_UPDATE_SETTINGS',
+        settings: this.tagSettings,
+      });
+      this.notifyStatus();
+    }
+  }
+
+  swapTagSlots(fromSlot, toSlot) {
+    const payload = {
+      type: 'TAG_SWAP_SLOTS',
+      fromSlot,
+      toSlot,
+      roomCode: this.roomCode,
+    };
+    this.send(payload);
+
+    // Apply locally immediately so the UI responds without any network delay
+    if (this.tagSlots && this.tagSlots.length === 4) {
+      const slots = [...this.tagSlots];
+      const temp = slots[fromSlot];
+      slots[fromSlot] = slots[toSlot];
+      slots[toSlot] = temp;
+      slots[fromSlot].slotIndex = fromSlot;
+      slots[fromSlot].team = fromSlot < 2 ? 0 : 1;
+      slots[toSlot].slotIndex = toSlot;
+      slots[toSlot].team = toSlot < 2 ? 0 : 1;
+      this.tagSlots = slots;
+      if (this.mySlot === fromSlot) {
+        this.mySlot = toSlot;
+        this.myTeam = toSlot < 2 ? 0 : 1;
+      } else if (this.mySlot === toSlot) {
+        this.mySlot = fromSlot;
+        this.myTeam = fromSlot < 2 ? 0 : 1;
+      }
+      this.notifyStatus();
+
+      if (this.role === 'host') {
+        this.send({
+          type: 'TAG_ROOM_SLOTS_UPDATED',
+          slots: this.tagSlots,
+          settings: this.tagSettings,
+        });
+      }
+    }
+  }
+
+  sendTeamPing(pingType, text = '', targetZone = null) {
+    const payload = {
+      type: 'TEAM_PING',
+      senderSlot: this.mySlot,
+      team: this.myTeam,
+      senderName: this.myName,
+      pingType,
+      text,
+      targetZone,
+      timestamp: Date.now(),
+    };
+    this.send(payload);
+    return payload;
+  }
+
+  syncTeammateHand(handCards) {
+    const payload = {
+      type: 'TAG_SYNC_HAND',
+      senderSlot: this.mySlot,
+      team: this.myTeam,
+      senderName: this.myName,
+      handCards: Array.isArray(handCards) ? handCards.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+        atk: c.atk,
+        def: c.def,
+        level: c.level,
+        description: c.description,
+        attribute: c.attribute,
+        race: c.race,
+      })) : [],
+      timestamp: Date.now(),
+    };
+    this.send(payload);
+  }
+
+  async join(transport, myName, customHostIp) {
     this.role = 'client';
     this.transport = transport;
     this.myName = myName || this.myName || 'المنافس';
     this.connected = false;
     this.peerName = '';
     this.latencyMs = 1;
-    this.notifyStatus();
+
+    const hostIp = (customHostIp && customHostIp.trim()) ? customHostIp.trim() : this.targetHostIp;
+    this.targetHostIp = hostIp;
+
+    if (this.isNative) {
+      this.notifyStatus();
+      const targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
+      await this.connectWs(targetUrl);
+    } else {
+      this.notifyStatus();
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        this.initWebSocket();
+      }
+    }
 
     // Query server for active rooms & start rapid polling
     this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
     this.startRoomPolling();
 
-    return Promise.resolve(true);
+    return true;
+  }
+
+  isWebBluetoothSupported() {
+    return (
+      typeof navigator !== 'undefined' &&
+      !!navigator.bluetooth &&
+      typeof navigator.bluetooth.requestDevice === 'function'
+    );
+  }
+
+  async scanBluetoothDevice() {
+    if (!this.isWebBluetoothSupported()) {
+      return {
+        success: false,
+        supported: false,
+        error: 'متصفحك لا يدعم Web Bluetooth API مباشرة. استخدم نمط نقطة الاتصال (Hotspot) للعب المباشر بدون إنترنت بسرعة فائقة!',
+      };
+    }
+
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['generic_access'],
+      });
+
+      if (device) {
+        this.bluetoothDevice = {
+          id: device.id,
+          name: device.name || 'جهاز بلوتوث مقترن',
+        };
+        this.notifyStatus();
+        return {
+          success: true,
+          supported: true,
+          device: this.bluetoothDevice,
+        };
+      }
+    } catch (err) {
+      if (err.name === 'NotFoundError' || err.message?.includes('User cancelled')) {
+        return { success: false, supported: true, cancelled: true };
+      }
+      return { success: false, supported: true, error: err.message };
+    }
+    return { success: false, supported: true };
   }
 
   normalizeRoomCode(raw) {
@@ -200,7 +488,7 @@ export class ConnectionManager {
       .replace(/[^0-9]/g, '');
   }
 
-  joinByCode(rawCode) {
+  async joinByCode(rawCode, customHostIp, targetSlotIndex = null) {
     if (!rawCode) return false;
     const cleanCode = this.normalizeRoomCode(rawCode);
     if (cleanCode.length !== 4) return false;
@@ -209,11 +497,26 @@ export class ConnectionManager {
     this.roomCode = cleanCode;
     this.connected = false;
 
+    const hostIp = (customHostIp && customHostIp.trim()) ? customHostIp.trim() : this.targetHostIp;
+    this.targetHostIp = hostIp;
+
+    if (this.isNative) {
+      const targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.currentWsUrl !== targetUrl) {
+        await this.connectWs(targetUrl);
+      }
+    } else {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        this.initWebSocket();
+      }
+    }
+
     // Send join request to WebSocket server
     this.sendWs({
       type: 'JOIN_ROOM',
       roomCode: cleanCode,
       clientName: this.myName,
+      targetSlotIndex,
     });
 
     // Also send local fallback
@@ -221,6 +524,7 @@ export class ConnectionManager {
       type: 'ROOM_CONNECT_REQ',
       roomCode: cleanCode,
       clientName: this.myName,
+      targetSlotIndex,
       senderId: this.instanceId,
     });
 
@@ -248,6 +552,9 @@ export class ConnectionManager {
     // 1. Room successfully created by Host
     if (msg.type === 'ROOM_CREATED') {
       this.roomCode = msg.roomCode;
+      if (msg.gameMode) this.gameMode = msg.gameMode;
+      if (msg.slots) this.tagSlots = msg.slots;
+      if (msg.settings) this.tagSettings = msg.settings;
       this.notifyStatus();
     }
 
@@ -263,20 +570,136 @@ export class ConnectionManager {
     else if (msg.type === 'ROOM_CONNECTED') {
       this.stopRoomPolling();
       this.connected = true;
-      if (this.role === 'host') {
-        this.peerName = msg.clientName || 'المنافس';
-        // Send handshake confirmation immediately
-        this.send({ type: 'HANDSHAKE_ACK', from: 'host', timestamp: Date.now() });
-      } else {
-        this.peerName = msg.hostName || 'المستضيف';
-        this.send({ type: 'HANDSHAKE_ACK', from: 'client', timestamp: Date.now() });
+      if (msg.transport) {
+        this.transport = msg.transport;
       }
+      if (msg.gameMode) this.gameMode = msg.gameMode;
+      if (msg.settings) this.tagSettings = msg.settings;
+      if (msg.slots) this.tagSlots = msg.slots;
+      if (typeof msg.mySlot === 'number') this.mySlot = msg.mySlot;
+      if (typeof msg.myTeam === 'number') this.myTeam = msg.myTeam;
+
+      if (this.gameMode === 'tag_2v2') {
+        const teammateSlot = this.myTeam === 0 ? (this.mySlot === 0 ? 1 : 0) : (this.mySlot === 2 ? 3 : 2);
+        this.teammateName = this.tagSlots[teammateSlot]?.name || 'الزميل';
+        const opponentLeaderSlot = this.myTeam === 0 ? 2 : 0;
+        this.peerName = this.tagSlots[opponentLeaderSlot]?.name || 'فريق الخصم';
+      } else {
+        if (this.role === 'host') {
+          this.peerName = msg.clientName || 'المنافس';
+        } else {
+          this.peerName = msg.hostName || 'المستضيف';
+        }
+      }
+
+      this.send({ type: 'HANDSHAKE_ACK', from: this.role, timestamp: Date.now() });
       this.roomCode = msg.roomCode;
       this.startHeartbeat();
       this.notifyStatus();
     }
 
-    // 3.5 Handshake ACK received
+    // 3.2 Tag Room Slots Updated
+    else if (msg.type === 'TAG_ROOM_SLOTS_UPDATED') {
+      this.connected = true;
+      if (msg.slots) this.tagSlots = msg.slots;
+      if (msg.settings) this.tagSettings = msg.settings;
+      if (this.gameMode === 'tag_2v2') {
+        const teammateSlot = this.myTeam === 0 ? (this.mySlot === 0 ? 1 : 0) : (this.mySlot === 2 ? 3 : 2);
+        if (this.tagSlots[teammateSlot]) {
+          this.teammateName = this.tagSlots[teammateSlot].name;
+        }
+        const oppSlot = this.myTeam === 0 ? 2 : 0;
+        if (this.tagSlots[oppSlot]) {
+          this.peerName = this.tagSlots[oppSlot].name;
+        }
+      }
+      this.notifyStatus();
+      this.dispatchMessage(msg);
+    }
+
+    // 3.25 My Slot or Team Updated after Swap
+    else if (msg.type === 'TAG_MY_SLOT_UPDATED') {
+      if (typeof msg.mySlot === 'number') this.mySlot = msg.mySlot;
+      if (typeof msg.myTeam === 'number') this.myTeam = msg.myTeam;
+      if (this.gameMode === 'tag_2v2' && this.tagSlots && this.tagSlots.length === 4) {
+        const teammateSlot = this.myTeam === 0 ? (this.mySlot === 0 ? 1 : 0) : (this.mySlot === 2 ? 3 : 2);
+        if (this.tagSlots[teammateSlot]) {
+          this.teammateName = this.tagSlots[teammateSlot].name;
+        }
+        const oppSlot = this.myTeam === 0 ? 2 : 0;
+        if (this.tagSlots[oppSlot]) {
+          this.peerName = this.tagSlots[oppSlot].name;
+        }
+      }
+      this.notifyStatus();
+      this.dispatchMessage(msg);
+    }
+
+    // 3.26 Tag Swap Slots received from peer or host
+    else if (msg.type === 'TAG_SWAP_SLOTS') {
+      if (this.tagSlots && this.tagSlots.length === 4) {
+        const slots = [...this.tagSlots];
+        const temp = slots[msg.fromSlot];
+        slots[msg.fromSlot] = slots[msg.toSlot];
+        slots[msg.toSlot] = temp;
+        slots[msg.fromSlot].slotIndex = msg.fromSlot;
+        slots[msg.fromSlot].team = msg.fromSlot < 2 ? 0 : 1;
+        slots[msg.toSlot].slotIndex = msg.toSlot;
+        slots[msg.toSlot].team = msg.toSlot < 2 ? 0 : 1;
+        this.tagSlots = slots;
+
+        if (this.mySlot === msg.fromSlot) {
+          this.mySlot = msg.toSlot;
+          this.myTeam = msg.toSlot < 2 ? 0 : 1;
+        } else if (this.mySlot === msg.toSlot) {
+          this.mySlot = msg.fromSlot;
+          this.myTeam = msg.fromSlot < 2 ? 0 : 1;
+        }
+
+        const teammateSlot = this.myTeam === 0 ? (this.mySlot === 0 ? 1 : 0) : (this.mySlot === 2 ? 3 : 2);
+        if (this.tagSlots[teammateSlot]) {
+          this.teammateName = this.tagSlots[teammateSlot].name;
+        }
+        const oppSlot = this.myTeam === 0 ? 2 : 0;
+        if (this.tagSlots[oppSlot]) {
+          this.peerName = this.tagSlots[oppSlot].name;
+        }
+
+        this.notifyStatus();
+        this.dispatchMessage(msg);
+
+        if (this.role === 'host') {
+          this.send({
+            type: 'TAG_ROOM_SLOTS_UPDATED',
+            slots: this.tagSlots,
+            settings: this.tagSettings,
+          });
+        }
+      }
+    }
+
+    // 3.3 Tag Room Settings Updated
+    else if (msg.type === 'TAG_ROOM_SETTINGS_UPDATED') {
+      if (msg.settings) this.tagSettings = { ...this.tagSettings, ...msg.settings };
+      this.notifyStatus();
+      this.dispatchMessage(msg);
+    }
+
+    // 3.4 Team Ping
+    else if (msg.type === 'TEAM_PING') {
+      this.dispatchMessage(msg);
+    }
+
+    // 3.5 Tag Sync Hand (from Teammate)
+    else if (msg.type === 'TAG_SYNC_HAND') {
+      if (msg.team === this.myTeam && msg.senderSlot !== this.mySlot) {
+        this.teammateHand = msg.handCards || [];
+        this.notifyStatus();
+      }
+      this.dispatchMessage(msg);
+    }
+
+    // 3.6 Handshake ACK received
     else if (msg.type === 'HANDSHAKE_ACK') {
       if (msg.timestamp) {
         this.latencyMs = Math.max(1, Math.min(999, Math.round((Date.now() - msg.timestamp) / 2)));
@@ -296,11 +719,18 @@ export class ConnectionManager {
       if (msg.seed) {
         this.matchSeed = msg.seed;
       }
+      if (msg.slots) this.tagSlots = msg.slots;
+      if (msg.settings) this.tagSettings = msg.settings;
       this.dispatchMessage(msg);
     }
 
-    // 6. Duel action, janken, or surrender
-    else if (msg.type === 'DUEL_ACTION' || msg.type === 'SURRENDER' || (typeof msg.type === 'string' && msg.type.startsWith('JANKEN_'))) {
+    // 6. Duel action, tag sync field, janken, or surrender
+    else if (
+      msg.type === 'DUEL_ACTION' ||
+      msg.type === 'TAG_SYNC_FIELD' ||
+      msg.type === 'SURRENDER' ||
+      (typeof msg.type === 'string' && msg.type.startsWith('JANKEN_'))
+    ) {
       this.dispatchMessage(msg);
     }
 
@@ -311,6 +741,9 @@ export class ConnectionManager {
       this.connected = false;
       this.peerName = '';
       this.notifyStatus();
+    } else {
+      // Fallback: Dispatch any custom tag/duel action
+      this.dispatchMessage(msg);
     }
   }
 
@@ -319,28 +752,99 @@ export class ConnectionManager {
     if (msg.type === 'ROOM_CONNECT_REQ' && this.role === 'host' && !this.connected) {
       if (msg.roomCode === this.roomCode) {
         this.connected = true;
-        this.peerName = msg.clientName || 'المنافس';
-        this.notifyStatus();
-        this.sendLocal({
-          type: 'ROOM_CONNECTED_LOCAL',
-          roomCode: this.roomCode,
-          hostName: this.myName,
-          clientName: this.peerName,
-        });
+        if (this.gameMode === 'tag_2v2') {
+          const clientName = msg.clientName || 'الزميل';
+          this.teammateName = clientName;
+          let slots = this.tagSlots && this.tagSlots.length === 4 ? [...this.tagSlots] : [
+            { slotIndex: 0, team: 0, isOccupied: true, isHost: true, isBot: false, name: this.myName },
+            { slotIndex: 1, team: 0, isOccupied: true, isHost: false, isBot: false, name: clientName },
+            { slotIndex: 2, team: 1, isOccupied: true, isHost: false, isBot: true, name: 'سيتو كايبا (بوت)', botDifficulty: 'normal' },
+            { slotIndex: 3, team: 1, isOccupied: true, isHost: false, isBot: true, name: 'يامي ماريك (بوت)', botDifficulty: 'normal' },
+          ];
+          slots[1] = { slotIndex: 1, team: 0, isOccupied: true, isHost: false, isBot: false, name: clientName };
+          this.tagSlots = slots;
+          this.peerName = slots[2]?.name || 'سيتو كايبا (بوت)';
+          this.notifyStatus();
+          this.sendLocal({
+            type: 'ROOM_CONNECTED_LOCAL',
+            roomCode: this.roomCode,
+            gameMode: 'tag_2v2',
+            mySlot: 1,
+            myTeam: 0,
+            hostName: this.myName,
+            clientName: clientName,
+            slots: slots,
+            settings: this.tagSettings,
+            transport: this.transport,
+          });
+        } else {
+          this.peerName = msg.clientName || 'المنافس';
+          this.notifyStatus();
+          this.sendLocal({
+            type: 'ROOM_CONNECTED_LOCAL',
+            roomCode: this.roomCode,
+            gameMode: '1v1',
+            hostName: this.myName,
+            clientName: this.peerName,
+            transport: this.transport,
+          });
+        }
       }
     } else if (msg.type === 'ROOM_CONNECTED_LOCAL' && this.role === 'client' && !this.connected) {
       if (msg.roomCode === this.roomCode) {
         this.connected = true;
-        this.peerName = msg.hostName || 'المستضيف';
+        this.gameMode = msg.gameMode || '1v1';
+        if (this.gameMode === 'tag_2v2') {
+          this.mySlot = typeof msg.mySlot === 'number' ? msg.mySlot : 1;
+          this.myTeam = typeof msg.myTeam === 'number' ? msg.myTeam : 0;
+          this.tagSlots = msg.slots || [];
+          this.tagSettings = msg.settings || this.tagSettings;
+          this.teammateName = msg.hostName || 'المستضيف (زميلك)';
+          this.peerName = msg.slots?.[2]?.name || 'سيتو كايبا (بوت)';
+        } else {
+          this.peerName = msg.hostName || 'المستضيف';
+        }
+        if (msg.transport) this.transport = msg.transport;
+        this.notifyStatus();
+      }
+    } else if (msg.type === 'TAG_SWAP_SLOTS') {
+      const { fromSlot, toSlot } = msg;
+      if (
+        typeof fromSlot === 'number' &&
+        typeof toSlot === 'number' &&
+        this.tagSlots &&
+        this.tagSlots.length === 4
+      ) {
+        const slots = [...this.tagSlots];
+        const temp = slots[fromSlot];
+        slots[fromSlot] = slots[toSlot];
+        slots[toSlot] = temp;
+        slots[fromSlot].slotIndex = fromSlot;
+        slots[fromSlot].team = fromSlot < 2 ? 0 : 1;
+        slots[toSlot].slotIndex = toSlot;
+        slots[toSlot].team = toSlot < 2 ? 0 : 1;
+        this.tagSlots = slots;
+        if (this.mySlot === fromSlot) {
+          this.mySlot = toSlot;
+          this.myTeam = toSlot < 2 ? 0 : 1;
+        } else if (this.mySlot === toSlot) {
+          this.mySlot = fromSlot;
+          this.myTeam = fromSlot < 2 ? 0 : 1;
+        }
         this.notifyStatus();
       }
     } else if (
       msg.type === 'START_DUEL' ||
       msg.type === 'DUEL_COUNTDOWN_START' ||
       msg.type === 'DUEL_ACTION' ||
+      msg.type === 'TAG_SYNC_FIELD' ||
       msg.type === 'SURRENDER' ||
+      msg.type === 'TEAM_PING' ||
+      msg.type === 'TAG_SYNC_HAND' ||
       (typeof msg.type === 'string' && msg.type.startsWith('JANKEN_'))
     ) {
+      this.dispatchMessage(msg);
+    } else {
       this.dispatchMessage(msg);
     }
   }
@@ -357,16 +861,31 @@ export class ConnectionManager {
     this.send(message);
   }
 
-  cancel() {
+  async cancel() {
     this.stopHeartbeat();
     this.stopRoomPolling();
     if (this.role === 'host' && this.roomCode) {
       this.sendWs({ type: 'CLOSE_ROOM', roomCode: this.roomCode });
     }
+    if (this.isNative && this.role === 'host') {
+      try {
+        await LocalServer.stopServer();
+      } catch (e) {}
+    }
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch (e) {}
+      this.ws = null;
+    }
     this.role = null;
     this.connected = false;
     this.peerName = '';
+    this.teammateName = '';
+    this.teammateHand = [];
+    this.tagSlots = [];
     this.roomCode = null;
+    this.currentWsUrl = null;
     this.notifyStatus();
   }
 
@@ -407,13 +926,24 @@ export class ConnectionManager {
       connected: !!this.connected,
       role: this.role,
       transport: this.transport,
+      gameMode: this.gameMode,
+      mySlot: this.mySlot,
+      myTeam: this.myTeam,
+      tagSlots: this.tagSlots,
+      tagSettings: this.tagSettings,
+      teammateName: this.teammateName,
+      teammateHand: this.teammateHand,
       peerName: this.peerName || '',
       myName: this.myName || '',
       roomCode: this.roomCode || null,
       discoveredRooms: Array.isArray(this.discoveredRooms) ? this.discoveredRooms : [],
       isBroadcasting: this.role === 'host' && !this.connected,
-      ipOrDevice: hostname,
+      ipOrDevice: this.localServerIp || hostname,
+      targetHostIp: this.targetHostIp,
       latencyMs: this.latencyMs || 1,
+      bluetoothSupported: this.isWebBluetoothSupported(),
+      bluetoothDevice: this.bluetoothDevice,
+      isNative: this.isNative,
     };
   }
 

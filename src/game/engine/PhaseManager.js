@@ -11,35 +11,36 @@ export function getPhaseArabicName(phase, concise = false) {
   if (concise) {
     switch (phase) {
       case 'DRAW': return 'سحب';
-      case 'STANDBY': return 'استعداد';
+      case 'STANDBY': return 'تجهيز';
       case 'MAIN1': return 'المرحلة 1';
-      case 'BATTLE_STEP': return 'المعركة';
+      case 'BATTLE_STEP': return 'الهجوم';
       case 'MAIN2': return 'المرحلة 2';
-      case 'END': return 'إنهاء';
+      case 'END': return 'إنهاء الدور';
       default: return phase;
     }
   }
   switch (phase) {
     case 'DRAW':
-      return 'مرحلة السحب (Draw Phase)';
+      return 'سحب كارت (Draw Phase)';
     case 'STANDBY':
-      return 'مرحلة الاستعداد (Standby Phase)';
+      return 'تجهيز واستعداد (Standby Phase)';
     case 'MAIN1':
-      return 'المرحلة الرئيسية الأولى (Main Phase 1)';
+      return 'المرحلة الأولى (Main Phase 1)';
     case 'BATTLE_STEP':
-      return 'مرحلة المعركة والقتال (Battle Phase)';
+      return 'وقت الهجوم والمعركة (Battle Phase)';
     case 'MAIN2':
-      return 'المرحلة الرئيسية الثانية (Main Phase 2)';
+      return 'المرحلة التانية (Main Phase 2)';
     case 'END':
-      return 'مرحلة الإنهاء (End Phase)';
+      return 'إنهاء الدور (End Phase)';
     default:
       return phase;
   }
 }
 
-export function canChangeToPhase(currentPhase, targetPhase, turnNumber = 2) {
-  // In official Yu-Gi-Oh! rules, turn 1 player cannot enter the Battle Phase
-  if (turnNumber === 1 && targetPhase === 'BATTLE_STEP') {
+export function canChangeToPhase(currentPhase, targetPhase, turnNumber = 2, isTagMode = false) {
+  // In official rules, only opening Turn 1 cannot attack. Starting from Turn 2 (opponent's first turn), attack is allowed!
+  const isAttackBlocked = turnNumber === 1;
+  if (isAttackBlocked && targetPhase === 'BATTLE_STEP') {
     return false;
   }
 
@@ -57,17 +58,50 @@ export function canChangeToPhase(currentPhase, targetPhase, turnNumber = 2) {
 
 export function drawCardForTurnPlayer(state) {
   const player = state.players[state.currentTurnPlayer];
+  const isTagSequential = state.isTagMode && (state.tagSettings?.turnFlow === 'tag_sequential' || state.turnFlow === 'tag_sequential');
 
-  if (player.deck.length === 0) {
-    state.winner = 1 - state.currentTurnPlayer;
-    state.winReason = 'DECK_OUT';
-    state.lastLog.push(`فراغ الدك! عجز ${player.name} عن سحب بطاقة، فانتصر الخصم.`);
-    return state;
+  if (isTagSequential) {
+    const activeSlot = typeof state.tagActiveSlot === 'number' ? state.tagActiveSlot : 0;
+    // Rotation slots: 0: P0 Leader, 2: P1 Leader, 1: P0 Teammate, 3: P1 Teammate
+    if (activeSlot === 0 && player.deck.length > 0) {
+      const drawnCard = player.deck.shift();
+      player.hand.push(drawnCard);
+      state.lastLog.push(`${player.name} سحب كارت: ${drawnCard.name}.`);
+    } else if (activeSlot === 1 && player.teammateDeck && player.teammateDeck.length > 0) {
+      const tmCard = player.teammateDeck.shift();
+      if (!player.teammateHand) player.teammateHand = [];
+      player.teammateHand.push(tmCard);
+      state.lastLog.push(`وسحب الزميل (${player.teammateName || 'الزميل'}) كارت: ${tmCard.name}.`);
+    } else if (activeSlot === 2 && player.deck.length > 0) {
+      const drawnCard = player.deck.shift();
+      player.hand.push(drawnCard);
+      state.lastLog.push(`${player.name} سحب كارت: ${drawnCard.name}.`);
+    } else if (activeSlot === 3 && player.teammateDeck && player.teammateDeck.length > 0) {
+      const tmCard = player.teammateDeck.shift();
+      if (!player.teammateHand) player.teammateHand = [];
+      player.teammateHand.push(tmCard);
+      state.lastLog.push(`وسحب الخصم الثاني (${player.teammateName || 'الخصم'}) كارت: ${tmCard.name}.`);
+    }
+  } else {
+    if (player.deck.length === 0) {
+      state.winner = 1 - state.currentTurnPlayer;
+      state.winReason = 'DECK_OUT';
+      state.lastLog.push(`كروت المجموعة خلصت! ${player.name} ما عرفش يسحب كارت، فخسر الماتش.`);
+      return state;
+    }
+
+    const drawnCard = player.deck.shift();
+    player.hand.push(drawnCard);
+    state.lastLog.push(`${player.name} سحب كارت: ${drawnCard.name}.`);
+
+    // In Tag Mode, teammate also draws a card for their hand
+    if (state.isTagMode && player.teammateDeck && player.teammateDeck.length > 0) {
+      const tmCard = player.teammateDeck.shift();
+      if (!player.teammateHand) player.teammateHand = [];
+      player.teammateHand.push(tmCard);
+      state.lastLog.push(`وسحب الزميل (${player.teammateName || 'الزميل'}) كارت: ${tmCard.name}.`);
+    }
   }
-
-  const drawnCard = player.deck.shift();
-  player.hand.push(drawnCard);
-  state.lastLog.push(`سحب ${player.name} بطاقة: ${drawnCard.name}.`);
 
   checkWinConditions(state);
   return state;
@@ -81,11 +115,11 @@ export function advancePhase(state, requestedPhase) {
   if (requestedPhase) {
     if (requestedPhase === 'END') {
       state.phase = 'END';
-      state.lastLog.push('مرحلة الإنهاء (End Phase)');
+      state.lastLog.push('تسليم وإنهاء الدور');
       return endTurn(state);
     }
 
-    if (canChangeToPhase(current, requestedPhase, state.turnNumber)) {
+    if (canChangeToPhase(current, requestedPhase, state.turnNumber, state.isTagMode)) {
       state.phase = requestedPhase;
       state.lastLog.push(getPhaseArabicName(requestedPhase));
       return state;
@@ -95,18 +129,19 @@ export function advancePhase(state, requestedPhase) {
   // Sequential progression
   if (current === 'DRAW') {
     state.phase = 'MAIN1';
-    state.lastLog.push('المرحلة الرئيسية الأولى (Main Phase 1)');
+    state.lastLog.push('المرحلة الأولى (Main Phase 1)');
   } else if (current === 'MAIN1') {
-    // If turn 1, battle phase is illegal -> advance to end turn
-    if (state.turnNumber === 1) {
-      state.lastLog.push('لا يمكن الدخول في مرحلة المعركة في الدور الأول، الانتقال إلى مرحلة الإنهاء.');
+    // If opening Turn 1 of match, battle phase is illegal -> advance to end turn
+    const isFirstTurnAttackBlocked = state.turnNumber === 1;
+    if (isFirstTurnAttackBlocked) {
+      state.lastLog.push('ماتقدرش تهجم في أول دور في الماتش، الدور هيتنقل لإنهاء الدور.');
       return endTurn(state);
     }
     state.phase = 'BATTLE_STEP';
-    state.lastLog.push('مرحلة المعركة والقتال (Battle Phase)');
+    state.lastLog.push('مرحلة الهجوم والمعركة (Battle Phase)');
   } else if (current === 'BATTLE_STEP') {
     state.phase = 'MAIN2';
-    state.lastLog.push('المرحلة الرئيسية الثانية (Main Phase 2)');
+    state.lastLog.push('المرحلة التانية (Main Phase 2)');
   } else if (current === 'MAIN2' || current === 'END') {
     return endTurn(state);
   }
@@ -115,21 +150,54 @@ export function advancePhase(state, requestedPhase) {
 }
 
 export function endTurn(state) {
-  state.currentTurnPlayer = 1 - state.currentTurnPlayer;
-  state.turnNumber += 1;
-  state.phase = 'DRAW';
+  const isTagSequential = state.isTagMode && (state.tagSettings?.turnFlow === 'tag_sequential' || state.turnFlow === 'tag_sequential');
 
-  const newPlayer = state.players[state.currentTurnPlayer];
-  newPlayer.normalSummonsRemaining = 1;
+  if (isTagSequential) {
+    const ROTATION = [0, 2, 1, 3];
+    const currentSlot = typeof state.tagActiveSlot === 'number' ? state.tagActiveSlot : 0;
+    const currIdx = ROTATION.indexOf(currentSlot);
+    const nextIdx = (currIdx + 1) % ROTATION.length;
+    const nextSlot = ROTATION[nextIdx];
+    state.tagActiveSlot = nextSlot;
+    state.currentTurnPlayer = nextSlot < 2 ? 0 : 1;
+    state.turnNumber += 1;
+    state.phase = 'DRAW';
 
-  for (const slot of newPlayer.monsterZones) {
-    if (slot) {
-      slot.hasAttacked = false;
-      slot.canChangePosition = true;
-    }
+    const newPlayer = state.players[state.currentTurnPlayer];
+    newPlayer.normalSummonsRemaining = 1;
+
+    const slotNames = [
+      state.players[0].name,
+      state.players[0].teammateName || 'الزميل',
+      state.players[1].name,
+      state.players[1].teammateName || 'المنافس الثاني'
+    ];
+    state.lastLog.push(`بدأ الدور ${state.turnNumber}: دور [${slotNames[nextSlot] || newPlayer.name}].`);
+  } else {
+    state.currentTurnPlayer = 1 - state.currentTurnPlayer;
+    state.turnNumber += 1;
+    state.phase = 'DRAW';
+
+    const newPlayer = state.players[state.currentTurnPlayer];
+    newPlayer.normalSummonsRemaining = state.isTagMode ? 2 : 1;
+
+    state.lastLog.push(`بدأ الدور ${state.turnNumber}: دلوقتي دور ${newPlayer.name}.`);
   }
 
-  state.lastLog.push(`بدأ الدور ${state.turnNumber}: دور ${newPlayer.name}.`);
+  // Reset per-turn damage shields (such as Winged Kuriboh)
+  state.players.forEach((p) => {
+    p.zeroBattleDamage = false;
+  });
+
+  const activePlayer = state.players[state.currentTurnPlayer];
+  for (const slot of activePlayer.monsterZones) {
+    if (slot) {
+      slot.hasAttacked = false;
+      if (slot.canAttack !== false) {
+        slot.canChangePosition = true;
+      }
+    }
+  }
 
   drawCardForTurnPlayer(state);
   state.phase = 'MAIN1';

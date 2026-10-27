@@ -1,0 +1,29 @@
+{
+  "short_name": "Yu-Gi-Oh!",
+  "name": "Yu-Gi-Oh! Mobile Edition — Yugi Reborn",
+  "description": "Yu-Gi-Oh! Mobile Edition - Complete Offline & Local Multiplayer Game",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c0a08",
+  "theme_color": "#0c0a08",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

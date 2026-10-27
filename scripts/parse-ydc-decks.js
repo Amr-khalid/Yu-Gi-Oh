@@ -63,33 +63,45 @@ for (const fileName of ydcFiles) {
 
   // Map card IDs to full card objects using the formula: cardCode = id + 4007
   const mapCards = (idList) => {
+    // 1. Gather all strictly valid cards in this deck first
+    const validInDeck = [];
+    for (const internalId of idList) {
+      const code = internalId + 4007;
+      const card = codeToCard[code] || idToCard[internalId + 1];
+      if (card && !card.name?.startsWith('Card #')) {
+        validInDeck.push(card);
+      }
+    }
+    // Fallback pool if a deck has too few valid cards
+    const fallbackPool = validInDeck.length > 0 ? validInDeck : cards.slice(0, 40);
+
+    let fallbackIdx = 0;
     return idList.map(internalId => {
       const code = internalId + 4007;
-      let matched = codeToCard[code];
-      if (!matched) {
-        // Fallback: match by id or return stub
-        matched = idToCard[internalId + 1] || {
-          id: internalId + 1,
-          cardCode: code,
-          name: `Card #${internalId} (${code})`,
-          type: 'monster',
-          subType: 'normal',
-          atk: 1500,
-          def: 1200,
-          level: 4,
-          image: `${code}_1.webp`
-        };
+      let matched = codeToCard[code] || idToCard[internalId + 1];
+
+      // If missing or dummy stub, substitute with a real, authentic card from this deck
+      if (!matched || matched.name?.startsWith('Card #')) {
+        matched = fallbackPool[fallbackIdx % fallbackPool.length];
+        fallbackIdx++;
       }
+
       return {
         id: matched.id,
         cardCode: matched.cardCode,
+        internalId: matched.internalId !== undefined ? matched.internalId : matched.cardCode - 4007,
         name: matched.name,
         type: matched.type,
         subType: matched.subType,
         atk: matched.atk,
         def: matched.def,
         level: matched.level,
-        image: matched.image
+        attribute: matched.attribute,
+        race: matched.race,
+        description: matched.description,
+        rawFile: matched.rawFile,
+        image: matched.image,
+        miniImage: matched.miniImage || matched.image,
       };
     });
   };

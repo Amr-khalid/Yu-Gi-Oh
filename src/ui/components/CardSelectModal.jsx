@@ -25,9 +25,9 @@ const CloseIcon = ({ size = 18, color = 'currentColor' }) => (
 export const CardSelectModal = ({
   isOpen,
   onClose,
-  title = 'اختيار بطاقة',
-  subtitle = 'اختر بطاقة لتطبيق التأثير السحري',
-  actionLabel = 'تأكيد الاختيار',
+  title = 'اختار كارت',
+  subtitle = 'اختار كارت علشان تطبق عليه تأثير السحر',
+  actionLabel = 'أكّد اختيارك',
   options = [],
   onConfirm,
   onInspectCard,
@@ -67,7 +67,7 @@ export const CardSelectModal = ({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        backgroundColor: 'var(--pharaoh-modal-backdrop)',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
         zIndex: 2300,
@@ -189,7 +189,7 @@ export const CardSelectModal = ({
                     background: active
                       ? 'linear-gradient(180deg, #d8ac3b, #a77c1d)'
                       : 'var(--pharaoh-stone-card)',
-                    color: active ? '#120e06' : 'var(--pharaoh-text-muted)',
+                    color: active ? '#ffffff' : 'var(--pharaoh-text-muted)',
                     border: active ? '1px solid #f6d87d' : '1px solid var(--pharaoh-stone-border)',
                     cursor: 'pointer',
                   }}
@@ -213,7 +213,7 @@ export const CardSelectModal = ({
         >
           {filteredOptions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--pharaoh-text-muted)', fontSize: 13 }}>
-              لا توجد بطاقات متاحة في هذا التصنيف
+              مافيش كروت متاحة في القسم ده
             </div>
           ) : (
             <div
@@ -262,7 +262,7 @@ export const CardSelectModal = ({
                           top: 4,
                           right: 4,
                           background: 'linear-gradient(135deg, #d8ac3b, #b45309)',
-                          color: '#120e06',
+                          color: '#ffffff',
                           borderRadius: '50%',
                           width: 20,
                           height: 20,
@@ -273,7 +273,7 @@ export const CardSelectModal = ({
                           boxShadow: '0 0 8px #f59e0b',
                         }}
                       >
-                        <CheckIcon size={12} color="#120e06" />
+                        <CheckIcon size={12} color="#ffffff" />
                       </div>
                     )}
 
@@ -316,6 +316,7 @@ export const CardSelectModal = ({
 
                     {/* Name */}
                     <div
+                      className="mini-card-name-box"
                       style={{
                         padding: '4px 6px',
                         fontSize: 10,
@@ -325,7 +326,7 @@ export const CardSelectModal = ({
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         textAlign: 'center',
-                        background: 'rgba(15, 12, 8, 0.95)',
+                        background: 'var(--pharaoh-stone-slab)',
                       }}
                     >
                       {card.name}
@@ -334,6 +335,7 @@ export const CardSelectModal = ({
                     {/* ATK / DEF */}
                     {card.type === 'monster' && (
                       <div
+                        className="mini-card-stats-box"
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -342,11 +344,11 @@ export const CardSelectModal = ({
                           fontSize: 9,
                           fontWeight: 900,
                           borderTop: '1px solid rgba(240, 203, 100, 0.15)',
-                          background: 'rgba(0, 0, 0, 0.65)',
+                          background: 'var(--pharaoh-slot-bg)',
                         }}
                       >
-                        <span style={{ color: '#fef08a' }}>{card.atk}</span>
-                        <span style={{ color: '#93c5fd' }}>{card.def}</span>
+                        <span className="atk-text" style={{ color: '#f87171' }}>{card.atk}</span>
+                        <span className="def-text" style={{ color: '#60a5fa' }}>{card.def}</span>
                       </div>
                     )}
                   </div>
@@ -362,7 +364,7 @@ export const CardSelectModal = ({
             style={{
               padding: '10px 14px',
               borderTop: '1px solid var(--pharaoh-stone-border)',
-              background: 'rgba(18, 14, 9, 0.95)',
+              background: 'var(--pharaoh-stone-slab)',
               display: 'flex',
               gap: 12,
               alignItems: 'center',
@@ -375,7 +377,7 @@ export const CardSelectModal = ({
                 </span>
                 {selectedCard.type === 'monster' && (
                   <span style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
-                    (★{selectedCard.level} • هجوم {selectedCard.atk} / دفاع {selectedCard.def})
+                    (مستوى {selectedCard.level} • هجوم {selectedCard.atk} / دفاع {selectedCard.def})
                   </span>
                 )}
               </div>
@@ -401,7 +403,7 @@ export const CardSelectModal = ({
                 className="btn-pharaoh-stone"
                 style={{ padding: '6px 12px', fontSize: 11, whiteSpace: 'nowrap' }}
               >
-                فحص كامل
+                شوف الكارت
               </button>
             )}
           </div>

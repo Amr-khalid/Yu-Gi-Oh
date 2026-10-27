@@ -6,8 +6,45 @@ import {
   getArabicAttribute,
   getArabicSubtype,
 } from '../../data/arabicCardTranslator.js';
+import soundManager from '../../game/audio/SoundManager.js';
+import hapticManager from '../../game/utils/HapticManager.js';
 
 /* Sleek Pure-SVG Icons (Zero Emojis) */
+const CloseIcon = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const SwordIcon = ({ size = 13, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+    <line x1="13" y1="19" x2="19" y2="13" />
+    <line x1="16" y1="16" x2="20" y2="20" />
+    <line x1="19" y1="21" x2="21" y2="19" />
+  </svg>
+);
+
+const ShieldIcon = ({ size = 13, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+const StarIcon = ({ size = 12, color = '#facc15' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth="1">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+
+const ReturnIcon = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 14 4 9 9 4" />
+    <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+  </svg>
+);
+
 const ExpandIcon = ({ size = 12, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="15 3 21 3 21 9" />
@@ -24,17 +61,11 @@ const CheckShieldIcon = ({ size = 12, color = 'currentColor' }) => (
   </svg>
 );
 
-const CloseIcon = ({ size = 16, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-export const CardDetailModal = ({ card, onClose, actionButton = null }) => {
+export const CardDetailModal = ({ card, onClose, inDuel = false, actionButton = null }) => {
   if (!card) return null;
 
-  const [viewMode, setViewMode] = useState('full'); // 'full' = complete uncropped rectangular card (200x290), 'art' = zoomed artwork
+  // Defaults to high-resolution card artwork ('art') per user requirement
+  const [viewMode, setViewMode] = useState('art');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const rawFilename = card.rawFile
@@ -51,9 +82,33 @@ export const CardDetailModal = ({ card, onClose, actionButton = null }) => {
   const classification = getArabicCardClassification(card);
   const descriptionArabic = getArabicCardDescription(card);
 
+  const handleClose = () => {
+    try {
+      soundManager.playClick();
+      hapticManager.triggerCombatVibration('click');
+    } catch (e) {}
+    onClose();
+  };
+
+  const handleToggleViewMode = (mode) => {
+    try {
+      soundManager.playClick();
+      hapticManager.triggerCombatVibration('click');
+    } catch (e) {}
+    setViewMode(mode);
+  };
+
+  const handleOpenLightbox = () => {
+    try {
+      soundManager.playDecide();
+      hapticManager.triggerCombatVibration('click');
+    } catch (e) {}
+    setIsLightboxOpen(true);
+  };
+
   return (
     <>
-      {/* Full-Screen Ultra-Zoom Lightbox Modal */}
+      {/* Ultra-Zoom Lightbox Modal */}
       {isLightboxOpen && (
         <div
           className="card-lightbox-backdrop"
@@ -77,50 +132,58 @@ export const CardDetailModal = ({ card, onClose, actionButton = null }) => {
                 paddingBottom: 8,
               }}
             >
-              <span>{card.name} — تكبير فائق الوضوح</span>
+              <span>{card.arabicName || card.name} — تكبير فائق الدقة</span>
               <button
                 onClick={() => setIsLightboxOpen(false)}
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: 'var(--pharaoh-text-light)',
+                  color: 'var(--pharaoh-gold-bright)',
                   cursor: 'pointer',
                   padding: 4,
                   display: 'flex',
                   alignItems: 'center',
                 }}
-                title="إغلاق"
+                title="قفل التكبير"
               >
                 <CloseIcon size={20} color="var(--pharaoh-gold-bright)" />
               </button>
             </div>
 
-            {/* High-Resolution Uncropped Rectangular Card in Lightbox */}
+            {/* High-Resolution Uncropped Card or Artwork in Lightbox */}
             <div
               style={{
                 borderRadius: 8,
                 overflow: 'hidden',
                 border: '3px solid var(--pharaoh-gold-royal)',
-                boxShadow: '0 0 40px rgba(212, 175, 55, 0.45), 0 12px 30px rgba(0, 0, 0, 0.9)',
+                boxShadow: '0 0 45px rgba(212, 175, 55, 0.5), 0 14px 35px rgba(0, 0, 0, 0.95)',
                 background: '#0d0b08',
               }}
             >
               <img
                 src={currentSrc}
                 alt={card.name}
+                loading="eager"
+                fetchPriority="high"
+                decoding="sync"
                 className="card-art-enhanced"
                 style={{
-                  maxHeight: viewMode === 'full' ? 'min(640px, 80vh)' : 'min(480px, 68vh)',
-                  maxWidth: 'min(440px, 92vw)',
+                  maxHeight: viewMode === 'full' ? 'min(640px, 78vh)' : 'min(480px, 66vh)',
+                  maxWidth: 'min(460px, 92vw)',
                   width: 'auto',
                   height: 'auto',
                   aspectRatio: viewMode === 'full' ? '200 / 290' : '200 / 215',
                   objectFit: 'contain',
                   display: 'block',
+                  imageRendering: 'high-quality',
                 }}
                 onError={(e) => {
-                  if (e.target.src !== fullCardSrc) {
+                  if (e.target.src.includes('/assets/cards-art/')) {
                     e.target.src = fullCardSrc;
+                  } else if (e.target.src.includes('/assets/cards/')) {
+                    e.target.src = `/assets/cards-mini/${rawFilename}`;
+                  } else {
+                    e.target.src = '/assets/card_back.png';
                   }
                 }}
               />
@@ -132,440 +195,235 @@ export const CardDetailModal = ({ card, onClose, actionButton = null }) => {
                 display: 'flex',
                 background: 'var(--pharaoh-slot-bg)',
                 border: '1px solid var(--pharaoh-stone-border)',
-                borderRadius: 6,
+                borderRadius: 20,
                 padding: 3,
                 gap: 4,
               }}
             >
               <button
-                onClick={() => setViewMode('full')}
+                onClick={() => handleToggleViewMode('art')}
                 style={{
                   padding: '5px 14px',
                   fontSize: 12,
                   fontWeight: 800,
-                  borderRadius: 4,
-                  background: viewMode === 'full' ? 'var(--pharaoh-panel-bg)' : 'transparent',
-                  color: viewMode === 'full' ? 'var(--pharaoh-gold-bright)' : 'var(--pharaoh-text-muted)',
-                  border: viewMode === 'full' ? '1px solid var(--pharaoh-gold-dark)' : '1px solid transparent',
+                  borderRadius: 14,
+                  background: viewMode === 'art' ? 'var(--pharaoh-gold-royal)' : 'transparent',
+                  color: viewMode === 'art' ? '#ffffff' : 'var(--pharaoh-text-muted)',
+                  border: 'none',
                   cursor: 'pointer',
+                  transition: 'all 0.2s ease',
                 }}
               >
-                البطاقة بالكامل (مستطيلة دون أي قص)
+                الرسمة بس
               </button>
               <button
-                onClick={() => setViewMode('art')}
+                onClick={() => handleToggleViewMode('full')}
                 style={{
                   padding: '5px 14px',
                   fontSize: 12,
                   fontWeight: 800,
-                  borderRadius: 4,
-                  background: viewMode === 'art' ? 'var(--pharaoh-panel-bg)' : 'transparent',
-                  color: viewMode === 'art' ? 'var(--pharaoh-gold-bright)' : 'var(--pharaoh-text-muted)',
-                  border: viewMode === 'art' ? '1px solid var(--pharaoh-gold-dark)' : '1px solid transparent',
+                  borderRadius: 14,
+                  background: viewMode === 'full' ? 'var(--pharaoh-gold-royal)' : 'transparent',
+                  color: viewMode === 'full' ? '#ffffff' : 'var(--pharaoh-text-muted)',
+                  border: 'none',
                   cursor: 'pointer',
+                  transition: 'all 0.2s ease',
                 }}
               >
-                تكبير رسم الوحش فقط
+                الكارت كامل
               </button>
             </div>
 
-            {/* Rectangular Completeness Notice */}
-            <div
+            <button
+              onClick={() => setIsLightboxOpen(false)}
+              className="btn-pharaoh-stone"
               style={{
-                fontSize: 11,
-                color: 'var(--pharaoh-text-gold)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                textAlign: 'center',
-                background: 'rgba(212, 175, 55, 0.08)',
-                padding: '4px 12px',
-                borderRadius: 4,
-                border: '1px solid var(--pharaoh-stone-border)',
+                padding: '6px 20px',
+                fontSize: 12,
+                fontWeight: 800,
+                borderRadius: 6,
               }}
             >
-              <CheckShieldIcon size={13} color="var(--pharaoh-gold-bright)" />
-              <span>البطاقة مستطيلة بنسبة 200×290 وتظهر كاملة بنسبة 100% دون أي اقتطاع</span>
-            </div>
+              رجوع للتفاصيل
+            </button>
           </div>
         </div>
       )}
 
-      {/* Main Card Detail Modal */}
+      {/* Main Card Detail Modal Backdrop (Tap outside to dismiss) */}
       <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'var(--pharaoh-modal-backdrop, rgba(0, 0, 0, 0.85))',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          padding: 12,
-          direction: 'rtl',
-        }}
-        onClick={onClose}
+        className="card-detail-backdrop"
+        onClick={handleClose}
       >
         <div
-          className="stone-panel"
-          style={{
-            maxWidth: 440,
-            width: '95%',
-            maxHeight: '94vh',
-            display: 'flex',
-            flexDirection: 'column',
-            borderRadius: 10,
-            border: '2px solid var(--pharaoh-gold-royal)',
-            boxShadow: '0 14px 45px var(--pharaoh-modal-shadow, rgba(0, 0, 0, 0.85))',
-            padding: 0,
-            background: 'var(--pharaoh-panel-bg)',
-            color: 'var(--pharaoh-text-light)',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            transition: 'background 0.25s ease, color 0.25s ease, border-color 0.25s ease',
-          }}
+          className="card-detail-modal-box"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Hero Rectangular Card Section (Full Width, Edge-to-Edge with Zero Gaps) */}
-          <div
-            onClick={() => setIsLightboxOpen(true)}
-            style={{
-              position: 'relative',
-              width: '100%',
-              aspectRatio: viewMode === 'full' ? '200 / 290' : '200 / 215',
-              maxHeight: viewMode === 'full' ? 'min(520px, 62vh)' : 'min(360px, 46vh)',
-              background: '#090806',
-              cursor: 'zoom-in',
-              overflow: 'hidden',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderBottom: '2px solid var(--pharaoh-gold-royal)',
-            }}
-            title="انقر لتكبير البطاقة ملء الشاشة"
-          >
-            {/* Ambient Background Behind Card to eliminate any empty side space */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundImage: `url(${fullCardSrc})`,
-                backgroundPosition: 'center',
-                backgroundSize: 'cover',
-                filter: 'blur(20px) brightness(0.35)',
-                transform: 'scale(1.2)',
-                pointerEvents: 'none',
-              }}
-            />
+          {/* Header Bar: Category Badge + Mode Switcher + Close Button */}
+          <div className="card-detail-header-bar">
+            <div className="card-detail-pill">
+              <span className="pill-dot" />
+              <span>{classification}</span>
+            </div>
 
-            {/* Main Uncropped Rectangular Card Image */}
-            <img
-              src={currentSrc}
-              alt={card.name}
-              className="card-art-enhanced"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                display: 'block',
-                position: 'relative',
-                zIndex: 1,
-              }}
-              onError={(e) => {
-                if (e.target.src !== fullCardSrc) {
-                  e.target.src = fullCardSrc;
-                }
-              }}
-            />
-
-            {/* Subtle Gradient Shadow Fusing Image into Card Body */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0.2) 75%, rgba(13,11,8,0.92) 100%)',
-                pointerEvents: 'none',
-                zIndex: 2,
-              }}
-            />
-
-            {/* Floating Top Bar: Classification Badge & Mode Switcher */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 8,
-                left: 8,
-                right: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                zIndex: 3,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  padding: '3px 10px',
-                  borderRadius: 4,
-                  background: 'rgba(10, 8, 5, 0.85)',
-                  backdropFilter: 'blur(4px)',
-                  border: '1px solid var(--pharaoh-gold-dark)',
-                  color: 'var(--pharaoh-gold-bright)',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
-                }}
-              >
-                {classification}
-              </span>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    background: 'rgba(10, 8, 5, 0.85)',
-                    backdropFilter: 'blur(4px)',
-                    border: '1px solid var(--pharaoh-gold-dark)',
-                    borderRadius: 4,
-                    padding: 2,
-                    gap: 2,
-                  }}
-                >
-                  <button
-                    onClick={() => setViewMode('full')}
-                    style={{
-                      padding: '2px 9px',
-                      fontSize: 10,
-                      fontWeight: 800,
-                      borderRadius: 3,
-                      background: viewMode === 'full' ? 'var(--pharaoh-gold-royal)' : 'transparent',
-                      color: viewMode === 'full' ? '#120e06' : 'var(--pharaoh-text-muted)',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    البطاقة كاملة (مستطيلة)
-                  </button>
-                  <button
-                    onClick={() => setViewMode('art')}
-                    style={{
-                      padding: '2px 9px',
-                      fontSize: 10,
-                      fontWeight: 800,
-                      borderRadius: 3,
-                      background: viewMode === 'art' ? 'var(--pharaoh-gold-royal)' : 'transparent',
-                      color: viewMode === 'art' ? '#120e06' : 'var(--pharaoh-text-muted)',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    الرسم فقط
-                  </button>
-                </div>
-
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Toggle Pill: Artwork Only vs Full Card */}
+              <div className="card-detail-toggle-pill">
                 <button
-                  onClick={onClose}
-                  style={{
-                    background: 'rgba(10, 8, 5, 0.85)',
-                    backdropFilter: 'blur(4px)',
-                    border: '1px solid var(--pharaoh-gold-dark)',
-                    borderRadius: 4,
-                    width: 26,
-                    height: 26,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: 'var(--pharaoh-gold-bright)',
-                  }}
-                  title="إغلاق"
+                  type="button"
+                  onClick={() => handleToggleViewMode('art')}
+                  className={`toggle-btn ${viewMode === 'art' ? 'active' : ''}`}
                 >
-                  <CloseIcon size={14} color="var(--pharaoh-gold-bright)" />
+                  الرسمة بس
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleViewMode('full')}
+                  className={`toggle-btn ${viewMode === 'full' ? 'active' : ''}`}
+                >
+                  الكارت كامل
                 </button>
               </div>
-            </div>
 
-            {/* Floating Bottom Bar on Image: Card Name & Zoom Badge */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 8,
-                left: 12,
-                right: 12,
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'space-between',
-                zIndex: 3,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 18,
-                  fontWeight: 900,
-                  color: 'var(--pharaoh-gold-bright)',
-                  textShadow: '0 2px 8px rgba(0,0,0,0.95), 0 0 10px rgba(212,175,55,0.4)',
-                  letterSpacing: 0.3,
-                  lineHeight: 1.2,
-                }}
-              >
-                {card.name}
-              </div>
-
-              <div
-                style={{
-                  background: 'rgba(10, 8, 5, 0.8)',
-                  backdropFilter: 'blur(3px)',
-                  border: '1px solid var(--pharaoh-gold-dark)',
-                  borderRadius: 4,
-                  padding: '2px 6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  fontSize: 10,
-                  fontWeight: 800,
-                  color: 'var(--pharaoh-gold-bright)',
-                  pointerEvents: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <ExpandIcon size={11} color="var(--pharaoh-gold-bright)" />
-                <span>تكبير كامل</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Seamless Content Body (Integrated Smoothly with Hero Image) */}
-          <div
-            style={{
-              padding: '12px 14px 14px 14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            {/* Stats Bar for Monsters */}
-            {isMonster && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  padding: '7px 10px',
-                  background: 'var(--pharaoh-slot-bg)',
-                  borderRadius: 5,
-                  border: '1px solid var(--pharaoh-stone-border)',
-                  color: 'var(--pharaoh-text-light)',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span style={{ color: 'var(--pharaoh-gold-bright)' }}>
-                  المستوى: {card.level || 1}
-                </span>
-                <span style={{ color: '#ef4444' }}>
-                  الهجوم: {card.atk !== undefined ? card.atk : 0}
-                </span>
-                <span style={{ color: '#0284c7' }}>
-                  الدفاع: {card.def !== undefined ? card.def : 0}
-                </span>
-                <span style={{ color: 'var(--pharaoh-text-muted)', fontSize: 11, marginRight: 'auto' }}>
-                  {getArabicRace(card.race)} / {getArabicAttribute(card.attribute)}
-                </span>
-              </div>
-            )}
-
-            {/* Spell / Trap Banner */}
-            {!isMonster && (
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 800,
-                  color: card.type === 'spell' ? '#0d9488' : '#e11d48',
-                  padding: '7px 12px',
-                  background: 'var(--pharaoh-slot-bg)',
-                  borderRadius: 5,
-                  border: '1px solid var(--pharaoh-stone-border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 6,
-                }}
-              >
-                <span>بطاقة {card.type === 'spell' ? 'تعويذة سحرية' : 'فخ دفاعي'} ({getArabicSubtype(card.subType, card.type)})</span>
-                <span style={{ color: 'var(--pharaoh-text-muted)', fontSize: 11, fontWeight: 700 }}>
-                  بطاقة تكتيكية (لا تملك هجوم أو دفاع)
-                </span>
-              </div>
-            )}
-
-            {/* Section Header */}
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 900,
-                color: 'var(--pharaoh-gold-royal)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span>وصف وقدرات البطاقة بالعربية:</span>
-              <span style={{ fontSize: 10, color: 'var(--pharaoh-text-gold)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <CheckShieldIcon size={11} color="var(--pharaoh-gold-bright)" />
-                <span>بطاقة مستطيلة كاملة 100%</span>
-              </span>
-            </div>
-
-            {/* Arabic Description Box — High Contrast & Integrated Theme */}
-            <div
-              style={{
-                fontSize: 13.5,
-                lineHeight: 1.75,
-                fontWeight: 600,
-                color: 'var(--pharaoh-text-light)',
-                background: 'var(--pharaoh-slot-bg)',
-                border: '1px solid var(--pharaoh-stone-border)',
-                borderRadius: 6,
-                padding: '10px 12px',
-                maxHeight: 'min(150px, 22vh)',
-                overflowY: 'auto',
-                whiteSpace: 'pre-line',
-                textAlign: 'right',
-              }}
-            >
-              {descriptionArabic}
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              {actionButton}
-
+              {/* Close Button */}
               <button
-                onClick={onClose}
-                className="btn-pharaoh-gold"
-                style={{
-                  flex: actionButton ? '0 0 100px' : '1',
-                  padding: '9px 0',
-                  fontSize: 13,
-                  fontWeight: 800,
-                }}
+                type="button"
+                onClick={handleClose}
+                className="card-detail-close-btn"
+                title="قفل وخروج"
               >
-                إغلاق
+                <CloseIcon size={18} color="var(--pharaoh-gold-bright)" />
               </button>
             </div>
           </div>
+
+          {/* Main Body Container (Adapts to 2 columns in landscape on mobile) */}
+          <div className="card-detail-body-container">
+            {/* Hero Artwork / Card Showcase Frame */}
+            <div className="card-detail-art-wrapper">
+              <div
+                className="card-detail-art-frame"
+                onClick={handleOpenLightbox}
+                title="دوس هنا علشان تكبر الرسمة ملء الشاشة"
+              >
+                {/* Ambient Aura Background */}
+                <div
+                  className="card-detail-art-aura"
+                  style={{ backgroundImage: `url(${fullCardSrc})` }}
+                />
+
+                {/* Main Card / Art Illustration Image */}
+                <img
+                  src={currentSrc}
+                  alt={card.name}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="sync"
+                  className="card-art-img card-art-enhanced"
+                  onError={(e) => {
+                    if (e.target.src.includes('/assets/cards-art/')) {
+                      e.target.src = fullCardSrc;
+                    } else if (e.target.src.includes('/assets/cards/')) {
+                      e.target.src = `/assets/cards-mini/${rawFilename}`;
+                    } else {
+                      e.target.src = '/assets/card_back.png';
+                    }
+                  }}
+                />
+
+                {/* Subtle Glass Sheen Overlay */}
+                <div className="card-detail-art-sheen" />
+
+                {/* Zoom Badge */}
+                <div className="card-detail-art-zoom-tag">
+                  <ExpandIcon size={11} color="var(--pharaoh-gold-bright)" />
+                  <span>تكبير</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Information & Description Panel */}
+            <div className="card-detail-info-panel">
+              {/* Card Title */}
+              <div className="card-detail-title-row">
+                <h3 className="card-detail-arabic-name">
+                  {card.arabicName || card.name}
+                </h3>
+                {card.arabicName && (
+                  <div className="card-detail-english-name">{card.name}</div>
+                )}
+              </div>
+
+              {/* Monster Combat Stats Chips */}
+              {isMonster && (
+                <div className="card-detail-stats-grid">
+                  <div className="stat-chip atk">
+                    <SwordIcon size={12} color="#fca5a5" />
+                    <span>هجوم</span>
+                    <span className="stat-num">{card.atk !== undefined ? card.atk : 0}</span>
+                  </div>
+
+                  <div className="stat-chip def">
+                    <ShieldIcon size={12} color="#93c5fd" />
+                    <span>دفاع</span>
+                    <span className="stat-num">{card.def !== undefined ? card.def : 0}</span>
+                  </div>
+
+                  <div className="stat-chip stars">
+                    <StarIcon size={11} color="#facc15" />
+                    <span>{card.level || 1} نجوم</span>
+                  </div>
+
+                  <div className="stat-chip attr">
+                    <span>{getArabicRace(card.race)}</span>
+                    <span>•</span>
+                    <span>{getArabicAttribute(card.attribute)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Spell / Trap Tactical Banner */}
+              {!isMonster && (
+                <div className={`card-detail-st-banner ${card.type}`}>
+                  <span>كارت {card.type === 'spell' ? 'سحر وتعاويذ' : 'فخ دفاعي'} ({getArabicSubtype(card.subType, card.type)})</span>
+                  <span className="st-tactical-tag">كارت تكتيكي مالوش هجوم ودفاع</span>
+                </div>
+              )}
+
+              {/* Description Header */}
+              <div className="card-detail-desc-header">
+                <span>تفاصيل وتأثير الكارت:</span>
+                <span className="desc-badge">
+                  <CheckShieldIcon size={11} color="var(--pharaoh-gold-bright)" />
+                  <span>شرح مصري دقيق</span>
+                </span>
+              </div>
+
+              {/* Arabic Description Box (Scrollable with crisp high contrast typography) */}
+              <div className="card-detail-desc-box">
+                {descriptionArabic}
+              </div>
+
+              {/* Action Buttons: Dedicated Return Flow Button */}
+              <div className="card-detail-footer-actions">
+                {actionButton}
+
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="btn-pharaoh-gold card-detail-return-btn"
+                  title="رجوع للماتش"
+                >
+                  <ReturnIcon size={16} />
+                  <span>{inDuel ? 'رجوع للماتش دلوقتي' : 'رجوع'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-    </div>
-  </>
-);
+      </div>
+    </>
+  );
 };
+
+export default CardDetailModal;

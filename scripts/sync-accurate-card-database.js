@@ -142,8 +142,8 @@ const CUSTOM_OVERRIDES = {
   'dizzy tiger': {
     type: 'monster',
     subType: 'effect',
-    atk: 1300,
-    def: 800,
+    atk: 1800,
+    def: 600,
     level: 4,
     attribute: 'EARTH',
     race: 'Beast'
@@ -160,8 +160,8 @@ const CUSTOM_OVERRIDES = {
   'dark magician girl of chaos': {
     type: 'monster',
     subType: 'normal',
-    atk: 2000,
-    def: 1700,
+    atk: 2350,
+    def: 2000,
     level: 6,
     attribute: 'DARK',
     race: 'Spellcaster'
@@ -169,17 +169,17 @@ const CUSTOM_OVERRIDES = {
   'giant ushi oni': {
     type: 'monster',
     subType: 'normal',
-    atk: 2150,
-    def: 1950,
-    level: 6,
+    atk: 2600,
+    def: 2100,
+    level: 8,
     attribute: 'DARK',
     race: 'Fiend'
   },
   'dizzy angel': {
     type: 'monster',
     subType: 'effect',
-    atk: 1400,
-    def: 1200,
+    atk: 1800,
+    def: 400,
     level: 4,
     attribute: 'LIGHT',
     race: 'Fairy'
@@ -196,11 +196,56 @@ const CUSTOM_OVERRIDES = {
   'knight of destiny': {
     type: 'monster',
     subType: 'fusion',
-    atk: 2800,
-    def: 2500,
+    atk: 5000,
+    def: 5000,
     level: 10,
     attribute: 'LIGHT',
     race: 'Warrior'
+  },
+  'kaiser glider': {
+    type: 'monster',
+    subType: 'effect',
+    atk: 2400,
+    def: 2000,
+    level: 6,
+    attribute: 'LIGHT',
+    race: 'Dragon'
+  },
+  'the winged dragon of ra (sphere mode)': {
+    type: 'monster',
+    subType: 'effect',
+    atk: 0,
+    def: 0,
+    level: 10,
+    attribute: 'DIVINE',
+    race: 'Divine-Beast'
+  },
+  'insect monster token': {
+    type: 'monster',
+    subType: 'normal',
+    atk: 100,
+    def: 100,
+    level: 1,
+    attribute: 'EARTH',
+    race: 'Insect'
+  },
+  'kuriboh token': {
+    type: 'monster',
+    subType: 'normal',
+    atk: 300,
+    def: 200,
+    level: 1,
+    attribute: 'DARK',
+    race: 'Fiend'
+  },
+  'slime token': {
+    type: 'monster',
+    subType: 'normal',
+    atk: 500,
+    def: 500,
+    level: 1,
+    attribute: 'WATER',
+    race: 'Aqua'
   },
   'kinetic soldier': {
     type: 'monster',
@@ -223,10 +268,10 @@ const CUSTOM_OVERRIDES = {
   'ruby dragon': {
     type: 'monster',
     subType: 'normal',
-    atk: 2100,
-    def: 2800,
-    level: 7,
-    attribute: 'LIGHT',
+    atk: 1600,
+    def: 1900,
+    level: 4,
+    attribute: 'WIND',
     race: 'Dragon'
   },
   'diamond head dragon': {
@@ -286,18 +331,18 @@ const CUSTOM_OVERRIDES = {
   'blue-eyes baby dragon': {
     type: 'monster',
     subType: 'normal',
-    atk: 1200,
-    def: 700,
-    level: 3,
+    atk: 1500,
+    def: 1000,
+    level: 4,
     attribute: 'LIGHT',
     race: 'Dragon'
   },
   'breaker the magician girl': {
     type: 'monster',
     subType: 'effect',
-    atk: 1600,
-    def: 1000,
-    level: 4,
+    atk: 2000,
+    def: 1700,
+    level: 5,
     attribute: 'DARK',
     race: 'Spellcaster'
   },

@@ -6,8 +6,16 @@
     "androidScheme": "https",
     "cleartext": true
   },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "Dark",
+      "backgroundColor": "#0c0a08"
+    }
+  },
   "android": {
     "allowMixedContent": true,
-    "captureInput": true
+    "captureInput": true,
+    "fullscreen": true
   }
 }

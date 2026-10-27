@@ -3,6 +3,7 @@ import cardsData from '../../data/cards.json';
 import { CardDetailModal } from '../components/CardDetailModal.jsx';
 import soundManager from '../../game/audio/SoundManager.js';
 import hapticManager from '../../game/utils/HapticManager.js';
+import { hasValidCardImage } from '../../game/utils/cardImageHelper.js';
 
 /* Sleek Pure-SVG Pharaonic & Gaming Icons (Zero Emojis) */
 const ArrowBackIcon = ({ size = 15, color = 'currentColor' }) => (
@@ -105,6 +106,9 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
 
   const filteredCards = useMemo(() => {
     let list = cardsData.filter((card) => {
+      // Do not display cards without verified images
+      if (!hasValidCardImage(card)) return false;
+
       const matchesSearch =
         card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         card.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -125,14 +129,16 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
     return list;
   }, [searchTerm, typeFilter, attributeFilter, levelFilter, sortBy]);
 
+  const isLight = theme === 'light';
+
   const attributeColors = {
     all: { label: 'الكل', color: 'var(--pharaoh-text-gold)', dot: '#d4af37' },
-    LIGHT: { label: 'ضوء', color: '#fef08a', dot: '#eab308' },
-    DARK: { label: 'ظلام', color: '#c084fc', dot: '#9333ea' },
-    WATER: { label: 'ماء', color: '#38bdf8', dot: '#0284c7' },
-    FIRE: { label: 'نار', color: '#f87171', dot: '#dc2626' },
-    EARTH: { label: 'أرض', color: '#fbbf24', dot: '#d97706' },
-    WIND: { label: 'رياح', color: '#4ade80', dot: '#16a34a' },
+    LIGHT: { label: 'ضوء', color: isLight ? '#854d0e' : '#fef08a', dot: '#eab308' },
+    DARK: { label: 'ظلام', color: isLight ? '#7e22ce' : '#c084fc', dot: '#9333ea' },
+    WATER: { label: 'ماء', color: isLight ? '#0369a1' : '#38bdf8', dot: '#0284c7' },
+    FIRE: { label: 'نار', color: isLight ? '#b91c1c' : '#f87171', dot: '#dc2626' },
+    EARTH: { label: 'أرض', color: isLight ? '#92400e' : '#fbbf24', dot: '#d97706' },
+    WIND: { label: 'رياح', color: isLight ? '#15803d' : '#4ade80', dot: '#16a34a' },
   };
 
   return (
@@ -178,7 +184,7 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
             title="رجوع للقائمة الرئيسية"
           >
             <ArrowBackIcon size={14} color="var(--pharaoh-gold-bright)" />
-            {!isMobile && <span>رجوع</span>}
+            {!isMobile && <span>الرئيسية</span>}
           </button>
 
           {onToggleTheme && (
@@ -204,7 +210,7 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <h2 style={{ fontSize: isMobile ? 13 : 15, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', margin: 0 }}>
-            مكتبة وسجل البطاقات
+            كتالوج كل الكروت الفرعونية
           </h2>
           <span
             style={{
@@ -248,7 +254,7 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
           <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
             <input
               type="text"
-              placeholder="ابحث باسم البطاقة أو الوصف..."
+              placeholder="دوّر باسم الكارت أو تأثيره..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -308,10 +314,10 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
             }}
             title="طريقة الترتيب"
           >
-            <option value="atk">الأعلى هجوماً</option>
-            <option value="def">الأعلى دفاعاً</option>
-            <option value="level">المستوى</option>
-            <option value="name">أبجدي</option>
+            <option value="atk">أعلى هجوم</option>
+            <option value="def">أعلى دفاع</option>
+            <option value="level">النجوم (المستوى)</option>
+            <option value="name">بالحروف الأبجدية</option>
           </select>
         </div>
 
@@ -337,9 +343,9 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
                 alignItems: 'center',
                 gap: 3,
               }}
-              title="بطاقات الوحوش"
+              title="كروت الوحوش"
             >
-              <MonsterIcon size={11} color={typeFilter === 'monster' ? '#120e06' : '#f59e0b'} />
+              <MonsterIcon size={11} color={typeFilter === 'monster' ? '#ffffff' : '#f59e0b'} />
               <span>وحوش</span>
             </button>
 
@@ -354,9 +360,9 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
                 alignItems: 'center',
                 gap: 3,
               }}
-              title="بطاقات السحر"
+              title="كروت السحر"
             >
-              <SpellIcon size={11} color={typeFilter === 'spell' ? '#120e06' : '#0d9488'} />
+              <SpellIcon size={11} color={typeFilter === 'spell' ? '#ffffff' : '#0d9488'} />
               <span>سحر</span>
             </button>
 
@@ -371,9 +377,9 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
                 alignItems: 'center',
                 gap: 3,
               }}
-              title="بطاقات الفخ"
+              title="كروت الفخ"
             >
-              <TrapIcon size={11} color={typeFilter === 'trap' ? '#120e06' : '#e11d48'} />
+              <TrapIcon size={11} color={typeFilter === 'trap' ? '#ffffff' : '#e11d48'} />
               <span>فخاخ</span>
             </button>
           </div>
@@ -391,12 +397,12 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
                 borderRadius: 4,
                 fontSize: 10,
               }}
-              title="تصفية حسب المستوى"
+              title="تصفية حسب عدد النجوم"
             >
-              <option value="all">كل الرتب</option>
+              <option value="all">كل النجوم</option>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((lvl) => (
                 <option key={`lvl-${lvl}`} value={lvl}>
-                  رتبة {lvl}
+                  {lvl} نجوم
                 </option>
               ))}
             </select>
@@ -470,6 +476,7 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
         {filteredCards.slice(0, 300).map((card, idx) => (
           <div
             key={`lib-card-${idx}`}
+            id={`lib-card-item-${idx}`}
             onClick={() => {
               soundManager.playCardOpen();
               hapticManager.triggerCombatVibration('click');
@@ -503,6 +510,7 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
                 borderRadius: 3,
                 boxShadow: '0 2px 6px rgba(0, 0, 0, 0.5)',
                 display: 'block',
+                imageRendering: 'high-quality',
               }}
               onError={(e) => {
                 const fallbackMini = `/assets/cards-mini/${
@@ -510,6 +518,9 @@ export const CardListScreen = ({ onBack, theme, onToggleTheme }) => {
                 }`;
                 if (e.target.src !== fallbackMini) {
                   e.target.src = fallbackMini;
+                } else {
+                  const item = document.getElementById(`lib-card-item-${idx}`);
+                  if (item) item.style.display = 'none';
                 }
               }}
             />
