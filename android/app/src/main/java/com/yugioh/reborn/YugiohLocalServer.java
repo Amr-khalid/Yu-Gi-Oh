@@ -98,7 +98,7 @@ public class YugiohLocalServer extends WebSocketServer {
                 }
                 return count;
             } else {
-                return (clientWs != null) ? 2 : 1;
+                return (clientWs != null && clientWs.isOpen()) ? 2 : 1;
             }
         }
     }
@@ -222,6 +222,9 @@ public class YugiohLocalServer extends WebSocketServer {
                 String hostName = msg.optString("hostName", "المستضيف");
                 String transport = msg.optString("transport", "wifi");
                 String gameMode = msg.optString("gameMode", "1v1");
+                if (!"tag_2v2".equals(gameMode)) {
+                    gameMode = "1v1";
+                }
                 JSONObject settings = msg.optJSONObject("settings");
                 if (settings == null) {
                     settings = new JSONObject();
@@ -628,7 +631,7 @@ public class YugiohLocalServer extends WebSocketServer {
                             item.put("createdAt", r.createdAt);
                             active.put(item);
                         }
-                    } else if (r.clientWs == null) {
+                    } else if (r.clientWs == null || !r.clientWs.isOpen()) {
                         JSONObject item = new JSONObject();
                         item.put("roomCode", entry.getKey());
                         item.put("hostName", r.hostName);
@@ -675,7 +678,7 @@ public class YugiohLocalServer extends WebSocketServer {
                             item.put("createdAt", r.createdAt);
                             active.put(item);
                         }
-                    } else if (r.clientWs == null) {
+                    } else if (r.clientWs == null || !r.clientWs.isOpen()) {
                         JSONObject item = new JSONObject();
                         item.put("roomCode", entry.getKey());
                         item.put("hostName", r.hostName);

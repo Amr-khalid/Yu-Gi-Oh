@@ -356,7 +356,10 @@ export class ConnectionManager {
     this.role = 'host';
     this.transport = transport;
     this.myName = myName || this.myName || 'المستضيف';
-    this.gameMode = gameMode;
+    const cleanMode = (typeof gameMode === 'string' && (gameMode === 'tag_2v2' || gameMode === '1v1'))
+      ? gameMode
+      : '1v1';
+    this.gameMode = cleanMode;
     this.mySlot = 0;
     this.myTeam = 0;
     if (settings && Object.keys(settings).length > 0) {
@@ -1393,6 +1396,19 @@ export class ConnectionManager {
             // If we are a client connected to a hotspot, probe the hotspot host server directly
             if (hs.isHotspotClient || hs.gatewayIp === '192.168.43.1') {
               this.probeHotspotServer(hs.gatewayIp || '192.168.43.1');
+            }
+            if (hs.gatewayIp && hs.gatewayIp !== '127.0.0.1' && hs.gatewayIp !== '0.0.0.0') {
+              this.probeHotspotServer(hs.gatewayIp);
+            }
+            // Always probe default Hotspot IP
+            this.probeHotspotServer('192.168.43.1');
+            // Probe any peer IPs detected in ARP cache (supports direct router play)
+            if (Array.isArray(hs.peers)) {
+              for (const peerIp of hs.peers) {
+                if (peerIp && peerIp !== hs.myIp) {
+                  this.probeHotspotServer(peerIp);
+                }
+              }
             }
           }
         } catch (e) {}

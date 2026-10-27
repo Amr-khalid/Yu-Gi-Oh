@@ -459,6 +459,9 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
   };
 
   const handleHost = (mode = selectedMode) => {
+    const cleanMode = (typeof mode === 'string' && (mode === 'tag_2v2' || mode === '1v1'))
+      ? mode
+      : (selectedMode === 'tag_2v2' ? 'tag_2v2' : '1v1');
     soundManager.playDecide();
     hapticManager.triggerCombatVibration('click');
     setActionState('hosting');
@@ -467,9 +470,9 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
       ...prev,
       role: 'host',
       roomCode: code,
-      gameMode: mode,
+      gameMode: cleanMode,
     }));
-    connectionManager.host('wifi', playerName, mode, customTagSettings, code);
+    connectionManager.host('wifi', playerName, cleanMode, customTagSettings, code);
   };
 
   const handleJoin = () => {
@@ -484,6 +487,9 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     connectionManager.cancel();
     setActionState('idle');
     setIsConnectingByCode(false);
+    if (typeof connectionManager.startLobbyDiscovery === 'function') {
+      connectionManager.startLobbyDiscovery();
+    }
   };
 
   const handleJoinByCodeClick = async () => {
@@ -1489,7 +1495,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 </div>
 
                 <button
-                  onClick={handleHost}
+                  onClick={() => handleHost('1v1')}
                   className="btn-pharaoh-gold duel-btn-shine-wrap"
                   style={{
                     width: '100%',
@@ -1563,7 +1569,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 </div>
 
                 <button
-                  onClick={handleJoin}
+                  onClick={() => handleJoin()}
                   className="btn-pharaoh-stone"
                   style={{
                     width: '100%',
@@ -2213,12 +2219,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         </div>
                       </div>
                       <button
-                        onClick={() => {
-                          soundManager.playDecide();
-                          hapticManager.triggerCombatVibration('click');
-                          const target = room.ip || null;
-                          connectionManager.joinByCode(room.roomCode, target);
-                        }}
+                        onClick={() => handleQuickJoinRoom(room.roomCode, room.ip)}
                         className="btn-pharaoh-gold"
                         style={{ padding: '8px 18px', fontSize: 13, fontWeight: 900, borderRadius: 6 }}
                       >
