@@ -941,11 +941,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
           justifyContent: 'space-between',
           padding: isMobile ? '8px 12px' : '10px 20px',
           paddingTop: isMobile ? 'max(8px, env(safe-area-inset-top, 8px))' : '12px',
-          background: isLight ? 'rgba(255, 252, 245, 0.92)' : 'rgba(20, 15, 10, 0.92)',
+          background: isLight ? 'rgba(255, 252, 245, 0.94)' : 'rgba(20, 15, 10, 0.92)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid var(--pharaoh-gold-dark)',
-          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.35)',
+          borderBottom: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1px solid var(--pharaoh-gold-dark)',
+          boxShadow: isLight ? '0 2px 14px rgba(180, 83, 9, 0.08)' : '0 4px 18px rgba(0, 0, 0, 0.35)',
           gap: 10,
         }}
       >
@@ -988,7 +988,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
             style={{
               fontSize: isMobile ? 14 : 16,
               fontWeight: 900,
-              color: 'var(--pharaoh-gold-bright)',
+              color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
               lineHeight: 1.2,
               letterSpacing: 0.5,
               whiteSpace: 'nowrap',
@@ -1002,6 +1002,16 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
           {/* Dynamic Status Pill */}
           <div
+            style={{
+              fontSize: 10.5,
+              fontWeight: 800,
+              padding: '2px 10px',
+              borderRadius: 12,
+              background: isLight ? 'rgba(180, 83, 9, 0.1)' : 'rgba(240, 203, 100, 0.12)',
+              color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
+              border: isLight ? '1px solid rgba(180, 83, 9, 0.25)' : '1px solid rgba(240, 203, 100, 0.3)',
+              marginTop: 2,
+            }}
           >
             <span>
               {status.connected
@@ -1024,11 +1034,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 alignItems: 'center',
                 padding: '4px 8px',
                 borderRadius: 6,
-                background: 'rgba(34, 197, 94, 0.12)',
-                color: '#4ade80',
+                background: isLight ? 'rgba(22, 163, 74, 0.12)' : 'rgba(34, 197, 94, 0.12)',
+                color: isLight ? '#15803d' : '#4ade80',
                 fontSize: 11,
                 fontWeight: 800,
-                border: '1px solid rgba(34, 197, 94, 0.3)',
+                border: isLight ? '1px solid rgba(22, 163, 74, 0.3)' : '1px solid rgba(34, 197, 94, 0.3)',
               }}
             >
               {status.latencyMs || 1}ms
@@ -1052,7 +1062,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               aria-label="تبديل المظهر"
             >
               {isLight ? (
-                <MoonIcon size={16} color="var(--pharaoh-gold-bright)" />
+                <MoonIcon size={16} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
               ) : (
                 <SunIcon size={16} color="var(--pharaoh-gold-bright)" />
               )}
@@ -1078,7 +1088,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
         }}
       >
         {/* Pharaonic Winged Sun Frieze & Hieroglyphic Ribbon at top of main temple arena */}
-        <PharaohWingedSunFrieze color="var(--pharaoh-gold-bright)" height={isMobile ? 38 : 46} />
+        <PharaohWingedSunFrieze color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} height={isMobile ? 38 : 46} />
         <PharaohHieroglyphRibbon opacity={0.65} style={{ marginBottom: 14 }} />
 
         {/* Player Name Input Field (Royal Cartouche Stele) */}
@@ -1095,7 +1105,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
             borderRadius: 10,
             boxSizing: 'border-box',
             position: 'relative',
-            boxShadow: '0 6px 22px rgba(0, 0, 0, 0.35)',
+            boxShadow: isLight ? '0 4px 18px rgba(180, 83, 9, 0.1)' : '0 6px 22px rgba(0, 0, 0, 0.35)',
           }}
         >
           <PharaohCornerEngraving position="top-left" size={20} />
@@ -1142,7 +1152,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 fontWeight: 900,
                 border: 'none',
                 background: 'transparent',
-                color: 'var(--pharaoh-gold-bright)',
+                color: isLight ? '#1c150c' : 'var(--pharaoh-gold-bright)',
                 outline: 'none',
                 textAlign: 'center',
                 boxSizing: 'border-box',
@@ -1160,14 +1170,15 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
           <div
             style={{
               display: 'flex',
-              background: 'rgba(0, 0, 0, 0.45)',
-              border: '1.5px solid var(--pharaoh-gold-dark)',
+              background: isLight ? 'rgba(237, 228, 206, 0.85)' : 'rgba(0, 0, 0, 0.45)',
+              border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1.5px solid var(--pharaoh-gold-dark)',
               borderRadius: 30,
               padding: 4,
               gap: 6,
               width: '100%',
               maxWidth: 420,
               margin: '0 auto 12px',
+              boxShadow: isLight ? '0 2px 8px rgba(180, 83, 9, 0.08)' : 'none',
             }}
           >
             <button
@@ -1245,19 +1256,19 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   justifyContent: 'space-between',
                   padding: '10px 14px',
                   borderRadius: 10,
-                  background: 'linear-gradient(90deg, rgba(34, 197, 94, 0.22) 0%, rgba(16, 185, 129, 0.12) 100%)',
-                  border: '1.5px solid #22c55e',
-                  boxShadow: '0 0 16px rgba(34, 197, 94, 0.3)',
+                  background: isLight ? 'linear-gradient(90deg, rgba(34, 197, 94, 0.16) 0%, rgba(255, 252, 245, 0.95) 100%)' : 'linear-gradient(90deg, rgba(34, 197, 94, 0.22) 0%, rgba(16, 185, 129, 0.12) 100%)',
+                  border: isLight ? '1.5px solid #16a34a' : '1.5px solid #22c55e',
+                  boxShadow: isLight ? '0 2px 12px rgba(34, 197, 94, 0.18)' : '0 0 16px rgba(34, 197, 94, 0.3)',
                   marginBottom: 10,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <WifiIcon size={20} color="#4ade80" />
+                  <WifiIcon size={20} color={isLight ? '#16a34a' : '#4ade80'} />
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: '#4ade80' }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: isLight ? '#15803d' : '#4ade80' }}>
                       تم رصد جهاز صاحبك متصل بنقطة الاتصال (Hotspot) معاك!
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)' }}>
+                    <div style={{ fontSize: 11, color: isLight ? '#78350f' : 'var(--pharaoh-text-gold)' }}>
                       اعمل روم دلوقتي وهيظهر عنده في الرادار تلقائياً بنقرة واحدة!
                     </div>
                   </div>
@@ -1273,19 +1284,19 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   justifyContent: 'space-between',
                   padding: '10px 14px',
                   borderRadius: 10,
-                  background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.2) 0%, rgba(234, 179, 8, 0.12) 100%)',
-                  border: '1.5px solid #38bdf8',
-                  boxShadow: '0 0 16px rgba(56, 189, 248, 0.25)',
+                  background: isLight ? 'linear-gradient(90deg, rgba(2, 132, 199, 0.14) 0%, rgba(255, 252, 245, 0.95) 100%)' : 'linear-gradient(90deg, rgba(56, 189, 248, 0.2) 0%, rgba(234, 179, 8, 0.12) 100%)',
+                  border: isLight ? '1.5px solid #0284c7' : '1.5px solid #38bdf8',
+                  boxShadow: isLight ? '0 2px 12px rgba(2, 132, 199, 0.18)' : '0 0 16px rgba(56, 189, 248, 0.25)',
                   marginBottom: 10,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <WifiIcon size={20} color="#38bdf8" />
+                  <WifiIcon size={20} color={isLight ? '#0284c7' : '#38bdf8'} />
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: '#38bdf8' }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: isLight ? '#0369a1' : '#38bdf8' }}>
                       أنت متصل بنقطة اتصال صاحبك (هوت سبوت)
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)' }}>
+                    <div style={{ fontSize: 11, color: isLight ? '#78350f' : 'var(--pharaoh-text-gold)' }}>
                       الرادار بيبحث عن غرفته تلقائياً... أول ما صاحبك يعمل روم هتظهرلك هنا فوراً!
                     </div>
                   </div>
@@ -1299,9 +1310,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 style={{
                   padding: '14px 16px',
                   borderRadius: 12,
-                  border: '2px solid #22c55e',
-                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.18) 0%, rgba(18, 14, 9, 0.98) 100%)',
-                  boxShadow: '0 0 24px rgba(34, 197, 94, 0.35)',
+                  border: isLight ? '2px solid #16a34a' : '2px solid #22c55e',
+                  background: isLight
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.14) 0%, rgba(255, 252, 245, 0.98) 100%)'
+                    : 'linear-gradient(135deg, rgba(34, 197, 94, 0.18) 0%, rgba(18, 14, 9, 0.98) 100%)',
+                  boxShadow: isLight ? '0 4px 20px rgba(34, 197, 94, 0.2)' : '0 0 24px rgba(34, 197, 94, 0.35)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 10,
@@ -1314,15 +1327,15 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         width: 10,
                         height: 10,
                         borderRadius: '50%',
-                        background: '#22c55e',
+                        background: isLight ? '#16a34a' : '#22c55e',
                         boxShadow: '0 0 10px #22c55e',
                       }}
                     />
-                    <span style={{ fontSize: 13.5, fontWeight: 900, color: '#4ade80' }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 900, color: isLight ? '#15803d' : '#4ade80' }}>
                       رادار الفراعنة: تم العثور على غرفة صاحبك!
                     </span>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+                  <span style={{ fontSize: 11, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
                     جاهزة للعب الآن
                   </span>
                 </div>
@@ -1336,19 +1349,20 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        background: 'rgba(0, 0, 0, 0.55)',
-                        border: '1.5px solid var(--pharaoh-gold-bright)',
+                        background: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(0, 0, 0, 0.55)',
+                        border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1.5px solid var(--pharaoh-gold-bright)',
                         borderRadius: 8,
                         padding: '10px 14px',
                         gap: 10,
                         flexWrap: 'wrap',
+                        boxShadow: isLight ? '0 2px 10px rgba(180, 83, 9, 0.08)' : 'none',
                       }}
                     >
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                           غرفة: {room.hostName || 'المستضيف'}
                         </div>
-                        <div style={{ fontSize: 11.5, color: 'var(--pharaoh-text-gold)' }}>
+                        <div style={{ fontSize: 11.5, color: isLight ? '#6b573a' : 'var(--pharaoh-text-gold)' }}>
                           كود الروم: #{room.roomCode} • {room.gameMode === 'tag_2v2' ? 'فرق 2 ضد 2' : 'فردي 1 ضد 1'}
                           {room.transport === 'cloud_relay' ? ' (سيرفر سحابي 4G/نت)' : ' (هوت سبوت محلي)'}
                         </div>
@@ -1381,11 +1395,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '9px 14px',
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  border: '1px dashed rgba(240, 203, 100, 0.3)',
+                  background: isLight ? 'rgba(247, 242, 228, 0.85)' : 'rgba(0, 0, 0, 0.3)',
+                  border: isLight ? '1px dashed rgba(180, 83, 9, 0.35)' : '1px dashed rgba(240, 203, 100, 0.3)',
                   borderRadius: 20,
                   fontSize: 11.5,
-                  color: 'var(--pharaoh-text-muted)',
+                  color: isLight ? '#78350f' : 'var(--pharaoh-text-muted)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1394,13 +1408,13 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background: '#38bdf8',
+                      background: isLight ? '#0284c7' : '#38bdf8',
                       boxShadow: '0 0 6px #38bdf8',
                     }}
                   />
                   <span>رادار البحث التلقائي نشط (سيرفر سحابي 4G/نت + شبكة هوت سبوت)</span>
                 </div>
-                <span style={{ fontSize: 10, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+                <span style={{ fontSize: 10, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
                   أول ما صاحبك يفتح روم هتظهرلك هنا فوراً!
                 </span>
               </div>
@@ -1427,6 +1441,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               connectionManager.swapTagSlots(fromSlot, toSlot);
             }}
             isMobile={isMobile}
+            isLight={isLight}
           />
         )}
 
@@ -1450,11 +1465,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   padding: isMobile ? '18px 16px' : '22px 20px',
                   border: '1.5px solid var(--pharaoh-gold-bright)',
                   borderRadius: 10,
-                  background: isLight ? 'rgba(255, 252, 245, 0.94)' : 'rgba(28, 22, 14, 0.94)',
+                  background: isLight ? 'rgba(255, 252, 245, 0.96)' : 'rgba(28, 22, 14, 0.94)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)',
+                  boxShadow: isLight ? '0 4px 20px rgba(180, 83, 9, 0.12)' : '0 6px 20px rgba(0, 0, 0, 0.35)',
                 }}
               >
                 <PharaohCornerEngraving position="top-left" size={20} />
@@ -1469,7 +1484,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         width: 40,
                         height: 40,
                         borderRadius: 10,
-                        background: 'rgba(240, 203, 100, 0.2)',
+                        background: isLight ? 'rgba(201, 158, 50, 0.15)' : 'rgba(240, 203, 100, 0.2)',
                         border: '1px solid var(--pharaoh-gold-bright)',
                         display: 'flex',
                         alignItems: 'center',
@@ -1480,7 +1495,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                       <CrownIcon size={22} color="var(--pharaoh-gold-bright)" />
                     </div>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                         صاحب الروم
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
@@ -1489,7 +1504,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                     </div>
                   </div>
 
-                  <p style={{ fontSize: 12, color: 'var(--pharaoh-text-light)', lineHeight: 1.6, margin: '10px 0 16px' }}>
+                  <p style={{ fontSize: 12, color: isLight ? '#1c150c' : 'var(--pharaoh-text-light)', lineHeight: 1.6, margin: '10px 0 16px' }}>
                     شغّل نقطة اتصال (هوت سبوت) من جهازك واعمل كود الروم عشان صاحبك يدخل يلعب معاك فوراً.
                   </p>
                 </div>
@@ -1524,11 +1539,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   padding: isMobile ? '18px 16px' : '22px 20px',
                   border: '1.5px solid var(--pharaoh-stone-border)',
                   borderRadius: 10,
-                  background: isLight ? 'rgba(255, 252, 245, 0.94)' : 'rgba(26, 20, 14, 0.94)',
+                  background: isLight ? 'rgba(255, 252, 245, 0.96)' : 'rgba(26, 20, 14, 0.94)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)',
+                  boxShadow: isLight ? '0 4px 20px rgba(180, 83, 9, 0.12)' : '0 6px 20px rgba(0, 0, 0, 0.35)',
                 }}
               >
                 <PharaohCornerEngraving position="top-left" size={20} color="var(--pharaoh-stone-border)" />
@@ -1543,7 +1558,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         width: 40,
                         height: 40,
                         borderRadius: 10,
-                        background: 'rgba(240, 203, 100, 0.12)',
+                        background: isLight ? 'rgba(201, 158, 50, 0.12)' : 'rgba(240, 203, 100, 0.12)',
                         border: '1px solid var(--pharaoh-stone-border)',
                         display: 'flex',
                         alignItems: 'center',
@@ -1554,7 +1569,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                       <SwordsCombatIcon size={22} color="var(--pharaoh-gold-bright)" />
                     </div>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: isLight ? '#78350f' : 'var(--pharaoh-text-gold)' }}>
                         المنافس المتحدي
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
@@ -1563,7 +1578,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                     </div>
                   </div>
 
-                  <p style={{ fontSize: 12, color: 'var(--pharaoh-text-light)', lineHeight: 1.6, margin: '10px 0 16px' }}>
+                  <p style={{ fontSize: 12, color: isLight ? '#1c150c' : 'var(--pharaoh-text-light)', lineHeight: 1.6, margin: '10px 0 16px' }}>
                     اتصل بشبكة الواي فاي بتاعة صاحبك واكتب كود الروم الـ 4 أرقام عشان تبدأوا الماتش.
                   </p>
                 </div>
@@ -1597,13 +1612,13 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 position: 'relative',
                 padding: '16px 20px',
                 borderRadius: 10,
-                background: 'rgba(0, 0, 0, 0.3)',
-                border: '1.5px solid var(--pharaoh-gold-dark)',
+                background: isLight ? 'rgba(255, 252, 245, 0.94)' : 'rgba(0, 0, 0, 0.3)',
+                border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1.5px solid var(--pharaoh-gold-dark)',
                 fontSize: 12,
-                color: 'var(--pharaoh-text-light)',
+                color: isLight ? '#1c150c' : 'var(--pharaoh-text-light)',
                 lineHeight: 1.8,
                 textAlign: 'right',
-                boxShadow: 'inset 0 0 16px rgba(0, 0, 0, 0.4)',
+                boxShadow: isLight ? '0 2px 14px rgba(180, 83, 9, 0.08)' : 'inset 0 0 16px rgba(0, 0, 0, 0.4)',
               }}
             >
               <PharaohCornerEngraving position="top-left" size={16} color="var(--pharaoh-gold-dark)" />
@@ -1611,7 +1626,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               <PharaohCornerEngraving position="bottom-left" size={16} color="var(--pharaoh-gold-dark)" />
               <PharaohCornerEngraving position="bottom-right" size={16} color="var(--pharaoh-gold-dark)" />
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, borderBottom: '1px solid rgba(240, 203, 100, 0.2)', paddingBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, borderBottom: isLight ? '1px solid rgba(180, 83, 9, 0.2)' : '1px solid rgba(240, 203, 100, 0.2)', paddingBottom: 6 }}>
                 <div style={{ color: 'var(--pharaoh-gold-bright)', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <WifiIcon size={16} color="var(--pharaoh-gold-bright)" />
                   <span>نقوش وتعليمات الاتصال السريع:</span>
@@ -1624,7 +1639,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               <div>1. واحد فيكم يفتح <strong>هوت سبوت (Hotspot)</strong> من موبايله ويدوس "اعمل روم جديدة".</div>
               <div>2. التاني يتصل بشبكة الواي فاي بتاعة الموبايل الأولاني ويدوس "ادخل روم صاحبك".</div>
               <div>3. اكتبوا كود الروم الـ 4 أرقام وهتلاقوا الماتش بدأ فوراً!</div>
-              <div style={{ color: '#4ade80', marginTop: 4, fontWeight: 800 }}>
+              <div style={{ color: isLight ? '#15803d' : '#4ade80', marginTop: 4, fontWeight: 800 }}>
                 ● اتصال مباشر وسريع 100% وشغال تمام بدون نت ولا باقة!
               </div>
             </div>
@@ -1641,8 +1656,10 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 padding: '16px 20px',
                 border: '1.5px solid var(--pharaoh-gold-bright)',
                 borderRadius: 12,
-                background: 'linear-gradient(180deg, rgba(30, 22, 14, 0.98) 0%, rgba(16, 12, 8, 0.98) 100%)',
-                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.45)',
+                background: isLight
+                  ? 'linear-gradient(180deg, rgba(255, 252, 245, 0.98) 0%, rgba(245, 238, 220, 0.98) 100%)'
+                  : 'linear-gradient(180deg, rgba(30, 22, 14, 0.98) 0%, rgba(16, 12, 8, 0.98) 100%)',
+                boxShadow: isLight ? '0 4px 18px rgba(180, 83, 9, 0.12)' : '0 6px 20px rgba(0, 0, 0, 0.45)',
                 textAlign: 'right',
               }}
             >
@@ -1671,14 +1688,14 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 className="stone-panel"
                 style={{
                   padding: isMobile ? '18px 16px' : '22px 20px',
-                  border: '1.5px solid var(--pharaoh-gold-bright)',
+                  border: isLight ? '1.5px solid #d97706' : '1.5px solid var(--pharaoh-gold-bright)',
                   borderRadius: 10,
                   background: isLight ? 'rgba(255, 252, 245, 0.95)' : 'rgba(28, 22, 14, 0.95)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: 12,
-                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)',
+                  boxShadow: isLight ? '0 4px 18px rgba(180, 83, 9, 0.12)' : '0 6px 20px rgba(0, 0, 0, 0.35)',
                 }}
               >
                 <div>
@@ -1688,26 +1705,26 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         width: 40,
                         height: 40,
                         borderRadius: 8,
-                        background: 'rgba(240, 203, 100, 0.18)',
-                        border: '1px solid var(--pharaoh-gold-bright)',
+                        background: isLight ? 'rgba(217, 119, 6, 0.14)' : 'rgba(240, 203, 100, 0.18)',
+                        border: isLight ? '1px solid #d97706' : '1px solid var(--pharaoh-gold-bright)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
                       }}
                     >
-                      <CrownIcon size={22} color="var(--pharaoh-gold-bright)" />
+                      <CrownIcon size={22} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                         إنشاء ساحة 2 ضد 2 (استضافة)
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
+                      <div style={{ fontSize: 11, color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)' }}>
                         افتح الروم ووزّع المقاعد والفرق
                       </div>
                     </div>
                   </div>
-                  <p style={{ fontSize: 12, color: 'var(--pharaoh-text-light)', lineHeight: 1.6, margin: '6px 0 12px' }}>
+                  <p style={{ fontSize: 12, color: isLight ? '#451a03' : 'var(--pharaoh-text-light)', lineHeight: 1.6, margin: '6px 0 12px' }}>
                     افتح الساحة وشارك الكود مع صاحبك، وتقدر تملأ أي خانة فاضية ببوتات ذكاء اصطناعي.
                   </p>
                 </div>
@@ -1739,14 +1756,14 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 className="stone-panel"
                 style={{
                   padding: isMobile ? '18px 16px' : '22px 20px',
-                  border: '1.5px solid var(--pharaoh-stone-border)',
+                  border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1.5px solid var(--pharaoh-stone-border)',
                   borderRadius: 10,
                   background: isLight ? 'rgba(255, 252, 245, 0.95)' : 'rgba(24, 18, 12, 0.95)',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: 12,
-                  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.35)',
+                  boxShadow: isLight ? '0 4px 18px rgba(180, 83, 9, 0.12)' : '0 6px 20px rgba(0, 0, 0, 0.35)',
                 }}
               >
                 <div>
@@ -1756,21 +1773,21 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         width: 40,
                         height: 40,
                         borderRadius: 8,
-                        background: 'rgba(240, 203, 100, 0.12)',
-                        border: '1px solid var(--pharaoh-stone-border)',
+                        background: isLight ? 'rgba(217, 119, 6, 0.12)' : 'rgba(240, 203, 100, 0.12)',
+                        border: isLight ? '1px solid #d97706' : '1px solid var(--pharaoh-stone-border)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
                       }}
                     >
-                      <SwordsCombatIcon size={20} color="var(--pharaoh-gold-bright)" />
+                      <SwordsCombatIcon size={20} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-text-gold)' }}>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-text-gold)' }}>
                         انضمام لساحة فريقك
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
+                      <div style={{ fontSize: 11, color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)' }}>
                         اكتب كود الروم الـ 4 أرقام
                       </div>
                     </div>
@@ -1786,10 +1803,10 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                       style={{
                         flex: 1,
                         padding: '10px 12px',
-                        background: 'rgba(0, 0, 0, 0.45)',
-                        border: '1.5px solid var(--pharaoh-gold-dark)',
+                        background: isLight ? '#ffffff' : 'rgba(0, 0, 0, 0.45)',
+                        border: isLight ? '1.5px solid #d97706' : '1.5px solid var(--pharaoh-gold-dark)',
                         borderRadius: 6,
-                        color: 'var(--pharaoh-gold-bright)',
+                        color: isLight ? '#1c150c' : 'var(--pharaoh-gold-bright)',
                         fontSize: 16,
                         fontWeight: 900,
                         letterSpacing: 3,
@@ -1814,7 +1831,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   </div>
                 </div>
 
-                <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
+                <div style={{ fontSize: 11, color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)' }}>
                   اتصل بنفس شبكة الواي فاي أو الهوت سبوت بتاعة صاحبك.
                 </div>
               </div>
@@ -1825,21 +1842,22 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               className="stone-panel"
               style={{
                 padding: '14px 18px',
-                border: '1px solid rgba(240, 203, 100, 0.35)',
+                border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1px solid rgba(240, 203, 100, 0.35)',
                 borderRadius: 10,
-                background: 'rgba(0, 0, 0, 0.35)',
+                background: isLight ? 'rgba(255, 252, 245, 0.94)' : 'rgba(0, 0, 0, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
                 gap: 10,
+                boxShadow: isLight ? '0 2px 10px rgba(180, 83, 9, 0.08)' : 'none',
               }}
             >
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 13.5, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                   تجربة سريعة وتدريب مع البوتات
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
+                <div style={{ fontSize: 11, color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)' }}>
                   افتح الساحة فوراً مع 3 بوتات ذكاء اصطناعي لتجربة تبديل المقاعد والمودين.
                 </div>
               </div>
@@ -1854,8 +1872,8 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  color: 'var(--pharaoh-gold-bright)',
-                  border: '1px solid var(--pharaoh-gold-bright)',
+                  color: isLight ? '#b45309' : 'var(--pharaoh-gold-bright)',
+                  border: isLight ? '1px solid #d97706' : '1px solid var(--pharaoh-gold-bright)',
                 }}
               >
                 <span>ابدأ تجربة مع البوتات</span>
@@ -1886,35 +1904,35 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
               {/* Host Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
-                <CrownIcon size={24} color="var(--pharaoh-gold-bright)" />
-                <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                <CrownIcon size={24} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
+                <span style={{ fontSize: 17, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                   الروم الفرعونية بتاعتك جاهزة
                 </span>
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--pharaoh-text-gold)', fontWeight: 800, marginBottom: 8 }}>
+              <div style={{ fontSize: 12.5, color: isLight ? '#785f37' : 'var(--pharaoh-text-gold)', fontWeight: 800, marginBottom: 8 }}>
                 صاحب الروم: {playerName}
               </div>
 
               {status.peerOnHotspot && (
                 <div
                   style={{
-                    background: 'rgba(34, 197, 94, 0.18)',
-                    border: '1px solid #22c55e',
+                    background: isLight ? 'rgba(220, 252, 231, 0.95)' : 'rgba(34, 197, 94, 0.18)',
+                    border: isLight ? '1.5px solid #16a34a' : '1px solid #22c55e',
                     borderRadius: 8,
                     padding: '8px 12px',
                     margin: '0 auto 12px',
                     maxWidth: 380,
                     fontSize: 12,
                     fontWeight: 900,
-                    color: '#4ade80',
+                    color: isLight ? '#15803d' : '#4ade80',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 6,
-                    boxShadow: '0 0 12px rgba(34, 197, 94, 0.25)',
+                    boxShadow: isLight ? '0 2px 10px rgba(22, 163, 74, 0.15)' : '0 0 12px rgba(34, 197, 94, 0.25)',
                   }}
                 >
-                  <WifiIcon size={16} color="#4ade80" />
+                  <WifiIcon size={16} color={isLight ? '#16a34a' : '#4ade80'} />
                   <span>تم رصد جهاز صاحبك متصل بنقطة الاتصال معاك! في انتظار دخوله...</span>
                 </div>
               )}
@@ -1924,18 +1942,22 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               {/* Big Room Code Box (Royal Egyptian Cartouche) */}
               <div
                 style={{
-                  background: 'linear-gradient(180deg, rgba(34, 26, 16, 0.88) 0%, rgba(18, 14, 9, 0.94) 100%)',
-                  border: '2.5px solid var(--pharaoh-gold-bright)',
+                  background: isLight
+                    ? 'linear-gradient(180deg, #fffcf5 0%, #fef3c7 100%)'
+                    : 'linear-gradient(180deg, rgba(34, 26, 16, 0.88) 0%, rgba(18, 14, 9, 0.94) 100%)',
+                  border: isLight ? '2.5px solid #d97706' : '2.5px solid var(--pharaoh-gold-bright)',
                   borderRadius: 40,
                   padding: isMobile ? '14px 18px' : '18px 26px',
                   margin: '0 auto 14px',
                   maxWidth: 380,
                   width: '100%',
                   boxSizing: 'border-box',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 16px rgba(201, 158, 50, 0.25)',
+                  boxShadow: isLight
+                    ? '0 4px 20px rgba(180, 83, 9, 0.15), inset 0 0 16px rgba(201, 158, 50, 0.15)'
+                    : '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 16px rgba(201, 158, 50, 0.25)',
                 }}
               >
-                <div style={{ fontSize: 12, color: 'var(--pharaoh-text-gold)', marginBottom: 4, fontWeight: 800 }}>
+                <div style={{ fontSize: 12, color: isLight ? '#92400e' : 'var(--pharaoh-text-gold)', marginBottom: 4, fontWeight: 800 }}>
                   كود الروم (4 أرقام):
                 </div>
                 <div
@@ -1946,7 +1968,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                     gap: 12,
                   }}
                 >
-                  <span style={{ fontSize: 24, color: 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
+                  <span style={{ fontSize: 24, color: isLight ? '#b45309' : 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
                     𓂀
                   </span>
                   <div
@@ -1954,15 +1976,15 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                       fontSize: isMobile ? 36 : 42,
                       fontWeight: 900,
                       letterSpacing: isMobile ? 6 : 8,
-                      color: 'var(--pharaoh-gold-bright)',
+                      color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
                       fontFamily: 'monospace',
                       direction: 'ltr',
-                      textShadow: '0 0 16px rgba(240, 203, 100, 0.65)',
+                      textShadow: isLight ? '0 0 12px rgba(217, 119, 6, 0.25)' : '0 0 16px rgba(240, 203, 100, 0.65)',
                     }}
                   >
                     #{status.roomCode || connectionManager.roomCode || '....'}
                   </div>
-                  <span style={{ fontSize: 24, color: 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
+                  <span style={{ fontSize: 24, color: isLight ? '#b45309' : 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
                     𓋹
                   </span>
                 </div>
@@ -1989,21 +2011,21 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               {/* Network Status & Instructions */}
               <div
                 style={{
-                  background: 'rgba(0, 0, 0, 0.28)',
+                  background: isLight ? 'rgba(245, 238, 220, 0.65)' : 'rgba(0, 0, 0, 0.28)',
                   padding: '12px 14px',
                   borderRadius: 8,
-                  border: '1px solid var(--pharaoh-stone-border)',
+                  border: isLight ? '1px solid var(--pharaoh-stone-border)' : '1px solid var(--pharaoh-stone-border)',
                   fontSize: 12,
-                  color: 'var(--pharaoh-text-light)',
+                  color: isLight ? '#1c150c' : 'var(--pharaoh-text-light)',
                   lineHeight: 1.7,
                   marginBottom: 16,
                   textAlign: 'right',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ color: 'var(--pharaoh-text-muted)', fontWeight: 700 }}>عنوان الـ IP للمستضيف:</span>
+                  <span style={{ color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)', fontWeight: 700 }}>عنوان الـ IP للمستضيف:</span>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, direction: 'ltr' }}>
-                    <span style={{ color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+                    <span style={{ color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
                       {status.ipOrDevice || '192.168.43.1'}
                     </span>
                     <span style={{ fontSize: 10, background: '#10b981', color: '#fff', padding: '1px 6px', borderRadius: 8, fontWeight: 900 }}>
@@ -2020,7 +2042,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               <div
                 style={{
                   fontSize: 12,
-                  color: 'var(--pharaoh-text-muted)',
+                  color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)',
                   marginBottom: 16,
                   display: 'flex',
                   alignItems: 'center',
@@ -2065,7 +2087,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 borderRadius: 12,
                 textAlign: 'center',
                 background: isLight ? 'rgba(255, 250, 235, 0.96)' : 'rgba(26, 20, 14, 0.96)',
-                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+                boxShadow: isLight ? '0 6px 24px rgba(180, 83, 9, 0.14)' : '0 8px 30px rgba(0, 0, 0, 0.45)',
               }}
             >
               <PharaohCornerEngraving position="top-left" size={24} />
@@ -2074,8 +2096,8 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               <PharaohCornerEngraving position="bottom-right" size={24} />
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
-                <SwordsCombatIcon size={24} color="var(--pharaoh-gold-bright)" />
-                <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                <SwordsCombatIcon size={24} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
+                <span style={{ fontSize: 17, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                   ادخل روم صاحبك يا بطل
                 </span>
               </div>
@@ -2084,8 +2106,8 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               {/* Universal Zero-Config Connection Banner (Hotspot & Router Auto-Link) */}
               <div
                 style={{
-                  background: 'rgba(201, 158, 50, 0.1)',
-                  border: '1px solid rgba(240, 203, 100, 0.3)',
+                  background: isLight ? 'rgba(254, 243, 199, 0.65)' : 'rgba(201, 158, 50, 0.1)',
+                  border: isLight ? '1px solid #d97706' : '1px solid rgba(240, 203, 100, 0.3)',
                   borderRadius: 8,
                   padding: '10px 14px',
                   marginBottom: 14,
@@ -2096,18 +2118,18 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, textAlign: 'right' }}>
-                  <WifiIcon size={18} color="var(--pharaoh-gold-bright)" />
+                  <WifiIcon size={18} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
                   <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                       اتصال تلقائي ذكي (راوتر واي فاي أو هوت سبوت)
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
+                    <div style={{ fontSize: 11, color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)' }}>
                       بدون الحاجة لكتابة أي IP، اكتب الكود بس وادخل فوراً!
                     </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#4ade80', fontWeight: 800 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: isLight ? '#15803d' : '#4ade80', fontWeight: 800 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isLight ? '#16a34a' : '#4ade80', display: 'inline-block' }} />
                   <span>تلقائي</span>
                 </div>
               </div>
@@ -2115,16 +2137,18 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               {/* Direct Room Code Input Box (Royal Cartouche) */}
               <div
                 style={{
-                  background: 'linear-gradient(180deg, rgba(34, 26, 16, 0.88) 0%, rgba(18, 14, 9, 0.94) 100%)',
-                  border: '2px solid var(--pharaoh-gold-bright)',
+                  background: isLight
+                    ? 'linear-gradient(180deg, #fffcf5 0%, #fef3c7 100%)'
+                    : 'linear-gradient(180deg, rgba(34, 26, 16, 0.88) 0%, rgba(18, 14, 9, 0.94) 100%)',
+                  border: isLight ? '2px solid #d97706' : '2px solid var(--pharaoh-gold-bright)',
                   borderRadius: 10,
                   padding: isMobile ? '14px 14px' : '16px 18px',
                   marginBottom: 14,
                   textAlign: 'right',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+                  boxShadow: isLight ? '0 4px 16px rgba(180, 83, 9, 0.12)' : '0 4px 16px rgba(0, 0, 0, 0.35)',
                 }}
               >
-                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', marginBottom: 8 }}>
+                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', marginBottom: 8 }}>
                   اكتب كود الروم (4 أرقام):
                 </label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2133,13 +2157,13 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                       flex: 1,
                       display: 'flex',
                       alignItems: 'center',
-                      background: 'var(--pharaoh-stone-card)',
-                      border: '1.5px solid var(--pharaoh-gold-dark)',
+                      background: isLight ? '#ffffff' : 'var(--pharaoh-stone-card)',
+                      border: isLight ? '1.5px solid #d97706' : '1.5px solid var(--pharaoh-gold-dark)',
                       borderRadius: 8,
                       padding: '2px 10px',
                     }}
                   >
-                    <span style={{ fontSize: 18, color: 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
+                    <span style={{ fontSize: 18, color: isLight ? '#b45309' : 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
                       𓂀
                     </span>
                     <input
@@ -2160,13 +2184,13 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                         padding: '8px 10px',
                         background: 'transparent',
                         border: 'none',
-                        color: 'var(--pharaoh-gold-bright)',
+                        color: isLight ? '#1c150c' : 'var(--pharaoh-gold-bright)',
                         direction: 'ltr',
                         fontFamily: 'monospace',
                         outline: 'none',
                       }}
                     />
-                    <span style={{ fontSize: 18, color: 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
+                    <span style={{ fontSize: 18, color: isLight ? '#b45309' : 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
                       𓋹
                     </span>
                   </div>
@@ -2192,29 +2216,30 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               {/* Discovered Rooms List or Status */}
               {status.discoveredRooms && status.discoveredRooms.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '8px 0 14px' }}>
-                  <div style={{ fontSize: 12, color: 'var(--pharaoh-gold-bright)', fontWeight: 900, textAlign: 'right' }}>
+                  <div style={{ fontSize: 12, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', fontWeight: 900, textAlign: 'right' }}>
                     الرومات اللي لاقيناها جنبك:
                   </div>
                   {status.discoveredRooms.map((room) => (
                     <div
                       key={room.roomId || room.roomCode}
                       style={{
-                        background: 'rgba(201, 158, 50, 0.16)',
-                        border: '1.5px solid var(--pharaoh-gold-dark)',
+                        background: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(201, 158, 50, 0.16)',
+                        border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1.5px solid var(--pharaoh-gold-dark)',
                         borderRadius: 8,
                         padding: '10px 14px',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         gap: 8,
+                        boxShadow: isLight ? '0 2px 8px rgba(180, 83, 9, 0.08)' : 'none',
                       }}
                     >
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <CrownIcon size={16} color="var(--pharaoh-gold-bright)" />
+                        <div style={{ fontSize: 14, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <CrownIcon size={16} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
                           روم: {room.hostName}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: isLight ? '#6b573a' : 'var(--pharaoh-text-muted)', marginTop: 2 }}>
                           الكود: #{room.roomCode} • {room.gameMode === 'tag_2v2' ? 'تاغ (2 ضد 2)' : 'مبارزة (1 ضد 1)'}
                         </div>
                       </div>
@@ -2232,7 +2257,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 <div
                   style={{
                     fontSize: 11.5,
-                    color: 'var(--pharaoh-text-muted)',
+                    color: isLight ? '#785f37' : 'var(--pharaoh-text-muted)',
                     margin: '8px 0 14px',
                     display: 'flex',
                     alignItems: 'center',
@@ -2241,7 +2266,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                     fontWeight: 700,
                   }}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f0cb64', display: 'inline-block' }} />
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: isLight ? '#d97706' : '#f0cb64', display: 'inline-block' }} />
                   بندوّر على أي روم مفتوحة جنبك...
                 </div>
               )}
@@ -2270,7 +2295,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               textAlign: 'center',
               width: '100%',
               background: isLight ? 'rgba(255, 252, 240, 0.98)' : 'rgba(32, 24, 15, 0.98)',
-              boxShadow: '0 0 35px rgba(240, 203, 100, 0.45)',
+              boxShadow: isLight ? '0 4px 25px rgba(180, 83, 9, 0.18)' : '0 0 35px rgba(240, 203, 100, 0.45)',
             }}
           >
             <PharaohCornerEngraving position="top-left" size={24} />
@@ -2280,8 +2305,8 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
             {/* Status Indicator */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#22c55e', marginBottom: 12 }}>
-              <CheckCircleIcon size={24} color="#22c55e" />
-              <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+              <CheckCircleIcon size={24} color={isLight ? '#16a34a' : '#22c55e'} />
+              <span style={{ fontSize: 17, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
                 تم الاتصال بصاحبك بنجاح!
               </span>
             </div>
@@ -2296,8 +2321,8 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 justifyContent: 'space-between',
                 padding: '18px 20px',
                 borderRadius: 10,
-                background: 'rgba(201, 158, 50, 0.14)',
-                border: '1.5px solid var(--pharaoh-gold-royal)',
+                background: isLight ? 'rgba(245, 238, 220, 0.7)' : 'rgba(201, 158, 50, 0.14)',
+                border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1.5px solid var(--pharaoh-gold-royal)',
                 margin: '12px 0 16px',
                 overflow: 'hidden',
               }}
@@ -2318,13 +2343,13 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
               {/* Player 1 (You) */}
               <div style={{ textAlign: 'center', flex: 1, zIndex: 2 }}>
-                <div style={{ fontSize: 11, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+                <div style={{ fontSize: 11, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
                   {status.role === 'host' ? 'أنت (المستضيف)' : 'أنت (الضيف)'}
                 </div>
-                <div style={{ fontSize: 16.5, fontWeight: 900, color: '#fff', marginTop: 2 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 900, color: isLight ? '#1c150c' : '#fff', marginTop: 2 }}>
                   {playerName}
                 </div>
-                <div style={{ fontSize: 10.5, color: '#4ade80', marginTop: 3, fontWeight: 800 }}>
+                <div style={{ fontSize: 10.5, color: isLight ? '#15803d' : '#4ade80', marginTop: 3, fontWeight: 800 }}>
                   ● جاهز
                 </div>
               </div>
@@ -2335,10 +2360,10 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   padding: '8px 12px',
                   color: 'var(--pharaoh-gold-bright)',
                   zIndex: 2,
-                  background: 'rgba(20, 16, 10, 0.85)',
+                  background: isLight ? '#fffcf5' : 'rgba(20, 16, 10, 0.85)',
                   borderRadius: '50%',
                   border: '1px solid var(--pharaoh-gold-bright)',
-                  boxShadow: '0 0 14px rgba(240, 203, 100, 0.5)',
+                  boxShadow: isLight ? '0 2px 10px rgba(180, 83, 9, 0.2)' : '0 0 14px rgba(240, 203, 100, 0.5)',
                 }}
               >
                 <SwordsCombatIcon size={26} color="var(--pharaoh-gold-bright)" />
@@ -2346,13 +2371,13 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
               {/* Player 2 (Opponent) */}
               <div style={{ textAlign: 'center', flex: 1, zIndex: 2 }}>
-                <div style={{ fontSize: 11, color: '#f87171', fontWeight: 800 }}>
+                <div style={{ fontSize: 11, color: isLight ? '#dc2626' : '#f87171', fontWeight: 800 }}>
                   {status.role === 'host' ? 'صاحبك المنافس' : 'صاحبك المستضيف'}
                 </div>
-                <div style={{ fontSize: 16.5, fontWeight: 900, color: '#f87171', marginTop: 2 }}>
+                <div style={{ fontSize: 16.5, fontWeight: 900, color: isLight ? '#dc2626' : '#f87171', marginTop: 2 }}>
                   {status.peerName || 'المنافس'}
                 </div>
-                <div style={{ fontSize: 10.5, color: '#4ade80', marginTop: 3, fontWeight: 800 }}>
+                <div style={{ fontSize: 10.5, color: isLight ? '#15803d' : '#4ade80', marginTop: 3, fontWeight: 800 }}>
                   ● متصل
                 </div>
               </div>
@@ -2366,15 +2391,15 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 justifyContent: 'center',
                 gap: 14,
                 fontSize: 12,
-                color: 'var(--pharaoh-text-muted)',
+                color: isLight ? '#6b573a' : 'var(--pharaoh-text-muted)',
                 marginBottom: 16,
               }}
             >
-              <span>النمط: <strong style={{ color: 'var(--pharaoh-gold-bright)' }}>شبكة نقطة الاتصال (Hotspot)</strong></span>
+              <span>النمط: <strong style={{ color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>شبكة نقطة الاتصال (Hotspot)</strong></span>
               <span>•</span>
-              <span>الاستجابة: <strong style={{ color: '#4ade80' }}>{status.latencyMs || 1}ms</strong></span>
+              <span>الاستجابة: <strong style={{ color: isLight ? '#15803d' : '#4ade80' }}>{status.latencyMs || 1}ms</strong></span>
               <span>•</span>
-              <span>الغرفة: <strong style={{ color: 'var(--pharaoh-gold-bright)' }}>#{status.roomCode}</strong></span>
+              <span>الغرفة: <strong style={{ color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>#{status.roomCode}</strong></span>
             </div>
 
             {/* Start Duel Primary Action Button */}

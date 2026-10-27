@@ -96,6 +96,7 @@ export const TagTeamLobbyView = ({
   onUpdateSettings,
   onSwapSlots,
   isMobile,
+  isLight = false,
 }) => {
   const [copied, setCopied] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -177,31 +178,55 @@ export const TagTeamLobbyView = ({
     const isTeammate = slot.team === myTeam && !isMe;
     const isOpponent = slot.team !== myTeam;
 
+    const seatBg = isLight
+      ? isMe
+        ? 'linear-gradient(135deg, rgba(254, 243, 199, 0.95), rgba(253, 230, 138, 0.7))'
+        : isTeammate && slot.isOccupied
+        ? 'linear-gradient(135deg, rgba(220, 252, 231, 0.95), rgba(187, 247, 208, 0.7))'
+        : slot.isOccupied
+        ? 'linear-gradient(135deg, rgba(254, 226, 226, 0.95), rgba(254, 202, 202, 0.7))'
+        : 'rgba(245, 238, 220, 0.65)'
+      : isMe
+      ? 'linear-gradient(135deg, rgba(240, 203, 100, 0.22), rgba(20, 16, 10, 0.95))'
+      : isTeammate && slot.isOccupied
+      ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 12, 8, 0.95))'
+      : slot.isOccupied
+      ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(16, 12, 8, 0.95))'
+      : 'rgba(0, 0, 0, 0.45)';
+
+    const seatBorder = isLight
+      ? isMe
+        ? '2px solid #d97706'
+        : isTeammate && slot.isOccupied
+        ? '1.5px solid #16a34a'
+        : slot.isOccupied
+        ? '1.5px solid #dc2626'
+        : '1.5px dashed #b45309'
+      : isMe
+      ? '2px solid var(--pharaoh-gold-bright)'
+      : isTeammate && slot.isOccupied
+      ? '1.5px solid #22c55e'
+      : slot.isOccupied
+      ? '1.5px solid rgba(239, 68, 68, 0.7)'
+      : '1px dashed rgba(240, 203, 100, 0.35)';
+
     return (
       <div
         key={slot.slotIndex}
         style={{
-          background: isMe
-            ? 'linear-gradient(135deg, rgba(240, 203, 100, 0.22), rgba(20, 16, 10, 0.95))'
-            : isTeammate && slot.isOccupied
-            ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 12, 8, 0.95))'
-            : slot.isOccupied
-            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(16, 12, 8, 0.95))'
-            : 'rgba(0, 0, 0, 0.45)',
-          border: isMe
-            ? '2px solid var(--pharaoh-gold-bright)'
-            : isTeammate && slot.isOccupied
-            ? '1.5px solid #22c55e'
-            : slot.isOccupied
-            ? '1.5px solid rgba(239, 68, 68, 0.7)'
-            : '1px dashed rgba(240, 203, 100, 0.35)',
+          background: seatBg,
+          border: seatBorder,
           borderRadius: 10,
           padding: '12px 14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 10,
-          boxShadow: isMe ? '0 0 16px rgba(240, 203, 100, 0.35)' : 'none',
+          boxShadow: isMe
+            ? isLight
+              ? '0 3px 14px rgba(217, 119, 6, 0.25)'
+              : '0 0 16px rgba(240, 203, 100, 0.35)'
+            : 'none',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
@@ -211,13 +236,21 @@ export const TagTeamLobbyView = ({
               height: 36,
               borderRadius: '50%',
               background: slot.isHost
-                ? 'rgba(240, 203, 100, 0.3)'
+                ? isLight
+                  ? 'rgba(217, 119, 6, 0.18)'
+                  : 'rgba(240, 203, 100, 0.3)'
                 : slot.isBot
-                ? 'rgba(139, 92, 246, 0.25)'
+                ? isLight
+                  ? 'rgba(124, 58, 237, 0.15)'
+                  : 'rgba(139, 92, 246, 0.25)'
                 : slot.isOccupied
-                ? 'rgba(34, 197, 94, 0.2)'
+                ? isLight
+                  ? 'rgba(22, 163, 74, 0.15)'
+                  : 'rgba(34, 197, 94, 0.2)'
+                : isLight
+                ? 'rgba(0, 0, 0, 0.05)'
                 : 'rgba(255, 255, 255, 0.05)',
-              border: '1.5px solid var(--pharaoh-gold-royal)',
+              border: isLight ? '1.5px solid #d97706' : '1.5px solid var(--pharaoh-gold-royal)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -225,11 +258,22 @@ export const TagTeamLobbyView = ({
             }}
           >
             {slot.isHost ? (
-              <CrownIcon size={18} color="var(--pharaoh-gold-bright)" />
+              <CrownIcon size={18} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
             ) : slot.isBot ? (
-              <BotIcon size={18} color="#c4b5fd" />
+              <BotIcon size={18} color={isLight ? '#6d28d9' : '#c4b5fd'} />
             ) : (
-              <UserPlusIcon size={16} color={slot.isOccupied ? '#4ade80' : 'var(--pharaoh-text-muted)'} />
+              <UserPlusIcon
+                size={16}
+                color={
+                  slot.isOccupied
+                    ? isLight
+                      ? '#16a34a'
+                      : '#4ade80'
+                    : isLight
+                    ? '#785f37'
+                    : 'var(--pharaoh-text-muted)'
+                }
+              />
             )}
           </div>
 
@@ -239,7 +283,13 @@ export const TagTeamLobbyView = ({
                 style={{
                   fontSize: 13.5,
                   fontWeight: 900,
-                  color: slot.isOccupied ? '#fff' : 'var(--pharaoh-text-muted)',
+                  color: slot.isOccupied
+                    ? isLight
+                      ? '#1c150c'
+                      : '#fff'
+                    : isLight
+                    ? '#785f37'
+                    : 'var(--pharaoh-text-muted)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -248,23 +298,60 @@ export const TagTeamLobbyView = ({
                 {slot.name}
               </span>
               {isMe && (
-                <span style={{ background: 'rgba(240, 203, 100, 0.3)', border: '1px solid var(--pharaoh-gold-bright)', color: 'var(--pharaoh-gold-bright)', padding: '1px 7px', borderRadius: 8, fontSize: 10, fontWeight: 900 }}>
+                <span
+                  style={{
+                    background: isLight ? '#fef3c7' : 'rgba(240, 203, 100, 0.3)',
+                    border: isLight ? '1px solid #d97706' : '1px solid var(--pharaoh-gold-bright)',
+                    color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
+                    padding: '1px 7px',
+                    borderRadius: 8,
+                    fontSize: 10,
+                    fontWeight: 900,
+                  }}
+                >
                   أنت
                 </span>
               )}
               {isTeammate && slot.isOccupied && (
-                <span style={{ background: 'rgba(34, 197, 94, 0.25)', border: '1px solid #22c55e', color: '#4ade80', padding: '1px 7px', borderRadius: 8, fontSize: 10, fontWeight: 900 }}>
+                <span
+                  style={{
+                    background: isLight ? '#dcfce7' : 'rgba(34, 197, 94, 0.25)',
+                    border: isLight ? '1px solid #16a34a' : '1px solid #22c55e',
+                    color: isLight ? '#15803d' : '#4ade80',
+                    padding: '1px 7px',
+                    borderRadius: 8,
+                    fontSize: 10,
+                    fontWeight: 900,
+                  }}
+                >
                   صاحبك في الفريق
                 </span>
               )}
               {isOpponent && slot.isOccupied && (
-                <span style={{ background: 'rgba(239, 68, 68, 0.25)', border: '1px solid #ef4444', color: '#f87171', padding: '1px 7px', borderRadius: 8, fontSize: 10, fontWeight: 900 }}>
+                <span
+                  style={{
+                    background: isLight ? '#fee2e2' : 'rgba(239, 68, 68, 0.25)',
+                    border: isLight ? '1px solid #dc2626' : '1px solid #ef4444',
+                    color: isLight ? '#b91c1c' : '#f87171',
+                    padding: '1px 7px',
+                    borderRadius: 8,
+                    fontSize: 10,
+                    fontWeight: 900,
+                  }}
+                >
                   خصم
                 </span>
               )}
             </div>
 
-            <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)', marginTop: 2 }}>
+            <div
+              style={{
+                fontSize: 11,
+                color: isLight ? '#92400e' : 'var(--pharaoh-text-gold)',
+                marginTop: 2,
+                fontWeight: 700,
+              }}
+            >
               {slot.isOccupied ? (
                 slot.isBot ? `ذكاء اصطناعي (${slot.botDifficulty || 'عادي'})` : isMe ? 'جاهز على الساحة' : 'متصل بالروم'
               ) : (
@@ -342,10 +429,12 @@ export const TagTeamLobbyView = ({
         className="stone-panel"
         style={{
           padding: '14px 18px',
-          border: '1.5px solid var(--pharaoh-gold-bright)',
+          border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1.5px solid var(--pharaoh-gold-bright)',
           borderRadius: 12,
-          background: 'linear-gradient(180deg, rgba(28, 22, 14, 0.98), rgba(15, 12, 8, 0.98))',
-          boxShadow: '0 6px 24px rgba(0, 0, 0, 0.6)',
+          background: isLight
+            ? 'linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(245, 238, 220, 0.98))'
+            : 'linear-gradient(180deg, rgba(28, 22, 14, 0.98), rgba(15, 12, 8, 0.98))',
+          boxShadow: isLight ? '0 4px 18px rgba(180, 83, 9, 0.12)' : '0 6px 24px rgba(0, 0, 0, 0.6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -359,20 +448,20 @@ export const TagTeamLobbyView = ({
               width: 36,
               height: 36,
               borderRadius: 8,
-              background: 'rgba(240, 203, 100, 0.15)',
-              border: '1.5px solid var(--pharaoh-gold-bright)',
+              background: isLight ? 'rgba(217, 119, 6, 0.12)' : 'rgba(240, 203, 100, 0.15)',
+              border: isLight ? '1.5px solid #d97706' : '1.5px solid var(--pharaoh-gold-bright)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <SwordsCombatIcon size={20} color="var(--pharaoh-gold-bright)" />
+            <SwordsCombatIcon size={20} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
               ساحة تحدي الفرق 2 ضد 2
             </div>
-            <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)' }}>
+            <div style={{ fontSize: 11, color: isLight ? '#6b573a' : 'var(--pharaoh-text-gold)' }}>
               {settings.turnFlow === 'tag_sequential' ? 'نظام تعاقب الأدوار (دور ورا دور)' : 'نظام اللعب المشترك سوا لايف في نفس الدور'}
             </div>
           </div>
@@ -385,14 +474,15 @@ export const TagTeamLobbyView = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
-              background: 'rgba(0, 0, 0, 0.7)',
-              border: '1.5px solid var(--pharaoh-gold-bright)',
+              background: isLight ? '#ffffff' : 'rgba(0, 0, 0, 0.7)',
+              border: isLight ? '1.5px solid #d97706' : '1.5px solid var(--pharaoh-gold-bright)',
               borderRadius: 20,
               padding: '6px 14px',
+              boxShadow: isLight ? '0 2px 8px rgba(180, 83, 9, 0.1)' : 'none',
             }}
           >
-            <span style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)', fontWeight: 800 }}>كود الساحة:</span>
-            <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', letterSpacing: 2, fontFamily: 'monospace' }}>
+            <span style={{ fontSize: 11, color: isLight ? '#785f37' : 'var(--pharaoh-text-gold)', fontWeight: 800 }}>كود الساحة:</span>
+            <span style={{ fontSize: 17, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', letterSpacing: 2, fontFamily: 'monospace' }}>
               #{status.roomCode || '....'}
             </span>
             <button
@@ -400,14 +490,14 @@ export const TagTeamLobbyView = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: copied ? '#4ade80' : 'var(--pharaoh-gold-bright)',
+                color: copied ? (isLight ? '#16a34a' : '#4ade80') : (isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'),
                 cursor: 'pointer',
                 padding: 2,
                 display: 'flex',
               }}
               title="نسخ الكود لصاحبك"
             >
-              {copied ? <CheckIcon size={14} color="#4ade80" /> : <CopyIcon size={14} color="var(--pharaoh-gold-bright)" />}
+              {copied ? <CheckIcon size={14} color={isLight ? '#16a34a' : '#4ade80'} /> : <CopyIcon size={14} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />}
             </button>
           </div>
 
@@ -426,7 +516,7 @@ export const TagTeamLobbyView = ({
             }}
             title="تعديل شروط ونظام المعركة"
           >
-            <SettingsIcon size={14} color="var(--pharaoh-gold-bright)" />
+            <SettingsIcon size={14} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
             <span>إعدادات الماتش</span>
           </button>
         </div>
@@ -438,16 +528,17 @@ export const TagTeamLobbyView = ({
           className="stone-panel"
           style={{
             padding: '14px 18px',
-            border: '1px solid var(--pharaoh-gold-dark)',
+            border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1px solid var(--pharaoh-gold-dark)',
             borderRadius: 10,
-            background: 'rgba(12, 9, 6, 0.98)',
+            background: isLight ? 'rgba(255, 252, 245, 0.98)' : 'rgba(12, 9, 6, 0.98)',
+            boxShadow: isLight ? '0 4px 16px rgba(180, 83, 9, 0.12)' : 'none',
             display: 'flex',
             flexDirection: 'column',
             gap: 12,
             textAlign: 'right',
           }}
         >
-          <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>
             قوانين ونظام المعركة:
           </div>
 
@@ -456,29 +547,29 @@ export const TagTeamLobbyView = ({
             style={{
               padding: '10px 14px',
               borderRadius: 8,
-              background: 'rgba(240, 203, 100, 0.08)',
-              border: '1px solid rgba(240, 203, 100, 0.35)',
+              background: isLight ? 'rgba(254, 243, 199, 0.65)' : 'rgba(240, 203, 100, 0.08)',
+              border: isLight ? '1px solid #d97706' : '1px solid rgba(240, 203, 100, 0.35)',
               display: 'flex',
               flexDirection: 'column',
               gap: 5,
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <ShieldIcon size={14} color="var(--pharaoh-gold-bright)" />
+            <div style={{ fontSize: 12, fontWeight: 900, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <ShieldIcon size={14} color={isLight ? '#b45309' : 'var(--pharaoh-gold-bright)'} />
               <span>قوانين المعركة الرسمية (2 ضد 2):</span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, color: isLight ? '#451a03' : 'var(--pharaoh-text-gold)', lineHeight: 1.5 }}>
               • <strong>دور موحد للفريق:</strong> دور واحد مشترك لفرقتكم، بتلعبوا سوا في نفس الدور لايف بدون إنهاء الدور بينكم، كل لاعب بينزل وحش وتنهوا الدور سوا للخصوم.
             </div>
-            <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, color: isLight ? '#451a03' : 'var(--pharaoh-text-gold)', lineHeight: 1.5 }}>
               • <strong>قانون الهجوم:</strong> ممنوع الهجوم في أول دور في الجيم بس (الدور 1 مقفول فيه الهجوم)، وبدايةً من الدور 2 (أول دور للخصم أو ليك) تقدروا تهاجموا عادي جداً!
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
             {/* Mode selection */}
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid rgba(240, 203, 100, 0.25)', gridColumn: isMobile ? '1' : '1 / -1' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--pharaoh-gold-bright)', marginBottom: 6 }}>
+            <div style={{ background: isLight ? 'rgba(245, 238, 220, 0.7)' : 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: isLight ? '1px solid var(--pharaoh-stone-border)' : '1px solid rgba(240, 203, 100, 0.25)', gridColumn: isMobile ? '1' : '1 / -1' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)', marginBottom: 6 }}>
                 نظام اللعب:
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -500,8 +591,8 @@ export const TagTeamLobbyView = ({
             </div>
 
             {/* LP selection */}
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--pharaoh-text-gold)', marginBottom: 6 }}>
+            <div style={{ background: isLight ? 'rgba(245, 238, 220, 0.7)' : 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: isLight ? '1px solid var(--pharaoh-stone-border)' : '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: isLight ? '#92400e' : 'var(--pharaoh-text-gold)', marginBottom: 6 }}>
                 نقاط الحياة (Life Points):
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -520,8 +611,8 @@ export const TagTeamLobbyView = ({
             </div>
 
             {/* Hand Visibility */}
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--pharaoh-text-gold)', marginBottom: 6 }}>
+            <div style={{ background: isLight ? 'rgba(245, 238, 220, 0.7)' : 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, border: isLight ? '1px solid var(--pharaoh-stone-border)' : '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: isLight ? '#92400e' : 'var(--pharaoh-text-gold)', marginBottom: 6 }}>
                 رؤية كروت صاحبك:
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -560,23 +651,25 @@ export const TagTeamLobbyView = ({
           className="stone-panel"
           style={{
             padding: '16px 14px',
-            border: '2px solid #22c55e',
+            border: isLight ? '2px solid #16a34a' : '2px solid #22c55e',
             borderRadius: 12,
-            background: 'linear-gradient(180deg, rgba(34, 197, 94, 0.12), var(--pharaoh-panel-bg))',
-            boxShadow: '0 4px 20px rgba(34, 197, 94, 0.25)',
+            background: isLight
+              ? 'linear-gradient(180deg, rgba(220, 252, 231, 0.75), rgba(255, 252, 245, 0.98))'
+              : 'linear-gradient(180deg, rgba(34, 197, 94, 0.12), var(--pharaoh-panel-bg))',
+            boxShadow: isLight ? '0 4px 16px rgba(22, 163, 74, 0.15)' : '0 4px 20px rgba(34, 197, 94, 0.25)',
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(34, 197, 94, 0.3)', paddingBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: isLight ? '1px solid rgba(22, 163, 74, 0.3)' : '1px solid rgba(34, 197, 94, 0.3)', paddingBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <ShieldIcon size={16} color="#4ade80" />
-              <span style={{ fontSize: 14, fontWeight: 900, color: '#4ade80' }}>
+              <ShieldIcon size={16} color={isLight ? '#16a34a' : '#4ade80'} />
+              <span style={{ fontSize: 14, fontWeight: 900, color: isLight ? '#15803d' : '#4ade80' }}>
                 تحالفكم (فريقك أنت وصاحبك)
               </span>
             </div>
-            <span style={{ fontSize: 11, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+            <span style={{ fontSize: 11, color: isLight ? '#15803d' : 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
               {settings.lifePoints} LP
             </span>
           </div>
@@ -602,15 +695,17 @@ export const TagTeamLobbyView = ({
               width: 38,
               height: 38,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(240, 203, 100, 0.3), var(--pharaoh-bg-deep))',
-              border: '2px solid var(--pharaoh-gold-bright)',
+              background: isLight
+                ? 'linear-gradient(135deg, #fef3c7, #fffcf5)'
+                : 'linear-gradient(135deg, rgba(240, 203, 100, 0.3), var(--pharaoh-bg-deep))',
+              border: isLight ? '2px solid #d97706' : '2px solid var(--pharaoh-gold-bright)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--pharaoh-gold-bright)',
+              color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
               fontSize: 13,
               fontWeight: 900,
-              boxShadow: '0 0 15px rgba(240, 203, 100, 0.4)',
+              boxShadow: isLight ? '0 2px 10px rgba(180, 83, 9, 0.15)' : '0 0 15px rgba(240, 203, 100, 0.4)',
             }}
           >
             ضد
@@ -622,23 +717,25 @@ export const TagTeamLobbyView = ({
           className="stone-panel"
           style={{
             padding: '16px 14px',
-            border: '2px solid #ef4444',
+            border: isLight ? '2px solid #dc2626' : '2px solid #ef4444',
             borderRadius: 12,
-            background: 'linear-gradient(180deg, rgba(239, 68, 68, 0.12), var(--pharaoh-panel-bg))',
-            boxShadow: '0 4px 20px rgba(239, 68, 68, 0.25)',
+            background: isLight
+              ? 'linear-gradient(180deg, rgba(254, 226, 226, 0.75), rgba(255, 252, 245, 0.98))'
+              : 'linear-gradient(180deg, rgba(239, 68, 68, 0.12), var(--pharaoh-panel-bg))',
+            boxShadow: isLight ? '0 4px 16px rgba(220, 38, 38, 0.15)' : '0 4px 20px rgba(239, 68, 68, 0.25)',
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(239, 68, 68, 0.3)', paddingBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: isLight ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)', paddingBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <SwordsCombatIcon size={16} color="#f87171" />
-              <span style={{ fontSize: 14, fontWeight: 900, color: '#f87171' }}>
+              <SwordsCombatIcon size={16} color={isLight ? '#dc2626' : '#f87171'} />
+              <span style={{ fontSize: 14, fontWeight: 900, color: isLight ? '#b91c1c' : '#f87171' }}>
                 تحالف الخصوم (المنافسين)
               </span>
             </div>
-            <span style={{ fontSize: 11, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
+            <span style={{ fontSize: 11, color: isLight ? '#b91c1c' : 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
               {settings.lifePoints} LP
             </span>
           </div>
@@ -693,12 +790,13 @@ export const TagTeamLobbyView = ({
             style={{
               textAlign: 'center',
               padding: '12px 14px',
-              background: 'rgba(0, 0, 0, 0.45)',
-              border: '1px solid rgba(240, 203, 100, 0.35)',
+              background: isLight ? 'rgba(255, 252, 245, 0.95)' : 'rgba(0, 0, 0, 0.45)',
+              border: isLight ? '1.5px solid var(--pharaoh-stone-border)' : '1px solid rgba(240, 203, 100, 0.35)',
               borderRadius: 8,
               fontSize: 13,
-              color: 'var(--pharaoh-gold-bright)',
+              color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
               fontWeight: 800,
+              boxShadow: isLight ? '0 2px 8px rgba(180, 83, 9, 0.08)' : 'none',
             }}
           >
             في انتظار صاحب الروم يبدأ الماتش...

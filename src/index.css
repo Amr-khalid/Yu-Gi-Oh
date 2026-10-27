@@ -3368,6 +3368,18 @@ input::placeholder {
   background: var(--pharaoh-gold-bright, #f0cb64);
 }
 
+body[data-theme='light'] .multiplayer-screen-scroll-container::-webkit-scrollbar-track {
+  background: rgba(237, 228, 206, 0.7);
+}
+body[data-theme='light'] .multiplayer-screen-scroll-container::-webkit-scrollbar-thumb {
+  background: #d97706;
+  border-radius: 4px;
+  border: 1px solid #b45309;
+}
+body[data-theme='light'] .multiplayer-screen-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #b45309;
+}
+
 /* Authentic Carved Stone Tablet Menu Buttons */
 .temple-stele-button {
   width: 100%;
