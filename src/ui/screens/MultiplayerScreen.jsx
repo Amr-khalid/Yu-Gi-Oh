@@ -631,18 +631,24 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
   return (
     <div
+      className="multiplayer-screen-scroll-container"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100vh',
+        height: '100vh',
+        maxHeight: '100vh',
         width: '100vw',
+        maxWidth: '100vw',
         background: isLight
           ? 'radial-gradient(circle at 50% 20%, rgba(255, 252, 242, 0.86) 0%, rgba(228, 210, 175, 0.95) 85%), url(/assets/fie_desert.png) center/cover no-repeat fixed, var(--pharaoh-bg-deep)'
           : 'radial-gradient(circle at 50% 20%, rgba(28, 20, 12, 0.82) 0%, rgba(10, 8, 5, 0.95) 85%), url(/assets/fie_night.png) center/cover no-repeat fixed, url(/assets/title_bg.png) center/cover no-repeat fixed, var(--pharaoh-bg-deep)',
         backgroundColor: 'var(--pharaoh-bg-deep)',
         overflowY: 'auto',
+        overflowX: 'hidden',
         position: 'relative',
         WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        overscrollBehaviorY: 'contain',
       }}
     >
       {/* Ancient Egyptian Temple Tomb Wall Hieroglyphic Watermark */}
@@ -1021,12 +1027,12 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
       <div
         style={{
-          flex: 1,
+          flex: '1 0 auto',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: status.connected ? 'center' : 'flex-start',
-          padding: isMobile ? '16px 14px 44px' : '26px 22px 60px',
+          justifyContent: 'flex-start',
+          padding: isMobile ? '16px 14px 100px' : '26px 22px 100px',
           maxWidth: isMobile ? '100%' : 680,
           margin: '0 auto',
           width: '100%',
