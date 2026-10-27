@@ -62,10 +62,10 @@ class PharaohErrorBoundary extends React.Component {
             }}
           >
             <h2 style={{ color: 'var(--pharaoh-gold-bright)', marginBottom: 12, fontSize: 18, fontWeight: 900 }}>
-              تنبيه اللوحة الملكية
+              حصل هنج بسيط يا غالي
             </h2>
             <p style={{ color: 'var(--pharaoh-text-light)', fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
-              حدثت مشكلة غير متوقعة أثناء عرض الشاشة، يمكنك الرجوع لشاشة البداية ومتابعة اللعب بأمان.
+              حصلت حركة غير متوقعة في الشاشة دي، ما تقلقش! ارجع لشاشة البداية وكمل لعبك عادي يا بطل.
             </p>
             {this.state.error && (
               <div
@@ -102,7 +102,7 @@ class PharaohErrorBoundary extends React.Component {
                 className="btn-pharaoh-gold"
                 style={{ padding: '10px 24px', fontSize: 13, fontWeight: 900 }}
               >
-                الرجوع لشاشة البداية
+                ارجع لشاشة البداية
               </button>
               <button
                 onClick={() => {
@@ -111,7 +111,7 @@ class PharaohErrorBoundary extends React.Component {
                 className="btn-pharaoh-stone"
                 style={{ padding: '10px 16px', fontSize: 13, fontWeight: 800 }}
               >
-                إعادة المحاولة
+                جرب تاني
               </button>
             </div>
           </div>

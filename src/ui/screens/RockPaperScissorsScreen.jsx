@@ -23,7 +23,7 @@ const SacredRockIcon = ({ size = 48, color = 'currentColor' }) => (
   </svg>
 );
 
-// 2. Paper - The Royal Papyrus Scroll of Thoth (لفافة البردي الملكية)
+// 2. Paper - The Papyrus Scroll of Thoth (لفافة البردي الفرعونية)
 const RoyalPapyrusIcon = ({ size = 48, color = 'currentColor' }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
     {/* Top Scroll Roll */}

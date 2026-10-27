@@ -475,7 +475,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
   const handleJoinByCodeClick = async () => {
     const cleanCode = connectionManager.normalizeRoomCode(inputRoomCode);
     if (!cleanCode || cleanCode.length !== 4) {
-      alert('اكتب رمز الغرفة المكون من 4 أرقام يا غالي عشان تدخل!');
+      alert('اكتب كود الروم الـ 4 أرقام يا صاحبي عشان تدخل معاهم!');
       return;
     }
     soundManager.playDecide();
@@ -486,7 +486,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     const ok = await connectionManager.joinByCode(cleanCode, target);
     if (!ok) {
       setIsConnectingByCode(false);
-      alert('رمز الغرفة لازم يكون 4 أرقام بالظبط يا بطل!');
+      alert('كود الروم لازم يكون 4 أرقام بالظبط يا وحش!');
     }
   };
 
@@ -724,7 +724,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 <CrownIcon size={20} color="var(--pharaoh-gold-bright)" />
               </div>
               <div style={{ fontSize: 11, color: 'var(--pharaoh-gold-bright)', fontWeight: 800 }}>
-                {status.role === 'host' ? 'المستضيف الملكي' : 'أنت (المتحدي)'}
+                {status.role === 'host' ? 'صاحب الروم' : 'أنت (المتحدي)'}
               </div>
               <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pharaoh-text-light)', marginTop: 3 }}>
                 {playerName}
@@ -776,7 +776,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 <SwordsCombatIcon size={20} color="#f87171" />
               </div>
               <div style={{ fontSize: 11, color: '#f87171', fontWeight: 800 }}>
-                {status.role === 'host' ? 'المنافس المتحدي' : 'المستضيف الملكي'}
+                {status.role === 'host' ? 'المنافس المتحدي' : 'صاحب الروم'}
               </div>
               <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--pharaoh-text-light)', marginTop: 3 }}>
                 {status.peerName || 'المنافس'}
@@ -791,10 +791,10 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
           {/* Connection Status Details */}
           <div style={{ textAlign: 'center', zIndex: 20, padding: '0 16px' }}>
             <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', textShadow: '0 0 16px rgba(240, 203, 100, 0.7)' }}>
-              تم ربط الأجهزة الملكية بنجاح!
+              تم ربط الأجهزة ببعض وعاش يا وحش!
             </div>
             <div style={{ fontSize: 12, color: 'var(--pharaoh-text-gold)', marginTop: 4, fontWeight: 700 }}>
-              ROYAL DUEL LINK ESTABLISHED • اتصال محلي فوري فائق السرعة
+              DUEL LINK ACTIVE • اتصال محلي فوري وسريع جداً
             </div>
 
             <div
@@ -943,57 +943,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
           {/* Dynamic Status Pill */}
           <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              marginTop: 3,
-              padding: '2px 8px',
-              borderRadius: 12,
-              background: status.connected
-                ? 'rgba(34, 197, 94, 0.15)'
-                : actionState === 'hosting'
-                ? 'rgba(240, 203, 100, 0.15)'
-                : actionState === 'joining'
-                ? 'rgba(59, 130, 246, 0.15)'
-                : 'rgba(255, 255, 255, 0.06)',
-              border: `1px solid ${
-                status.connected
-                  ? '#22c55e'
-                  : actionState === 'hosting'
-                  ? 'var(--pharaoh-gold-bright)'
-                  : actionState === 'joining'
-                  ? '#3b82f6'
-                  : 'rgba(255, 255, 255, 0.12)'
-              }`,
-              fontSize: 10,
-              fontWeight: 800,
-              color: status.connected
-                ? '#4ade80'
-                : actionState === 'hosting'
-                ? 'var(--pharaoh-gold-bright)'
-                : actionState === 'joining'
-                ? '#60a5fa'
-                : 'var(--pharaoh-text-muted)',
-              lineHeight: 1,
-            }}
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: status.connected
-                  ? '#22c55e'
-                  : actionState === 'hosting'
-                  ? '#f0cb64'
-                  : actionState === 'joining'
-                  ? '#3b82f6'
-                  : '#888',
-                display: 'inline-block',
-                animation: status.connected || actionState !== 'idle' ? 'beaconPulse 1.6s infinite' : 'none',
-              }}
-            />
             <span>
               {status.connected
                 ? 'متصل بصاحبك'
@@ -1258,7 +1208,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 width: '100%',
               }}
             >
-              {/* Card 1: Host Room (المستضيف الملكي) */}
+              {/* Card 1: Host Room (صاحب الروم) */}
               <div
                 className="stone-panel"
                 style={{
@@ -1297,7 +1247,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                     </div>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
-                        المستضيف الملكي
+                        صاحب الروم
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)' }}>
                         افتح الروم وخلي صاحبك ينضم
@@ -1727,7 +1677,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                 }}
               >
                 <div style={{ fontSize: 12, color: 'var(--pharaoh-text-gold)', marginBottom: 4, fontWeight: 800 }}>
-                  كود الروم الملكي (4 أرقام):
+                  كود الروم (4 أرقام):
                 </div>
                 <div
                   style={{
@@ -1820,7 +1770,6 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                   fontWeight: 700,
                 }}
               >
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'beaconPulse 1.6s infinite' }} />
                 <span>الروم شغالة — مستنيين صاحبك يدخل...</span>
               </div>
 
@@ -1868,7 +1817,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
                 <SwordsCombatIcon size={24} color="var(--pharaoh-gold-bright)" />
                 <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--pharaoh-gold-bright)' }}>
-                  ادخل روم صاحبك الملكية
+                  ادخل روم صاحبك يا بطل
                 </span>
               </div>
               <PharaohHieroglyphRibbon opacity={0.6} style={{ marginBottom: 14 }} />
@@ -1974,7 +1923,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                     <input
                       type="text"
                       maxLength={4}
-                      placeholder="5482"
+                      placeholder="****"
                       value={inputRoomCode}
                       onChange={(e) => setInputRoomCode(connectionManager.normalizeRoomCode(e.target.value))}
                       onKeyDown={(e) => {

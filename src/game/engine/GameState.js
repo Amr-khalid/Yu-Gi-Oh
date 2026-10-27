@@ -105,7 +105,7 @@ export function createInitialGameState(
     tagActiveSlot: 0,
     lastLog: [
       isTagMode
-        ? `بدأت معركة الفرق الملكية الكبرى 2v2 بين تحالف [${p0Name} و ${p0.teammateName || 'الزميل'}] ضد تحالف [${p1Name} و ${p1.teammateName || 'الخصم'}]!`
+        ? `بدأت معركة الفرق الكبرى 2v2 بين تحالف [${p0Name} و ${p0.teammateName || 'الزميل'}] ضد تحالف [${p1Name} و ${p1.teammateName || 'الخصم'}]!`
         : `بدأت المعركة الأسطورية بين ${p0Name} و ${p1Name}`
     ],
   };

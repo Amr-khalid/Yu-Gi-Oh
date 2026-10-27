@@ -191,7 +191,7 @@ function yugiohMultiplayerPlugin() {
               if (!room || !room.hostWs || room.hostWs.readyState !== WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                   type: 'ROOM_ERROR',
-                  message: 'رمز الغرفة غير صحيح أو أن المستضيف غير متصل حالياً.',
+                  message: 'كود الروم مش مظبوط أو صاحب الروم قفل أو مش متصل دلوقتي، اتأكد من الكود يا وحش وجرب تاني!',
                 }));
                 return;
               }
@@ -222,7 +222,7 @@ function yugiohMultiplayerPlugin() {
                 if (targetSlotIndex === -1) {
                   ws.send(JSON.stringify({
                     type: 'ROOM_ERROR',
-                    message: 'هذه الغرفة ممتلئة بالكامل بـ 4 لاعبين أو بوتات.',
+                    message: 'الروم دي مفولة بالكامل بـ 4 لاعبين، اختار روم تانية يا بطل!',
                   }));
                   return;
                 }
@@ -281,7 +281,7 @@ function yugiohMultiplayerPlugin() {
               if (room.clientWs && room.clientWs !== ws && room.clientWs.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                   type: 'ROOM_ERROR',
-                  message: 'هذه الغرفة ممتلئة بالفعل بمبارز آخر.',
+                  message: 'الروم دي فيها اتنين بيلعبوا خلاص ومفولة يا صاحبي!',
                 }));
                 return;
               }

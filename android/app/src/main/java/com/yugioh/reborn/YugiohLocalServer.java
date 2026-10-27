@@ -308,7 +308,7 @@ public class YugiohLocalServer extends WebSocketServer {
                 if (room == null || room.hostWs == null || !room.hostWs.isOpen()) {
                     JSONObject err = new JSONObject();
                     err.put("type", "ROOM_ERROR");
-                    err.put("message", "رمز الغرفة غير صحيح أو أن المستضيف غير متصل حالياً.");
+                    err.put("message", "كود الروم مش مظبوط أو صاحب الروم قفل أو مش متصل دلوقتي، اتأكد من الكود يا وحش وجرب تاني!");
                     conn.send(err.toString());
                     return;
                 }
@@ -335,7 +335,7 @@ public class YugiohLocalServer extends WebSocketServer {
                     if (targetSlotIndex == -1) {
                         JSONObject err = new JSONObject();
                         err.put("type", "ROOM_ERROR");
-                        err.put("message", "هذه الغرفة ممتلئة بالفعل بأربعة مبارزين وبوتات.");
+                        err.put("message", "الروم دي مفولة بالكامل بـ 4 لاعبين، اختار روم تانية يا بطل!");
                         conn.send(err.toString());
                         return;
                     }
@@ -383,7 +383,7 @@ public class YugiohLocalServer extends WebSocketServer {
                     if (room.clientWs != null && room.clientWs != conn && room.clientWs.isOpen()) {
                         JSONObject err = new JSONObject();
                         err.put("type", "ROOM_ERROR");
-                        err.put("message", "هذه الغرفة ممتلئة بالفعل بمبارز آخر.");
+                        err.put("message", "الروم دي فيها اتنين بيلعبوا خلاص ومفولة يا صاحبي!");
                         conn.send(err.toString());
                         return;
                     }

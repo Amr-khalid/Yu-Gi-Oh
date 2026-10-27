@@ -81,22 +81,61 @@ const EGYPTIAN_YOUTH_MAPPINGS = [
     replacement: 'ماينفعش تحط أكتر من 3 نسخ من نفس الكارت يا صاحبي، ده القانون الرسمي!',
   },
   {
-    test: /رمز الغرفة يجب أن يتكون من 4 أرقام/i,
-    replacement: 'رمز الغرفة لازم يكون من 4 أرقام يا غالي، اتأكد من الرمز وجرب تاني.',
+    test: /رمز الغرفة يجب أن يتكون من 4 أرقام|رمز الغرفة غير صحيح أو أن المستضيف غير متصل|كود الروم مش مظبوط/i,
+    replacement: 'كود الروم مش مظبوط أو صاحب الروم قفل أو مش متصل دلوقتي، اتأكد من الكود يا وحش وجرب تاني!',
+  },
+  {
+    test: /انقطع الاتصال مع المنافس/i,
+    replacement: 'الاتصال مع المنافس اتقطع يا غالي، ارجع وجرب تدخل تاني!',
+  },
+  {
+    test: /حدثت مشكلة غير متوقعة/i,
+    replacement: 'حصل هنج مفاجئ يا غالي، ما تقلقش ارجع لشاشة البداية وكمل لعبك عادي!',
+  },
+  {
+    test: /رباط الجاذبية/i,
+    replacement: 'رباط الجاذبية مانع أي وحش ليفل 4 أو أعلى إنه يضرب يا كابتن!',
+  },
+  {
+    test: /جينزو|Jinzo/i,
+    replacement: 'جينزو في الملعب ومعطل كل الفخاخ، مافيش فخ هيشتغل يا بطل!',
+  },
+  {
+    test: /ماتقدرش تغير وضع الوحش/i,
+    replacement: 'ماتقدرش تغير وضع الوحش إلا في المرحلة الأولى أو التانية يا صاحبي!',
+  },
+  {
+    test: /الوحش ده نزّلته أو غيرت وضعه خلاص/i,
+    replacement: 'الوحش ده نزلته أو غيرت وضعه خلاص في الدور ده، استنى الدور الجاي يا وحش!',
+  },
+  {
+    test: /ماتقدرش تشغل كارت الفخ في نفس الدور/i,
+    replacement: 'الفخ محتاج يستوي دور الأول! ماتقدرش تشغله في نفس الدور اللي حطيته فيه يا غالي.',
+  },
+  {
+    test: /الوحش ده متكتف/i,
+    replacement: 'الوحش ده متكتف ومحبوس، مايقدرش يضرب دلوقتي يا بطل!',
   },
 ];
 
 export function toEgyptianYouth(text) {
   if (!text || typeof text !== 'string') return 'حصلت حركة مش مضبوطة يا بطل!';
 
+  // Purge any royal keywords ('الملكية' / 'الملكي')
+  let cleaned = text
+    .replace(/الملكية/g, 'الأسطورية')
+    .replace(/الملكي/g, 'الأسطوري')
+    .replace(/ملكية/g, 'أسطورية')
+    .replace(/ملكي/g, 'أسطوري');
+
   for (const item of EGYPTIAN_YOUTH_MAPPINGS) {
-    if (item.test.test(text)) {
+    if (item.test.test(cleaned)) {
       return item.replacement;
     }
   }
 
-  // If text already sounds Egyptian youth or has no mapping, return as is
-  return text;
+  // If text already sounds Egyptian youth or has no mapping, return cleaned
+  return cleaned;
 }
 
 export function subscribeAlert(callback) {

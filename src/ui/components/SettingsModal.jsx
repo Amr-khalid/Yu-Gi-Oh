@@ -2327,25 +2327,6 @@ export const SettingsModal = ({
             </button>
           </div>
 
-          {/* Center Hint Badge */}
-          <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
-            <div
-              style={{
-                display: 'inline-block',
-                padding: '6px 18px',
-                background: 'rgba(0, 0, 0, 0.65)',
-                borderRadius: 20,
-                border: '1px solid rgba(212, 175, 55, 0.45)',
-                color: 'var(--pharaoh-text-gold)',
-                fontSize: 12,
-                fontWeight: 800,
-                backdropFilter: 'blur(8px)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.8)',
-              }}
-            >
-              معاينة حية للميدان بحجم الشاشة الكامل
-            </div>
-          </div>
 
           {/* Bottom Bar Controls */}
           <div

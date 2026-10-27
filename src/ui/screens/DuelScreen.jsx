@@ -2555,8 +2555,8 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'ولادة الوحش (Monster Reborn)',
-        subtitle: 'اختر وحشاً من المقبرة لاستدعائه استدعاءً خاصاً إلى ساحتك',
-        actionLabel: 'تأكيد الاستدعاء الخاص',
+        subtitle: 'نقيلك وحش من المقبرة علشان ينزل ساحتك فوراً',
+        actionLabel: 'صحّي الوحش ده',
         options: allRevivable,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2593,8 +2593,8 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'الدفن المبكر (Premature Burial)',
-        subtitle: 'ادفع 800 نقطة حياة واختر وحشاً من مقبرتك لاستدعائه',
-        actionLabel: 'استدعاء ودفع 800 LP',
+        subtitle: 'ادفع 800 نقطة حياة واختار وحش من مقبرتك تنزله الملعب',
+        actionLabel: 'ادفع 800 وصحّيه',
         options: p0Monsters,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2627,8 +2627,8 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'القبر السطحي (The Shallow Grave)',
-        subtitle: 'اختر وحشاً من مقبرتك لاستدعائه في وضع الدفاع المقلوب',
-        actionLabel: 'استدعاء مقلوب',
+        subtitle: 'نقيلك وحش من مقبرتك ونزله مقلوب في وضع الدفاع',
+        actionLabel: 'نزّله مقلوب',
         options: p0Monsters,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2656,8 +2656,8 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'استعادة الوحش من المقبرة',
-        subtitle: 'اختر وحشاً من مقبرتك لاستعادته إلى يدك',
-        actionLabel: 'استعادة إلى اليد',
+        subtitle: 'اختار وحش من مقبرتك ترجعه لإيدك تاني',
+        actionLabel: 'رجّعه لإيدك',
         options: p0Monsters,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2684,9 +2684,9 @@ export const DuelScreen = ({
       const currentHandIdx = handIdx;
       setCardSelectModal({
         isOpen: true,
-        title: 'استعادة بطاقة سحر من المقبرة',
-        subtitle: 'اختر بطاقة سحر من مقبرتك لاستعادتها إلى يدك',
-        actionLabel: 'استعادة إلى اليد',
+        title: 'استعادة كارت سحر من المقبرة',
+        subtitle: 'اختار كارت سحر من مقبرتك ترجعه لإيدك',
+        actionLabel: 'رجّع السحر لإيدك',
         options: p0Spells,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2722,8 +2722,8 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'تغيير القلب (Change of Heart)',
-        subtitle: 'اختر وحش الخصم المراد السيطرة عليه ونقله لصفوفك',
-        actionLabel: 'تأكيد السيطرة',
+        subtitle: 'اختار وحش من عند الخصم تسيطر عليه وتجيبه عندك',
+        actionLabel: 'هات الوحش ده',
         options: oppMonsters,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2759,8 +2759,8 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'سرقة خاطفة (Snatch Steal)',
-        subtitle: 'اختر وحش الخصم المكشوف لنقله لساحتك',
-        actionLabel: 'تأكيد السرقة',
+        subtitle: 'اختار وحش مكشوف عند الخصم تضمه لساحتك',
+        actionLabel: 'اسرق الوحش ده',
         options: oppMonsters,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2791,8 +2791,8 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'قربان للهلاك (Tribute to The Doomed)',
-        subtitle: 'اختر وحش الخصم المراد القضاء عليه وتدميره',
-        actionLabel: 'تأكيد التدمير',
+        subtitle: 'اختار الوحش اللي عاوز تفرتكه وتدمره عند الخصم',
+        actionLabel: 'دمّر الوحش ده',
         options: oppMonsters,
         handIndex: currentHandIdx,
         onConfirm: (chosenCard) => {
@@ -2831,16 +2831,16 @@ export const DuelScreen = ({
       setCardSelectModal({
         isOpen: true,
         title: 'ريوريوكو - الخطوة الأولى',
-        subtitle: 'اختر وحش الخصم المراد سلب 50% من نقاط هجومه',
-        actionLabel: 'اختيار الضحية',
+        subtitle: 'اختار وحش من عند الخصم تسحب نص هجومه',
+        actionLabel: 'اسحب نص هجومه',
         options: oppMonsters,
         handIndex: currentHandIdx,
         onConfirm: (victimCard) => {
           setCardSelectModal({
             isOpen: true,
             title: 'ريوريوكو - الخطوة الثانية',
-            subtitle: `اختر وحشك الذي سيحصل على نصف هجوم ${victimCard.name}`,
-            actionLabel: 'تأكيد التحويل والتعزيز',
+            subtitle: `اختار وحشك اللي هياخد نص هجوم ${victimCard.name}`,
+            actionLabel: 'زوّد وحشك دلوقتي',
             options: myMonsters,
             handIndex: currentHandIdx,
             onConfirm: (allyCard) => {
@@ -2888,8 +2888,8 @@ export const DuelScreen = ({
         setCardSelectModal({
           isOpen: true,
           title: `تزويد بالسحر: ${card.arabicName || card.name}`,
-          subtitle: 'اختر الوحش في ساحتك المراد تعزيزه وتزويده بالسحر',
-          actionLabel: 'تأكيد التزويد',
+          subtitle: 'اختار الوحش اللي في ساحتك علشان تزوّده بالسحر ده',
+          actionLabel: 'زوّد الوحش ده',
           options: myMonsters,
           handIndex: currentHandIdx,
           onConfirm: (chosenCard) => {
@@ -2983,8 +2983,8 @@ export const DuelScreen = ({
         setCardSelectModal({
           isOpen: true,
           title: `تأثير قلب: ${card.arabicName || card.name}`,
-          subtitle: `اختر وحش الخصم المراد ${actionWord}`,
-          actionLabel: `تأكيد ${actionWord}`,
+          subtitle: `اختار وحش الخصم اللي عاوز ${actionWord}`,
+          actionLabel: `أكّد ${actionWord}`,
           options: oppMonsters,
           onConfirm: (chosenCard) => {
             setCardSelectModal(null);
@@ -3033,8 +3033,8 @@ export const DuelScreen = ({
         setCardSelectModal({
           isOpen: true,
           title: `تفعيل: ${card.arabicName || card.name}`,
-          subtitle: 'اختر وحش الخصم المراد استهدافه بتأثير الكارت',
-          actionLabel: 'تأكيد الهدف والتفعيل',
+          subtitle: 'اختار وحش الخصم اللي هتنزل عليه التأثير',
+          actionLabel: 'نفّذ التأثير عليه',
           options: oppMonsters,
           onConfirm: (chosenCard) => {
             setCardSelectModal(null);
@@ -3372,7 +3372,7 @@ export const DuelScreen = ({
               cursor: 'pointer',
               padding: 0,
             }}
-            title={`حلبة القتال: ${chosenArena?.name || 'الساحة الملكية'} - انقر للتبديل السريع`}
+            title={`حلبة القتال: ${chosenArena?.name || 'ساحة المبارزة'} - دوس للتبديل السريع`}
           >
             <ArenaPillarIcon size={16} />
           </button>
@@ -6217,7 +6217,7 @@ export const DuelScreen = ({
                   ? 'هجوم مباشر ساحق وكاسح!'
                   : powerStrikeAlert.isOverpower
                   ? 'سحق كاسح لوحش الخصم!'
-                  : 'هجوم بالقوة الفرعونية الملكية!'}
+                  : 'هجوم بالقوة الفرعونية الأسطورية!'}
               </span>
               <span className="power-strike-glyph">𓊽</span>
             </div>

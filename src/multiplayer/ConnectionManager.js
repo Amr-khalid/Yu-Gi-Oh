@@ -652,13 +652,13 @@ export class ConnectionManager {
     else if (msg.type === 'ROOM_ERROR') {
       // If retry timer is active, wait for retries before notifying error
       if (this.role === 'client' && this.joinRetryTimers && this.joinRetryTimers.length > 0) {
-        this.lastRoomError = msg.message || 'رمز الغرفة غير صحيح أو أن المستضيف غير متصل حالياً.';
+        this.lastRoomError = msg.message || 'كود الروم مش مظبوط أو صاحب الروم قفل أو مش متصل دلوقتي، اتأكد من الكود يا وحش وجرب تاني!';
         return;
       }
       this.connected = false;
       this.peerName = '';
       this.notifyStatus();
-      alert(msg.message || 'رمز الغرفة غير صحيح أو أن المستضيف غير متصل حالياً.');
+      alert(msg.message || 'كود الروم مش مظبوط أو صاحب الروم قفل أو مش متصل دلوقتي، اتأكد من الكود يا وحش وجرب تاني!');
     }
 
     // 3. Both Host and Client connected!
@@ -837,7 +837,7 @@ export class ConnectionManager {
     // 7. Peer disconnected
     else if (msg.type === 'PEER_DISCONNECTED') {
       this.stopHeartbeat();
-      alert(msg.reason || 'انقطع الاتصال مع المنافس.');
+      alert(msg.reason || 'الاتصال مع المنافس اتقطع يا غالي، ارجع وجرب تدخل تاني.');
       this.connected = false;
       this.peerName = '';
       this.notifyStatus();

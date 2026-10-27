@@ -130,26 +130,26 @@ export const DuelOutcomeModal = ({
   // Hieroglyphic motes for ascending victory particles
   const hieroglyphs = ['𓂀', '𓋹', '𓃭', '𓆣', '𓎛', '𓇳', '𓊃', '𓏏'];
 
-  // Resolve localized win/loss reasons
+  // Resolve localized win/loss reasons in Egyptian youth dialect
   const getOutcomeReasonText = () => {
     if (winReason === 'EXODIA') {
       return isVictory
-        ? 'استدعاء إكسوديا المحرَر المطلق (انتصار إعجازي فوري)'
-        : 'استدعى الخصم أجزاء إكسوديا الخمسة كاملة';
+        ? 'جمّعت قطع إكسوديا الخمسة كاملة وقفلت الجيم في ثواني!'
+        : 'الخصم جمّع قطع إكسوديا الخمسة وخلّص الماتش!';
     }
     if (winReason === 'DECK_OUT') {
       return isVictory
-        ? 'نفاد جميع بطاقات مجموعة الخصم ولم يعد بإمكانه السحب'
-        : 'نفدت أوراق مجموعتك بالكامل ولم تتمكن من سحب بطاقة';
+        ? 'ورق الخصم خلص كله ومبقاش معاه كروت يسحبها!'
+        : 'ورق مجموعتك خلص كله وماعرفتش تسحب كارت جديد!';
     }
     if (winReason === 'SURRENDER') {
       return isVictory
-        ? 'انسحب الخصم واعترف بسيادتك على ميدان المعركة'
-        : 'انسحبت من ميدان المعركة';
+        ? 'الخصم انسحب وسابلك الساحة وخلع!'
+        : 'أنت انسحبت وخرجت من الماتش!';
     }
     return isVictory
-      ? 'إسقاط كافة نقاط حياة الخصم إلى الصفر بضربة ساحقة'
-      : 'استنفاد كافة نقاط حياتك في مواجهة الخصم الشرسة';
+      ? 'صفّرت نقاط حياة الخصم بضربة قاضية وعاش يا وحش!'
+      : 'نقاط حياتك خلصت كلها في المعركة الشديدة دي!';
   };
 
   return (
@@ -198,24 +198,25 @@ export const DuelOutcomeModal = ({
         {/* Heroic Title & Subtitle */}
         <div className="outcome-header-block">
           <div className="outcome-badge-pill">
-            {isVictory ? 'تتويج بطل المبارزة' : 'سقوط في عالم الظلال'}
+            {isVictory ? 'عاش يا بطل.. فوز مستحق!' : 'هارد لك يا غالي.. الجايات أكتر!'}
           </div>
 
           <h1 className="outcome-main-title">
-            {isVictory ? 'انتصار أسطوري ساحق' : 'هزيمة في عالم الظلال'}
+            {isVictory ? 'فوز كاسح وعاش يا وحش!' : 'هارد لك يا بطل الجيم ضاع!'}
           </h1>
 
           <p className="outcome-subtitle">
             {isVictory
-              ? `أثبتّ جدارتك يا ${p0Name} كملك للألعاب وحاكم حلبة النزال الأوحد`
-              : `خسرت المبارزة أمام ${p1Name}، لكن عزيمة المبارز لا تنكسر أبداً`}
+              ? `لعبت جيم عالي يا ${p0Name} وسيطرت على الساحة من أولها لآخرها!`
+              : `معلش يا ${p0Name}، ${p1Name} خطف الجيم المرة دي بس هتعوضها الماتش الجاي أكيد!`
+            }
           </p>
         </div>
 
         {/* Reason Badge */}
         <div className="outcome-reason-box">
           <div className="reason-label-text">
-            سبب حسم المعركة
+            سبب نهاية الماتش
           </div>
           <div className="reason-detail-text">
             {getOutcomeReasonText()}
@@ -239,7 +240,7 @@ export const DuelOutcomeModal = ({
           </div>
 
           <div className="stat-pill-item">
-            <span className="stat-label">أدوار النزال</span>
+            <span className="stat-label">أدوار الماتش</span>
             <span className="stat-value">
               {turnNumber}
             </span>
@@ -265,7 +266,7 @@ export const DuelOutcomeModal = ({
               className={isVictory ? 'btn-pharaoh-gold outcome-primary-btn' : 'btn-defeat-rematch outcome-primary-btn'}
             >
               <span className="duel-btn-shine-sheen" />
-              <span>{isVictory ? 'مبارزة جديدة فوراً' : 'إعادة التحدي والانتقام'}</span>
+              <span>{isVictory ? 'العب ماتش جديد' : 'هات حقك والعب تاني'}</span>
             </button>
           )}
 
@@ -277,7 +278,7 @@ export const DuelOutcomeModal = ({
             }}
             className="btn-pharaoh-stone outcome-secondary-btn"
           >
-            <span>العودة للقائمة الرئيسية</span>
+            <span>ارجع للقائمة الرئيسية</span>
           </button>
         </div>
       </div>
