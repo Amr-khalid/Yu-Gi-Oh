@@ -89,8 +89,8 @@ export const EQ_PRESETS = {
 
 export const PREAMP_BOOST_LEVELS = [
   { id: 'boosted', level: 2.5, label: 'مضخم (2.5x)', desc: 'صوت مضاعف عالي وقوي' },
-  { id: 'super', level: 4.0, label: 'تضخيم فائق (4.0x)', desc: 'صوت أعلى بكتير من الطبيعي (الافتراضي)' },
-  { id: 'max', level: 6.0, label: 'تضخيم خارق جبار (6.0x)', desc: 'أقصى قوة صوتية مع مانع التشويش' },
+  { id: 'super', level: 4.0, label: 'تضخيم فائق (4.0x)', desc: 'صوت أعلى بـ 4 مرات عن الطبيعي' },
+  { id: 'max', level: 6.0, label: 'تضخيم 6 أضعاف (6.0x)', desc: 'أعلى بـ 6 مرات عن الطبيعي (الافتراضي)' },
 ];
 
 export const OST_TRACKS = [
@@ -135,16 +135,17 @@ class SoundController {
     }
     this.musicAudio = null;
     this.isDucked = false;
+    this.musicFadeTimer = null;
 
     // Climax Theme Songs (الأغاني وشارات الحماس)
     this.songsEnabled = hasStorage ? localStorage.getItem('yugioh_songs_enabled') !== 'false' : true;
     this.bgmVolume = parseFloat((hasStorage ? localStorage.getItem('yugioh_bgm_volume') : null) || '1.0');
     this.bgmEnabled = this.songsEnabled;
     const savedBoost = hasStorage ? localStorage.getItem('yugioh_preamp_boost') : null;
-    this.preampBoost = savedBoost ? parseFloat(savedBoost) : 4.0;
-    if (!savedBoost || this.preampBoost < 2.5) {
-      this.preampBoost = 4.0; // Elevate default to 4.0x
-      if (hasStorage) localStorage.setItem('yugioh_preamp_boost', '4.0');
+    this.preampBoost = savedBoost ? parseFloat(savedBoost) : 6.0;
+    if (!savedBoost || this.preampBoost < 6.0) {
+      this.preampBoost = 6.0; // Elevate default to 6.0x (6x louder than normal)
+      if (hasStorage) localStorage.setItem('yugioh_preamp_boost', '6.0');
     }
     this.eqPreset = (hasStorage ? localStorage.getItem('yugioh_eq_preset') : null) || 'epic';
     this.playbackMode = (hasStorage ? localStorage.getItem('yugioh_playback_mode') : null) || 'shuffle';
@@ -321,22 +322,30 @@ class SoundController {
   getEffectiveMusicVolume() {
     if (this.muted || !this.musicEnabled) return 0;
     const base = this.volume * this.musicVolume;
-    // When songs start playing, duck background music volume down by 88% so songs roar over it!
-    return Math.max(0, Math.min(1, this.isDucked ? base * 0.12 : base));
+    // When songs start playing, duck background music down until it disappears completely!
+    return Math.max(0, Math.min(1, this.isDucked ? 0 : base));
   }
 
   startDuelMusic() {
+    if (this.musicFadeTimer) {
+      clearInterval(this.musicFadeTimer);
+      this.musicFadeTimer = null;
+    }
     this.initMusicAudio();
     const ost = OST_TRACKS[this.currentOstIndex] || OST_TRACKS[0];
     this.musicAudio.src = ost.path;
     this.musicAudio.volume = this.getEffectiveMusicVolume();
-    if (this.musicEnabled && !this.muted) {
+    if (this.musicEnabled && !this.muted && !this.isDucked) {
       this.musicAudio.play().catch(() => {});
     }
     this.notifyBgmListeners();
   }
 
   stopDuelMusic() {
+    if (this.musicFadeTimer) {
+      clearInterval(this.musicFadeTimer);
+      this.musicFadeTimer = null;
+    }
     if (this.musicAudio) {
       try {
         this.musicAudio.pause();
@@ -354,7 +363,9 @@ class SoundController {
     if (this.musicAudio) {
       if (this.musicEnabled && !this.muted) {
         this.musicAudio.volume = this.getEffectiveMusicVolume();
-        this.musicAudio.play().catch(() => {});
+        if (!this.isDucked) {
+          this.musicAudio.play().catch(() => {});
+        }
       } else {
         this.musicAudio.pause();
       }
@@ -371,7 +382,7 @@ class SoundController {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('yugioh_music_volume', this.musicVolume.toString());
     }
-    if (this.musicAudio) {
+    if (this.musicAudio && !this.musicFadeTimer) {
       this.musicAudio.volume = this.getEffectiveMusicVolume();
     }
     this.notifyBgmListeners();
@@ -391,17 +402,74 @@ class SoundController {
     const wasPlaying = !this.musicAudio.paused;
     this.musicAudio.src = OST_TRACKS[this.currentOstIndex].path;
     this.musicAudio.volume = this.getEffectiveMusicVolume();
-    if (wasPlaying && this.musicEnabled && !this.muted) {
+    if (wasPlaying && this.musicEnabled && !this.muted && !this.isDucked) {
       this.musicAudio.play().catch(() => {});
     }
     this.notifyBgmListeners();
   }
 
-  duckMusic(shouldDuck) {
+  /**
+   * Smoothly decreases background music volume until it disappears completely (0.0) when songs play,
+   * and smoothly fades it back in when the song stops.
+   * @param {boolean} shouldDuck 
+   * @param {number} durationMs 
+   */
+  duckMusic(shouldDuck, durationMs = 1800) {
     this.isDucked = !!shouldDuck;
-    if (this.musicAudio) {
-      this.musicAudio.volume = this.getEffectiveMusicVolume();
+
+    if (this.musicFadeTimer) {
+      clearInterval(this.musicFadeTimer);
+      this.musicFadeTimer = null;
     }
+
+    if (!this.musicAudio) {
+      this.notifyBgmListeners();
+      return;
+    }
+
+    if (this.muted || !this.musicEnabled) {
+      this.musicAudio.volume = 0;
+      this.notifyBgmListeners();
+      return;
+    }
+
+    const baseVolume = this.volume * this.musicVolume;
+    const targetVolume = shouldDuck ? 0 : baseVolume;
+    const startVolume = this.musicAudio.volume;
+
+    // If un-ducking and audio was paused or stopped, resume it now so fade-in is heard
+    if (!shouldDuck && this.musicEnabled && !this.muted) {
+      if (this.musicAudio.paused) {
+        this.musicAudio.play().catch(() => {});
+      }
+    }
+
+    const steps = 28;
+    const stepInterval = Math.max(25, Math.floor(durationMs / steps));
+    let stepCount = 0;
+
+    this.musicFadeTimer = setInterval(() => {
+      stepCount++;
+      const progress = stepCount / steps;
+      // Smooth linear interpolation down to 0
+      const currentVol = startVolume + (targetVolume - startVolume) * progress;
+      if (this.musicAudio) {
+        this.musicAudio.volume = Math.max(0, Math.min(1, currentVol));
+      }
+
+      if (stepCount >= steps) {
+        clearInterval(this.musicFadeTimer);
+        this.musicFadeTimer = null;
+        if (this.musicAudio) {
+          this.musicAudio.volume = targetVolume;
+          if (shouldDuck) {
+            this.musicAudio.pause();
+          }
+        }
+        this.notifyBgmListeners();
+      }
+    }, stepInterval);
+
     this.notifyBgmListeners();
   }
 
@@ -519,7 +587,7 @@ class SoundController {
   }
 
   setPreampBoost(level) {
-    this.preampBoost = typeof level === 'number' ? level : 2.2;
+    this.preampBoost = typeof level === 'number' ? level : 6.0;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('yugioh_preamp_boost', this.preampBoost.toString());
     }
