@@ -542,6 +542,117 @@ export const DuelScreen = ({
   const p1 = state.players[1];
   const [soundMuted, setSoundMuted] = useState(() => soundManager.isMuted());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Multiplayer background synchronization mode ('synced' vs 'independent')
+  const [arenaSyncMode, setArenaSyncMode] = useState(() => {
+    return (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_sync_mode') : null) || 'synced';
+  });
+
+  // Dynamic Combat Arena reaction mode ('manual_only' vs 'climax_only' vs 'full_dynamic')
+  const [dynamicArenaMode, setDynamicArenaMode] = useState(() => {
+    return (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_dynamic_arena_mode') : null) || 'manual_only';
+  });
+
+  // Battle Arena Theme & Static Duel Field State
+  const [chosenArena, setChosenArena] = useState(() => {
+    const isSync = (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_sync_mode') : null) !== 'independent';
+    if (isMultiplayer && isSync && multiplayerData?.arenaId) {
+      return getArenaTheme(multiplayerData.arenaId, theme);
+    }
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_theme') : null;
+    if (!saved || saved === 'random') {
+      return getRandomArenaTheme();
+    }
+    return getArenaTheme(saved, theme);
+  });
+
+  const baseArenaBg = resolveArenaBgImage(chosenArena, theme);
+  const currentBgImage = (theme === 'light' ? (state.activeFieldSpell?.bgLight || state.activeFieldSpell?.bgImage) : state.activeFieldSpell?.bgImage) || baseArenaBg;
+
+  const prevBgRef = useRef(currentBgImage);
+  const [crossfadeState, setCrossfadeState] = useState({
+    currBg: currentBgImage,
+    prevBg: null,
+    isFading: false,
+  });
+
+  useEffect(() => {
+    if (currentBgImage && currentBgImage !== prevBgRef.current) {
+      const oldBg = prevBgRef.current;
+      prevBgRef.current = currentBgImage;
+      setCrossfadeState({
+        currBg: currentBgImage,
+        prevBg: oldBg,
+        isFading: true,
+      });
+
+      const timer = setTimeout(() => {
+        setCrossfadeState({
+          currBg: currentBgImage,
+          prevBg: null,
+          isFading: false,
+        });
+      }, 750);
+      return () => clearTimeout(timer);
+    }
+  }, [currentBgImage]);
+
+  const [arenaTransition, setArenaTransition] = useState(null);
+  const arenaTransitionTimerRef = useRef(null);
+  const hasClimaxWarpTriggeredRef = useRef(false);
+  const lastBossWarpTimeRef = useRef(0);
+  const prevTurnWarpRef = useRef(1);
+
+  // Reset climax & boss triggers on new duel / turn 1
+  useEffect(() => {
+    if (state.turnNumber <= 1) {
+      hasClimaxWarpTriggeredRef.current = false;
+      lastBossWarpTimeRef.current = 0;
+    }
+  }, [state.turnNumber]);
+
+  const triggerArenaTransition = (nextArena, reason = '', badge = 'انتقال بعدي لساحة المعركة') => {
+    if (!nextArena) return;
+    if (arenaTransitionTimerRef.current) {
+      clearTimeout(arenaTransitionTimerRef.current);
+    }
+    soundManager.playArenaWarp();
+    hapticManager.triggerCombatVibration('powerSummon');
+
+    setArenaTransition({
+      arena: nextArena,
+      reason,
+      badge,
+      timestamp: Date.now(),
+    });
+
+    // Seamless background change with crossfade
+    setChosenArena(nextArena);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('yugioh_arena_theme', nextArena.id);
+    }
+
+    // End transition sequence smoothly
+    arenaTransitionTimerRef.current = setTimeout(() => {
+      setArenaTransition(null);
+      arenaTransitionTimerRef.current = null;
+    }, 1600);
+  };
+
+  const handleCycleArena = () => {
+    const selectable = SELECTABLE_ARENAS;
+    const currIdx = selectable.findIndex((a) => a.id === chosenArena?.id);
+    const nextIdx = (currIdx + 1) % selectable.length;
+    const nextArena = selectable[nextIdx];
+    triggerArenaTransition(nextArena, 'تم تبديل ساحة المعركة بنجاح', 'انتقال بعدي يدوي');
+    if (isMultiplayer && arenaSyncMode === 'synced') {
+      connectionManager.send({
+        type: 'DUEL_ARENA_SYNC',
+        arenaId: nextArena.id,
+      });
+    }
+  };
+
   // Start battle background music automatically on duel start and stop on exit
   useEffect(() => {
     soundManager.startDuelAudio();
@@ -550,24 +661,6 @@ export const DuelScreen = ({
       soundManager.stopDuelAudio();
     };
   }, []);
-
-  // Broadcast initial field snapshot and arena sync on mount so all peers start in 100% lockstep
-  useEffect(() => {
-    if (isMultiplayer && connectionManager.role === 'host') {
-      const initTimer = setTimeout(() => {
-        if (engine.state?.isTagMode) {
-          broadcastTagFieldSnapshot(0, 0);
-        }
-        if (chosenArena?.id && arenaSyncMode === 'synced') {
-          connectionManager.send({
-            type: 'DUEL_ARENA_SYNC',
-            arenaId: chosenArena.id,
-          });
-        }
-      }, 400);
-      return () => clearTimeout(initTimer);
-    }
-  }, [arenaSyncMode, chosenArena?.id]);
 
   // In-Game Toast notification
   const [gameToast, setGameToast] = useState(null);
@@ -624,6 +717,24 @@ export const DuelScreen = ({
       },
     });
   };
+
+  // Broadcast initial field snapshot and arena sync on mount so all peers start in 100% lockstep
+  useEffect(() => {
+    if (isMultiplayer && connectionManager.role === 'host') {
+      const initTimer = setTimeout(() => {
+        if (engine.state?.isTagMode) {
+          broadcastTagFieldSnapshot(0, 0);
+        }
+        if (chosenArena?.id && arenaSyncMode === 'synced') {
+          connectionManager.send({
+            type: 'DUEL_ARENA_SYNC',
+            arenaId: chosenArena.id,
+          });
+        }
+      }, 400);
+      return () => clearTimeout(initTimer);
+    }
+  }, [arenaSyncMode, chosenArena?.id]);
 
   // Helper to execute locally and broadcast to opponent / teammate in multiplayer
   const executeAndBroadcast = (action, ...args) => {
@@ -934,115 +1045,7 @@ export const DuelScreen = ({
     setMyTurnSummonCount(0);
   }, [state.turnNumber, state.currentTurnPlayer]);
 
-  // Multiplayer background synchronization mode ('synced' vs 'independent')
-  const [arenaSyncMode, setArenaSyncMode] = useState(() => {
-    return (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_sync_mode') : null) || 'synced';
-  });
 
-  // Dynamic Combat Arena reaction mode ('manual_only' vs 'climax_only' vs 'full_dynamic')
-  const [dynamicArenaMode, setDynamicArenaMode] = useState(() => {
-    return (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_dynamic_arena_mode') : null) || 'manual_only';
-  });
-
-  // Battle Arena Theme & Static Duel Field State
-  const [chosenArena, setChosenArena] = useState(() => {
-    const isSync = (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_sync_mode') : null) !== 'independent';
-    if (isMultiplayer && isSync && multiplayerData?.arenaId) {
-      return getArenaTheme(multiplayerData.arenaId, theme);
-    }
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_theme') : null;
-    if (!saved || saved === 'random') {
-      return getRandomArenaTheme();
-    }
-    return getArenaTheme(saved, theme);
-  });
-
-  const baseArenaBg = resolveArenaBgImage(chosenArena, theme);
-  const currentBgImage = (theme === 'light' ? (state.activeFieldSpell?.bgLight || state.activeFieldSpell?.bgImage) : state.activeFieldSpell?.bgImage) || baseArenaBg;
-
-  const prevBgRef = useRef(currentBgImage);
-  const [crossfadeState, setCrossfadeState] = useState({
-    currBg: currentBgImage,
-    prevBg: null,
-    isFading: false,
-  });
-
-  useEffect(() => {
-    if (currentBgImage && currentBgImage !== prevBgRef.current) {
-      const oldBg = prevBgRef.current;
-      prevBgRef.current = currentBgImage;
-      setCrossfadeState({
-        currBg: currentBgImage,
-        prevBg: oldBg,
-        isFading: true,
-      });
-
-      const timer = setTimeout(() => {
-        setCrossfadeState({
-          currBg: currentBgImage,
-          prevBg: null,
-          isFading: false,
-        });
-      }, 750);
-      return () => clearTimeout(timer);
-    }
-  }, [currentBgImage]);
-
-  const [arenaTransition, setArenaTransition] = useState(null);
-  const arenaTransitionTimerRef = useRef(null);
-  const hasClimaxWarpTriggeredRef = useRef(false);
-  const lastBossWarpTimeRef = useRef(0);
-  const prevTurnWarpRef = useRef(1);
-
-  // Reset climax & boss triggers on new duel / turn 1
-  useEffect(() => {
-    if (state.turnNumber <= 1) {
-      hasClimaxWarpTriggeredRef.current = false;
-      lastBossWarpTimeRef.current = 0;
-    }
-  }, [state.turnNumber]);
-
-  const triggerArenaTransition = (nextArena, reason = '', badge = 'انتقال بعدي لساحة المعركة') => {
-    if (!nextArena) return;
-    if (arenaTransitionTimerRef.current) {
-      clearTimeout(arenaTransitionTimerRef.current);
-    }
-    soundManager.playArenaWarp();
-    hapticManager.triggerCombatVibration('powerSummon');
-
-    setArenaTransition({
-      arena: nextArena,
-      reason,
-      badge,
-      timestamp: Date.now(),
-    });
-
-    // Seamless background change with crossfade
-    setChosenArena(nextArena);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('yugioh_arena_theme', nextArena.id);
-    }
-
-    // End transition sequence smoothly
-    arenaTransitionTimerRef.current = setTimeout(() => {
-      setArenaTransition(null);
-      arenaTransitionTimerRef.current = null;
-    }, 1600);
-  };
-
-  const handleCycleArena = () => {
-    const selectable = SELECTABLE_ARENAS;
-    const currIdx = selectable.findIndex((a) => a.id === chosenArena?.id);
-    const nextIdx = (currIdx + 1) % selectable.length;
-    const nextArena = selectable[nextIdx];
-    triggerArenaTransition(nextArena, 'تم تبديل ساحة المعركة بنجاح', 'انتقال بعدي يدوي');
-    if (isMultiplayer && arenaSyncMode === 'synced') {
-      connectionManager.send({
-        type: 'DUEL_ARENA_SYNC',
-        arenaId: nextArena.id,
-      });
-    }
-  };
 
   // Sync UX settings when settings modal closes
   useEffect(() => {
