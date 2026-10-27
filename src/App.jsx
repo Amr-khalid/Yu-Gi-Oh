@@ -273,11 +273,22 @@ export const App = () => {
       const p1State = createPlayerState(1, p1Name, p1Cards, p1Seed);
 
       // Determine local starting player:
-      // startingPlayer = 0 means Host starts globally.
-      // For Host: local starting player is 0 (Host is p0).
-      // For Client: local starting player is 1 (Host is p1).
-      const globalStartingPlayer = startingPlayer ?? 0;
-      const localStartingPlayer = isHost ? globalStartingPlayer : (1 - globalStartingPlayer);
+      // In 1v1 multiplayer:
+      // If startingPlayerRole is provided ('host' | 'client'):
+      //   Host starts if role === 'host'
+      //   Client starts if role === 'client'
+      // If only startingPlayer index (0 or 1) is provided:
+      //   0 means Host starts globally, 1 means Client starts globally.
+      let hostStarts = true;
+      if (multiplayerData?.startingPlayerRole) {
+        hostStarts = (multiplayerData.startingPlayerRole === 'host');
+      } else if (typeof startingPlayerIndex === 'number') {
+        hostStarts = (startingPlayerIndex === 0);
+      } else if (typeof startingPlayer === 'number') {
+        hostStarts = (startingPlayer === 0);
+      }
+
+      const localStartingPlayer = (isHost === hostStarts) ? 0 : 1;
 
       const customEngine = new DuelEngine(p0Cards, p1Cards, p0Name, p1Name, undefined, localStartingPlayer);
       customEngine.state.players = [p0State, p1State];
@@ -338,8 +349,12 @@ export const App = () => {
     setIsMultiplayer(true);
     setMultiplayerData(data);
     setStartingPlayerIndex(data?.startingPlayer ?? 0);
-    // In both 1v1 and 2v2 multiplayer, launch directly to duel after synchronized countdown!
-    setCurrentScreen('duel');
+    // In 1v1 multiplayer, if turnOrderMethod is 'janken' (the official duel ritual), route to Janken screen!
+    if (data?.gameMode !== 'tag_2v2' && (data?.turnOrderMethod === 'janken' || !data?.turnOrderMethod)) {
+      setCurrentScreen('janken');
+    } else {
+      setCurrentScreen('duel');
+    }
   };
 
   return (
@@ -374,13 +389,15 @@ export const App = () => {
               ? (multiplayerData?.peerName || 'المنافس')
               : (AI_DIFFICULTIES[aiDifficulty]?.name || decksData[opponentDeckIndex]?.name || 'سيتو كايبا')
           }
-          onComplete={({ startingPlayer }) => {
+          onComplete={({ startingPlayer, startingPlayerRole }) => {
             const finalStartPlayer = startingPlayer !== undefined ? startingPlayer : 0;
+            const finalRole = startingPlayerRole || (isMultiplayer ? (finalStartPlayer === 0 ? (multiplayerData?.isHost ? 'host' : 'client') : (multiplayerData?.isHost ? 'client' : 'host')) : null);
             setStartingPlayerIndex(finalStartPlayer);
             if (isMultiplayer && multiplayerData) {
               setMultiplayerData((prev) => ({
                 ...prev,
                 startingPlayer: finalStartPlayer,
+                startingPlayerRole: finalRole,
               }));
             }
             setCurrentScreen('duel');

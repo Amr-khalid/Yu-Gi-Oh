@@ -756,8 +756,12 @@ export const DuelScreen = ({
     let actionSlot = 0;
 
     if (isMultiplayer) {
-      mySlot = multiplayerData?.mySlot ?? (connectionManager.role === 'host' ? 0 : 1);
-      myTeam = multiplayerData?.myTeam ?? (mySlot < 2 ? 0 : 1);
+      const isTag = engine.state?.isTagMode || multiplayerData?.gameMode === 'tag_2v2';
+      const isHost = connectionManager.role === 'host' || Boolean(multiplayerData?.isHost);
+      mySlot = multiplayerData?.mySlot ?? (isHost ? 0 : 1);
+      myTeam = typeof multiplayerData?.myTeam === 'number'
+        ? multiplayerData.myTeam
+        : (isTag ? (mySlot < 2 ? 0 : 1) : (isHost ? 0 : 1));
 
       const activeHand = engine.state.currentTurnPlayer === 0 ? p0?.hand : p1?.hand;
       if (action === 'normalSummon' || action === 'setMonster') {
@@ -953,8 +957,12 @@ export const DuelScreen = ({
             const synced = getArenaTheme(msg.snapshot.arenaId, theme);
             if (synced) setChosenArena(synced);
           }
-          const mySlot = multiplayerData?.mySlot ?? (connectionManager.role === 'host' ? 0 : 1);
-          const myTeam = multiplayerData?.myTeam ?? (mySlot < 2 ? 0 : 1);
+          const isTag = engine.state?.isTagMode || multiplayerData?.gameMode === 'tag_2v2';
+          const isHost = connectionManager.role === 'host' || Boolean(multiplayerData?.isHost);
+          const mySlot = multiplayerData?.mySlot ?? (isHost ? 0 : 1);
+          const myTeam = typeof multiplayerData?.myTeam === 'number'
+            ? multiplayerData.myTeam
+            : (isTag ? (mySlot < 2 ? 0 : 1) : (isHost ? 0 : 1));
           const { turnNumber, phase, globalTurnTeam, team0, team1 } = msg.snapshot;
 
           // Reject stale snapshots from older turns

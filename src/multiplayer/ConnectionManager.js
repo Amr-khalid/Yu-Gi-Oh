@@ -874,8 +874,12 @@ export class ConnectionManager {
       } else {
         if (this.role === 'host') {
           this.peerName = msg.clientName || 'المنافس';
+          this.mySlot = 0;
+          this.myTeam = 0;
         } else {
           this.peerName = msg.hostName || 'المستضيف';
+          this.mySlot = 1;
+          this.myTeam = 1;
         }
       }
 
@@ -1124,6 +1128,8 @@ export class ConnectionManager {
           this.peerName = msg.slots?.[2]?.name || 'سيتو كايبا (بوت)';
         } else {
           this.peerName = msg.hostName || 'المستضيف';
+          this.mySlot = 1;
+          this.myTeam = 1;
         }
         this.transport = 'cloud_relay';
         this.notifyStatus();
@@ -1194,6 +1200,8 @@ export class ConnectionManager {
           this.peerName = msg.slots?.[2]?.name || 'سيتو كايبا (بوت)';
         } else {
           this.peerName = msg.hostName || 'المستضيف';
+          this.mySlot = 1;
+          this.myTeam = 1;
         }
         if (msg.transport) this.transport = msg.transport;
         this.notifyStatus();

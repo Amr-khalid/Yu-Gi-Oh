@@ -281,6 +281,19 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     turnTimer: 90,
   });
 
+  const [turnOrderMethod, setTurnOrderMethod] = useState('janken'); // 'janken' | 'random' | 'host_first' | 'client_first'
+
+  const handleSelectTurnOrderMethod = (method) => {
+    setTurnOrderMethod(method);
+    soundManager.play('click');
+    if (status.role === 'host') {
+      connectionManager.send({
+        type: 'UPDATE_TURN_ORDER_METHOD',
+        method,
+      });
+    }
+  };
+
   const prevConnectedRef = useRef(false);
   const isLight = theme === 'light';
 
@@ -327,7 +340,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
       let peerActualName = isHost ? clientName : hostName;
       let teammateActualName = null;
       let myActualSlot = typeof status.mySlot === 'number' ? status.mySlot : (typeof connectionManager.mySlot === 'number' ? connectionManager.mySlot : (isHost ? 0 : 1));
-      let myActualTeam = typeof status.myTeam === 'number' ? status.myTeam : (typeof connectionManager.myTeam === 'number' ? connectionManager.myTeam : (myActualSlot < 2 ? 0 : 1));
+      let myActualTeam = typeof status.myTeam === 'number' ? status.myTeam : (typeof connectionManager.myTeam === 'number' ? connectionManager.myTeam : (isTag ? (myActualSlot < 2 ? 0 : 1) : (isHost ? 0 : 1)));
 
       if (isTag) {
         const allSlots = extra?.slots || status.tagSlots || connectionManager.tagSlots || [];
@@ -338,6 +351,9 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
         teammateActualName = allSlots[tmSlot]?.name || (isHost ? 'الزميل' : 'المستضيف');
         peerActualName = allSlots[oppLeaderSlot]?.name || 'فريق الخصم';
       }
+
+      const activeTurnMethod = extra?.turnOrderMethod || turnOrderMethod;
+      const startingRole = extra?.startingPlayerRole || null;
 
       onStartDuel({
         isHost,
@@ -350,7 +366,9 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
         myName: myActualName,
         teammateName: teammateActualName,
         peerName: peerActualName,
-        startingPlayer: 0,
+        turnOrderMethod: activeTurnMethod,
+        startingPlayerRole: startingRole,
+        startingPlayer: startingRole === 'client' ? 1 : 0,
         arenaId: extra?.arenaId || connectionManager.syncedArenaId || null,
       });
     }, 2600);
@@ -380,7 +398,11 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
       if (msg.type === 'DUEL_COUNTDOWN_START') {
         connectionManager.matchSeed = msg.seed;
         if (msg.arenaId) connectionManager.syncedArenaId = msg.arenaId;
+        if (msg.turnOrderMethod) setTurnOrderMethod(msg.turnOrderMethod);
         runSynchronizedCountdown(msg.seed, msg.hostName, msg.clientName, msg);
+      } else if (msg.type === 'UPDATE_TURN_ORDER_METHOD') {
+        if (msg.method) setTurnOrderMethod(msg.method);
+        soundManager.play('click');
       } else if (msg.type === 'START_DUEL') {
         connectionManager.matchSeed = msg.seed;
         if (msg.arenaId) connectionManager.syncedArenaId = msg.arenaId;
@@ -391,7 +413,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
         let peerActualName = isHost ? msg.clientName : msg.hostName;
         let teammateActualName = null;
         let myActualSlot = typeof status.mySlot === 'number' ? status.mySlot : (typeof connectionManager.mySlot === 'number' ? connectionManager.mySlot : (isHost ? 0 : 1));
-        let myActualTeam = typeof status.myTeam === 'number' ? status.myTeam : (typeof connectionManager.myTeam === 'number' ? connectionManager.myTeam : (myActualSlot < 2 ? 0 : 1));
+        let myActualTeam = typeof status.myTeam === 'number' ? status.myTeam : (typeof connectionManager.myTeam === 'number' ? connectionManager.myTeam : (isTag ? (myActualSlot < 2 ? 0 : 1) : (isHost ? 0 : 1)));
 
         if (isTag) {
           const allSlots = msg.slots || status.tagSlots || connectionManager.tagSlots || [];
@@ -402,6 +424,9 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
           teammateActualName = allSlots[tmSlot]?.name || (isHost ? 'الزميل' : 'المستضيف');
           peerActualName = allSlots[oppLeaderSlot]?.name || 'فريق الخصم';
         }
+
+        const activeTurnMethod = msg.turnOrderMethod || turnOrderMethod;
+        const startingRole = msg.startingPlayerRole || null;
 
         onStartDuel({
           isHost,
@@ -414,7 +439,9 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
           myName: myActualName,
           teammateName: teammateActualName,
           peerName: peerActualName,
-          startingPlayer: 0,
+          turnOrderMethod: activeTurnMethod,
+          startingPlayerRole: startingRole,
+          startingPlayer: startingRole === 'client' ? 1 : 0,
           arenaId: msg.arenaId || connectionManager.syncedArenaId || null,
         });
       }
@@ -643,6 +670,16 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     const savedArena1v1 = typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_theme') : null;
     const hostArenaId1v1 = (savedArena1v1 && savedArena1v1 !== 'random') ? savedArena1v1 : getRandomArenaTheme().id;
 
+    let startingPlayerRole = null;
+    if (turnOrderMethod === 'random') {
+      startingPlayerRole = Math.random() < 0.5 ? 'host' : 'client';
+    } else if (turnOrderMethod === 'host_first') {
+      startingPlayerRole = 'host';
+    } else if (turnOrderMethod === 'client_first') {
+      startingPlayerRole = 'client';
+    }
+    // Note: If 'janken', startingPlayerRole is left null to be decided dynamically in RockPaperScissorsScreen!
+
     // Send synchronized countdown signal to peer
     connectionManager.send({
       type: 'DUEL_COUNTDOWN_START',
@@ -650,10 +687,16 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
       hostName,
       clientName,
       arenaId: hostArenaId1v1,
+      turnOrderMethod,
+      startingPlayerRole,
     });
 
     // Run local countdown
-    runSynchronizedCountdown(matchSeed, hostName, clientName, { arenaId: hostArenaId1v1 });
+    runSynchronizedCountdown(matchSeed, hostName, clientName, {
+      arenaId: hostArenaId1v1,
+      turnOrderMethod,
+      startingPlayerRole,
+    });
   };
 
   const handleCopyRoomCode = () => {
@@ -2402,24 +2445,176 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               <span>الغرفة: <strong style={{ color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)' }}>#{status.roomCode}</strong></span>
             </div>
 
-            {/* Start Duel Primary Action Button */}
-            <button
-              onClick={handleStartDuelClick}
-              className="btn-pharaoh-gold duel-btn-shine-wrap"
+            {/* Turn Order Selection (1v1 Match Setup) */}
+            <div
               style={{
                 width: '100%',
-                padding: '16px 0',
-                fontSize: 17,
-                fontWeight: 900,
-                letterSpacing: 1,
-                boxShadow: '0 4px 20px rgba(201, 158, 50, 0.5)',
-                marginBottom: 12,
+                background: isLight ? 'rgba(245, 237, 216, 0.7)' : 'rgba(20, 16, 10, 0.65)',
+                border: isLight ? '1px solid rgba(180, 83, 9, 0.25)' : '1px solid var(--pharaoh-stone-border)',
                 borderRadius: 8,
+                padding: '12px 14px',
+                marginBottom: 16,
               }}
             >
-              <span className="duel-btn-shine-sheen" />
-              يلا بينا ع الماتش دلوقتي!
-            </button>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
+                  marginBottom: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>تحديد مين يبدأ اللعب (الدور الأول):</span>
+                {status.role !== 'host' && (
+                  <span style={{ fontSize: 10, color: isLight ? '#15803d' : '#4ade80', fontWeight: 700 }}>
+                    متزامن مع المستضيف
+                  </span>
+                )}
+              </div>
+
+              {status.role === 'host' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                  {[
+                    { id: 'janken', label: 'طوبة ورقة مقص (الرسمية)', desc: 'الفائز يختار البداية' },
+                    { id: 'random', label: 'قرعة عشوائية (50/50)', desc: 'اختيار فوري عادل' },
+                    { id: 'host_first', label: 'المستضيف أولاً', desc: 'أنت تبدأ الدور الأول' },
+                    { id: 'client_first', label: 'المنافس أولاً', desc: 'صاحبك يبدأ الدور الأول' },
+                  ].map((opt) => {
+                    const isSelected = turnOrderMethod === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handleSelectTurnOrderMethod(opt.id)}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: 6,
+                          textAlign: 'right',
+                          cursor: 'pointer',
+                          border: isSelected
+                            ? '1.5px solid var(--pharaoh-gold-bright)'
+                            : isLight
+                            ? '1px solid rgba(180, 83, 9, 0.2)'
+                            : '1px solid rgba(138, 109, 59, 0.3)',
+                          background: isSelected
+                            ? isLight
+                              ? 'rgba(240, 203, 100, 0.3)'
+                              : 'rgba(201, 158, 50, 0.2)'
+                            : isLight
+                            ? '#fffcf5'
+                            : 'rgba(30, 24, 16, 0.5)',
+                          boxShadow: isSelected ? '0 0 10px rgba(240, 203, 100, 0.3)' : 'none',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 800,
+                            color: isSelected
+                              ? isLight
+                                ? '#92400e'
+                                : 'var(--pharaoh-gold-bright)'
+                              : isLight
+                              ? '#451a03'
+                              : 'var(--pharaoh-text-gold)',
+                          }}
+                        >
+                          {opt.label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 9.5,
+                            color: isLight ? '#78350f' : 'var(--pharaoh-text-muted)',
+                            marginTop: 2,
+                          }}
+                        >
+                          {opt.desc}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '10px 14px',
+                    background: isLight ? 'rgba(255, 255, 255, 0.6)' : 'rgba(30, 24, 16, 0.5)',
+                    borderRadius: 6,
+                    border: '1px dashed var(--pharaoh-stone-border)',
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--pharaoh-gold-bright)' }}>
+                    {turnOrderMethod === 'janken'
+                      ? 'قرعة طوبة ورقة مقص (الرسمية) — الفائز هيختار مين يبدأ'
+                      : turnOrderMethod === 'random'
+                      ? 'قرعة عشوائية (50/50) — النظام هيختار عشوائياً'
+                      : turnOrderMethod === 'host_first'
+                      ? 'المستضيف هيبدأ الدور الأول'
+                      : 'أنت هتبدأ الدور الأول'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Start Duel Primary Action Button (Host) or Waiting Beacon (Guest) */}
+            {status.role === 'host' ? (
+              <button
+                onClick={handleStartDuelClick}
+                className="btn-pharaoh-gold duel-btn-shine-wrap"
+                style={{
+                  width: '100%',
+                  padding: '16px 0',
+                  fontSize: 17,
+                  fontWeight: 900,
+                  letterSpacing: 1,
+                  boxShadow: '0 4px 20px rgba(201, 158, 50, 0.5)',
+                  marginBottom: 12,
+                  borderRadius: 8,
+                }}
+              >
+                <span className="duel-btn-shine-sheen" />
+                يلا بينا ع الماتش دلوقتي!
+              </button>
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  padding: '14px 0',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: isLight ? '#92400e' : 'var(--pharaoh-gold-bright)',
+                  background: isLight ? 'rgba(254, 243, 199, 0.8)' : 'rgba(30, 24, 16, 0.8)',
+                  border: '1.5px solid var(--pharaoh-stone-border)',
+                  borderRadius: 8,
+                  textAlign: 'center',
+                  marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#f59e0b',
+                    display: 'inline-block',
+                    animation: 'beaconPulse 1.4s infinite',
+                  }}
+                />
+                مستنيين المستضيف يبدأ الماتش دلوقتي...
+              </div>
+            )}
 
             {/* Disconnect Option */}
             <button

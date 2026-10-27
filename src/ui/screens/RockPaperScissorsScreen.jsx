@@ -137,9 +137,9 @@ export const RockPaperScissorsScreen = ({
     };
   }, []);
 
-  // Watchdog fallback: if waiting in WAITING_OPPONENT for more than 4 seconds, auto-roll opponent choice
+  // Watchdog fallback: ONLY when playing solo against a bot, never in real multiplayer against a human friend
   useEffect(() => {
-    if (gameState === 'WAITING_OPPONENT' && playerChoice && !opponentChoiceId) {
+    if (!isMultiplayer && gameState === 'WAITING_OPPONENT' && playerChoice && !opponentChoiceId) {
       const watchdog = setTimeout(() => {
         const oppRandom = CHOICES[Math.floor(Math.random() * CHOICES.length)];
         setOpponentChoiceId(oppRandom.id);
@@ -147,7 +147,7 @@ export const RockPaperScissorsScreen = ({
       }, 3500);
       return () => clearTimeout(watchdog);
     }
-  }, [gameState, playerChoice, opponentChoiceId]);
+  }, [isMultiplayer, gameState, playerChoice, opponentChoiceId]);
 
   // Multiplayer Listener for choices and turn decisions
   useEffect(() => {
@@ -165,17 +165,12 @@ export const RockPaperScissorsScreen = ({
       else if (msg.type === 'JANKEN_DECIDE_TURN') {
         const decidedStartingRole = msg.startingPlayerRole; // 'host' | 'client'
         const amIHost = isHost;
-        // If host was chosen to start:
-        // On Host: startingPlayer = 0
-        // On Client: startingPlayer = 1
-        const localStartingPlayer = (decidedStartingRole === 'host')
-          ? (amIHost ? 0 : 1)
-          : (amIHost ? 1 : 0);
+        const localStartingPlayer = (decidedStartingRole === (amIHost ? 'host' : 'client')) ? 0 : 1;
 
         soundManager.playStart();
         soundManager.stopJankenBgm();
         if (onComplete) {
-          onComplete({ startingPlayer: localStartingPlayer });
+          onComplete({ startingPlayer: localStartingPlayer, startingPlayerRole: decidedStartingRole });
         }
       }
 
@@ -342,11 +337,12 @@ export const RockPaperScissorsScreen = ({
     soundManager.playStart();
     soundManager.stopJankenBgm();
 
+    let startingPlayerRole = null;
     if (isMultiplayer) {
       // Determine role that goes first
       // startingPlayerIdx === 0: "I go first"
       // startingPlayerIdx === 1: "Opponent goes first"
-      const startingPlayerRole = (startingPlayerIdx === 0)
+      startingPlayerRole = (startingPlayerIdx === 0)
         ? (isHost ? 'host' : 'client')
         : (isHost ? 'client' : 'host');
 
@@ -357,7 +353,7 @@ export const RockPaperScissorsScreen = ({
     }
 
     if (onComplete) {
-      onComplete({ startingPlayer: startingPlayerIdx });
+      onComplete({ startingPlayer: startingPlayerIdx, startingPlayerRole });
     }
   };
 
