@@ -57,32 +57,39 @@ export function canChangeToPhase(currentPhase, targetPhase, turnNumber = 2, isTa
 }
 
 export function drawCardForTurnPlayer(state) {
-  const player = state.players[state.currentTurnPlayer];
   const isTagSequential = state.isTagMode && (state.tagSettings?.turnFlow === 'tag_sequential' || state.turnFlow === 'tag_sequential');
 
   if (isTagSequential) {
     const activeSlot = typeof state.tagActiveSlot === 'number' ? state.tagActiveSlot : 0;
-    // Rotation slots: 0: P0 Leader, 2: P1 Leader, 1: P0 Teammate, 3: P1 Teammate
-    if (activeSlot === 0 && player.deck.length > 0) {
-      const drawnCard = player.deck.shift();
-      player.hand.push(drawnCard);
-      state.lastLog.push(`${player.name} سحب كارت: ${drawnCard.name}.`);
-    } else if (activeSlot === 1 && player.teammateDeck && player.teammateDeck.length > 0) {
-      const tmCard = player.teammateDeck.shift();
-      if (!player.teammateHand) player.teammateHand = [];
-      player.teammateHand.push(tmCard);
-      state.lastLog.push(`وسحب الزميل (${player.teammateName || 'الزميل'}) كارت: ${tmCard.name}.`);
-    } else if (activeSlot === 2 && player.deck.length > 0) {
-      const drawnCard = player.deck.shift();
-      player.hand.push(drawnCard);
-      state.lastLog.push(`${player.name} سحب كارت: ${drawnCard.name}.`);
-    } else if (activeSlot === 3 && player.teammateDeck && player.teammateDeck.length > 0) {
-      const tmCard = player.teammateDeck.shift();
-      if (!player.teammateHand) player.teammateHand = [];
-      player.teammateHand.push(tmCard);
-      state.lastLog.push(`وسحب الخصم الثاني (${player.teammateName || 'الخصم'}) كارت: ${tmCard.name}.`);
+    const deviceTeam = typeof state.deviceTeam === 'number' ? state.deviceTeam : 0;
+    const activeTeam = activeSlot < 2 ? 0 : 1;
+    const isLocalTeamActive = activeTeam === deviceTeam;
+    const targetPlayer = isLocalTeamActive ? state.players[0] : state.players[1];
+
+    if (!targetPlayer) return state;
+
+    // Leader draws (Slot 0 for Team 0, Slot 2 for Team 1)
+    if (activeSlot === 0 || activeSlot === 2) {
+      if (targetPlayer.deck && targetPlayer.deck.length > 0) {
+        const drawnCard = targetPlayer.deck.shift();
+        if (!targetPlayer.hand) targetPlayer.hand = [];
+        targetPlayer.hand.push(drawnCard);
+        state.lastLog.push(`${targetPlayer.name} سحب كارت: ${drawnCard.name}.`);
+      }
+    }
+    // Teammate draws (Slot 1 for Team 0, Slot 3 for Team 1)
+    else if (activeSlot === 1 || activeSlot === 3) {
+      if (targetPlayer.teammateDeck && targetPlayer.teammateDeck.length > 0) {
+        const tmCard = targetPlayer.teammateDeck.shift();
+        if (!targetPlayer.teammateHand) targetPlayer.teammateHand = [];
+        targetPlayer.teammateHand.push(tmCard);
+        state.lastLog.push(`وسحب الزميل (${targetPlayer.teammateName || 'الزميل'}) كارت: ${tmCard.name}.`);
+      }
     }
   } else {
+    const player = state.players[state.currentTurnPlayer];
+    if (!player) return state;
+
     if (player.deck.length === 0) {
       state.winner = 1 - state.currentTurnPlayer;
       state.winReason = 'DECK_OUT';
@@ -94,7 +101,7 @@ export function drawCardForTurnPlayer(state) {
     player.hand.push(drawnCard);
     state.lastLog.push(`${player.name} سحب كارت: ${drawnCard.name}.`);
 
-    // In Tag Mode, teammate also draws a card for their hand
+    // In Simultaneous Tag Mode, teammate also draws a card for their hand
     if (state.isTagMode && player.teammateDeck && player.teammateDeck.length > 0) {
       const tmCard = player.teammateDeck.shift();
       if (!player.teammateHand) player.teammateHand = [];
@@ -159,41 +166,63 @@ export function endTurn(state) {
     const nextIdx = (currIdx + 1) % ROTATION.length;
     const nextSlot = ROTATION[nextIdx];
     state.tagActiveSlot = nextSlot;
-    state.currentTurnPlayer = nextSlot < 2 ? 0 : 1;
+
+    const activeTeam = nextSlot < 2 ? 0 : 1;
+    const deviceTeam = typeof state.deviceTeam === 'number' ? state.deviceTeam : 0;
+    state.currentTurnPlayer = (activeTeam === deviceTeam) ? 0 : 1;
     state.turnNumber += 1;
     state.phase = 'DRAW';
 
     const newPlayer = state.players[state.currentTurnPlayer];
-    newPlayer.normalSummonsRemaining = 1;
+    if (newPlayer) {
+      newPlayer.normalSummonsRemaining = 1;
+    }
 
     const slotNames = [
-      state.players[0].name,
-      state.players[0].teammateName || 'الزميل',
-      state.players[1].name,
-      state.players[1].teammateName || 'المنافس الثاني'
+      state.players[0]?.name || 'المستضيف',
+      state.players[0]?.teammateName || 'الزميل',
+      state.players[1]?.name || 'المنافس',
+      state.players[1]?.teammateName || 'المنافس الثاني'
     ];
-    state.lastLog.push(`بدأ الدور ${state.turnNumber}: دور [${slotNames[nextSlot] || newPlayer.name}].`);
+    state.lastLog.push(`بدأ الدور ${state.turnNumber}: دور [${slotNames[nextSlot] || newPlayer?.name || 'اللاعب التالي'}].`);
   } else {
     state.currentTurnPlayer = 1 - state.currentTurnPlayer;
     state.turnNumber += 1;
     state.phase = 'DRAW';
 
     const newPlayer = state.players[state.currentTurnPlayer];
-    newPlayer.normalSummonsRemaining = state.isTagMode ? 2 : 1;
+    if (newPlayer) {
+      newPlayer.normalSummonsRemaining = state.isTagMode ? 2 : 1;
+    }
 
-    state.lastLog.push(`بدأ الدور ${state.turnNumber}: دلوقتي دور ${newPlayer.name}.`);
+    state.lastLog.push(`بدأ الدور ${state.turnNumber}: دلوقتي دور ${newPlayer?.name || 'اللاعب التالي'}.`);
   }
 
   // Reset per-turn damage shields (such as Winged Kuriboh)
-  state.players.forEach((p) => {
-    p.zeroBattleDamage = false;
-  });
+  if (Array.isArray(state.players)) {
+    state.players.forEach((p) => {
+      if (p) p.zeroBattleDamage = false;
+    });
+  }
 
-  const activePlayer = state.players[state.currentTurnPlayer];
-  for (const slot of activePlayer.monsterZones) {
-    if (slot) {
-      slot.hasAttacked = false;
-      if (slot.canAttack !== false) {
+  // Reset hasAttacked for all monsters across all players
+  if (Array.isArray(state.players)) {
+    for (const p of state.players) {
+      if (p && Array.isArray(p.monsterZones)) {
+        for (const slot of p.monsterZones) {
+          if (slot) {
+            slot.hasAttacked = false;
+          }
+        }
+      }
+    }
+  }
+
+  // Allow position changes for active player's monsters
+  const activePlayer = state.players?.[state.currentTurnPlayer];
+  if (activePlayer && Array.isArray(activePlayer.monsterZones)) {
+    for (const slot of activePlayer.monsterZones) {
+      if (slot && slot.canAttack !== false) {
         slot.canChangePosition = true;
       }
     }

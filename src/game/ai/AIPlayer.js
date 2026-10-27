@@ -63,30 +63,38 @@ export class AIPlayer {
     let state = engine.getState();
     if (state.currentTurnPlayer !== this.playerIndex || state.winner !== null) return;
 
-    // 1. Main Phase 1 (Tactical combos, position changes, summons, spells, traps)
-    await sleep(delayMs);
-    await this.executeMainPhase(engine, sleep, onPlan);
-
-    state = engine.getState();
-    if (state.winner !== null) return;
-
-    // 2. Battle Phase (Restricted only on opening Turn 1; attack allowed from Turn 2)
-    const canAttack = state.turnNumber > 1;
-    if (canAttack) {
-      engine.advancePhase('BATTLE_STEP');
+    try {
+      // 1. Main Phase 1 (Tactical combos, position changes, summons, spells, traps)
       await sleep(delayMs);
-      await this.executeBattlePhase(engine, sleep, onPlan);
+      await this.executeMainPhase(engine, sleep, onPlan);
+
+      state = engine.getState();
+      if (state.winner !== null) return;
+
+      // 2. Battle Phase (Restricted only on opening Turn 1; attack allowed from Turn 2)
+      const canAttack = state.turnNumber > 1;
+      if (canAttack) {
+        engine.advancePhase('BATTLE_STEP');
+        await sleep(delayMs);
+        await this.executeBattlePhase(engine, sleep, onPlan);
+      }
+    } catch (err) {
+      console.warn('[AIPlayer] Exception during AI turn execution:', err);
+    } finally {
+      // ALWAYS GUARANTEE END TURN EVEN IF ANY MOVE THREW AN ERROR!
+      state = engine.getState();
+      if (state.winner === null && state.currentTurnPlayer === this.playerIndex) {
+        try {
+          await sleep(delayMs);
+          onPlan('إنهاء الدور...');
+          await sleep(350);
+          onPlan(null);
+          engine.endTurn();
+        } catch (endErr) {
+          console.warn('[AIPlayer] Exception while calling endTurn:', endErr);
+        }
+      }
     }
-
-    state = engine.getState();
-    if (state.winner !== null) return;
-
-    // 3. End Turn
-    await sleep(delayMs);
-    onPlan('إنهاء الدور...');
-    await sleep(350);
-    onPlan(null);
-    engine.endTurn();
   }
 
   async executeMainPhase(engine, sleep, onPlan = () => {}) {

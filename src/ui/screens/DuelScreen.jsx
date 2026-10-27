@@ -712,6 +712,7 @@ export const DuelScreen = ({
         turnNumber: currentState.turnNumber,
         phase: currentState.phase,
         globalTurnTeam,
+        tagActiveSlot: currentState.tagActiveSlot,
         arenaId: chosenArena?.id,
         team0: {
           lifePoints: team0.lifePoints,
@@ -785,6 +786,9 @@ export const DuelScreen = ({
         card: cardData,
         senderSlot: actionSlot,
         senderTeam: actionTeam,
+        turnNumber: engine.state.turnNumber,
+        phase: engine.state.phase,
+        tagActiveSlot: engine.state.tagActiveSlot,
       });
 
       if (engine.state?.isTagMode) {
@@ -864,9 +868,23 @@ export const DuelScreen = ({
               const attackerPlayerIndex = isFromMyTeam ? 0 : 1;
               engine.directAttack(msg.args[0], attackerPlayerIndex);
             } else if (msg.action === 'advancePhase') {
-              engine.advancePhase(...msg.args);
+              setSelectedFieldMonsterZone(null);
+              setSelectedHandIndex(null);
+              setSelectedSetSTZone(null);
+              setInspectCard(null);
+              const targetPhase = msg.args?.[0];
+              if (targetPhase && engine.state.phase !== targetPhase) {
+                engine.advancePhase(...msg.args);
+              }
             } else if (msg.action === 'endTurn') {
-              engine.endTurn();
+              setSelectedFieldMonsterZone(null);
+              setSelectedHandIndex(null);
+              setSelectedSetSTZone(null);
+              setInspectCard(null);
+              const targetTurn = typeof msg.turnNumber === 'number' ? msg.turnNumber : (engine.state.turnNumber + 1);
+              if (engine.state.turnNumber < targetTurn || engine.state.currentTurnPlayer !== 0) {
+                engine.endTurn();
+              }
             } else if (isFromTeammate) {
               if (msg.action === 'normalSummon') {
                 engine.normalSummonFromTeammate(...msg.args);
@@ -931,9 +949,23 @@ export const DuelScreen = ({
             } else if (msg.action === 'directAttack') {
               engine.directAttack(msg.args[0], 1);
             } else if (msg.action === 'advancePhase') {
-              engine.advancePhase(...msg.args);
+              setSelectedFieldMonsterZone(null);
+              setSelectedHandIndex(null);
+              setSelectedSetSTZone(null);
+              setInspectCard(null);
+              const targetPhase = msg.args?.[0];
+              if (targetPhase && engine.state.phase !== targetPhase) {
+                engine.advancePhase(...msg.args);
+              }
             } else if (msg.action === 'endTurn') {
-              engine.endTurn();
+              setSelectedFieldMonsterZone(null);
+              setSelectedHandIndex(null);
+              setSelectedSetSTZone(null);
+              setInspectCard(null);
+              const targetTurn = typeof msg.turnNumber === 'number' ? msg.turnNumber : (engine.state.turnNumber + 1);
+              if (engine.state.turnNumber < targetTurn || engine.state.currentTurnPlayer !== 0) {
+                engine.endTurn();
+              }
             } else if (typeof engine[msg.action] === 'function') {
               engine[msg.action](...msg.args);
             }
@@ -963,11 +995,15 @@ export const DuelScreen = ({
           const myTeam = typeof multiplayerData?.myTeam === 'number'
             ? multiplayerData.myTeam
             : (isTag ? (mySlot < 2 ? 0 : 1) : (isHost ? 0 : 1));
-          const { turnNumber, phase, globalTurnTeam, team0, team1 } = msg.snapshot;
+          const { turnNumber, phase, globalTurnTeam, tagActiveSlot, team0, team1 } = msg.snapshot;
 
           // Reject stale snapshots from older turns
           if (typeof turnNumber === 'number' && turnNumber < engine.state.turnNumber) {
             return;
+          }
+
+          if (typeof tagActiveSlot === 'number') {
+            engine.state.tagActiveSlot = tagActiveSlot;
           }
 
           const myTeamData = myTeam === 0 ? team0 : team1;
@@ -1028,7 +1064,15 @@ export const DuelScreen = ({
 
           engine.state.turnNumber = turnNumber;
           engine.state.phase = phase;
-          engine.state.currentTurnPlayer = globalTurnTeam === myTeam ? 0 : 1;
+          const isMyTurn = (globalTurnTeam === myTeam);
+          engine.state.currentTurnPlayer = isMyTurn ? 0 : 1;
+
+          // When it is my turn, make sure normalSummonsRemaining is at least 1 so the player is never locked out
+          if (isMyTurn && p0Local) {
+            if (typeof p0Local.normalSummonsRemaining !== 'number' || p0Local.normalSummonsRemaining < 1) {
+              p0Local.normalSummonsRemaining = isTag ? 2 : 1;
+            }
+          }
 
           engine.notify();
         }
@@ -2029,9 +2073,19 @@ export const DuelScreen = ({
           })
         : engine;
 
+      const aiWatchdog = setTimeout(() => {
+        if (engine.state.currentTurnPlayer === 1 && engine.state.winner === null) {
+          console.warn('[DuelScreen] AI thinking watchdog triggered. Auto-ending turn.');
+          engine.endTurn();
+          setIsAiThinking(false);
+          setAiTacticalPlan(null);
+        }
+      }, 14000);
+
       ai.takeTurn(aiEngineAdapter, 750, (plan) => {
         setAiTacticalPlan(plan);
       }).finally(() => {
+        clearTimeout(aiWatchdog);
         setIsAiThinking(false);
         setAiTacticalPlan(null);
       });
@@ -4598,6 +4652,10 @@ export const DuelScreen = ({
                   <button
                     onClick={() => {
                       soundManager.playTurnChange();
+                      setSelectedFieldMonsterZone(null);
+                      setSelectedHandIndex(null);
+                      setSelectedSetSTZone(null);
+                      setInspectCard(null);
                       executeAndBroadcast('endTurn');
                     }}
                     className="btn-end-turn-pharaoh"

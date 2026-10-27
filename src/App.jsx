@@ -249,6 +249,9 @@ export const App = () => {
           true,
           tagConfig
         );
+        tagEngine.state.deviceTeam = isTeam0 ? 0 : 1;
+        tagEngine.state.mySlot = mySlot;
+        tagEngine.state.tagActiveSlot = 0;
         return tagEngine;
       }
 
@@ -293,6 +296,8 @@ export const App = () => {
       const customEngine = new DuelEngine(p0Cards, p1Cards, p0Name, p1Name, undefined, localStartingPlayer);
       customEngine.state.players = [p0State, p1State];
       customEngine.state.currentTurnPlayer = localStartingPlayer;
+      customEngine.state.deviceTeam = isHost ? 0 : 1;
+      customEngine.state.mySlot = isHost ? 0 : 1;
 
       // Draw initial card only if it's currently local player's turn (p0)
       if (localStartingPlayer === 0) {
