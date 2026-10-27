@@ -343,7 +343,15 @@ export class ConnectionManager {
     }
   }
 
-  async host(transport, myName, gameMode = '1v1', settings = {}) {
+  prepareHostCode() {
+    this.roomCode = String(Math.floor(1000 + Math.random() * 9000));
+    this.roomId = 'room_' + this.roomCode;
+    this.role = 'host';
+    this.notifyStatus();
+    return this.roomCode;
+  }
+
+  async host(transport, myName, gameMode = '1v1', settings = {}, explicitCode = null) {
     this.stopRoomPolling();
     this.role = 'host';
     this.transport = transport;
@@ -354,7 +362,7 @@ export class ConnectionManager {
     if (settings && Object.keys(settings).length > 0) {
       this.tagSettings = { ...this.tagSettings, ...settings };
     }
-    this.roomCode = String(Math.floor(1000 + Math.random() * 9000));
+    this.roomCode = explicitCode || this.roomCode || String(Math.floor(1000 + Math.random() * 9000));
     this.roomId = 'room_' + this.roomCode;
     this.connected = false;
     this.peerName = '';
@@ -362,62 +370,70 @@ export class ConnectionManager {
     this.teammateHand = [];
     this.latencyMs = 1;
 
-    let targetUrl = null;
-    if (this.isNative) {
-      try {
-        const res = await LocalServer.startServer({ port: 9001 });
-        if (res && res.ip) {
-          this.localServerIp = res.ip;
-        }
-        await LocalServer.startAnnouncing({
-          roomCode: this.roomCode,
-          hostName: this.myName,
-          ip: this.localServerIp || '192.168.43.1',
-          port: 9001,
-          gameMode: this.gameMode,
-        });
-      } catch (e) {
-        console.error('Error starting native local server or UDP announce:', e);
-      }
-      targetUrl = 'ws://127.0.0.1:9001/yugioh-ws';
-    }
-
-    // Announce to Cloud Relay (matches duelists over 4G/5G, Internet, and Wi-Fi)
-    try {
-      cloudRelay.hostRoom(this.roomCode, {
-        hostName: this.myName,
-        gameMode: this.gameMode,
-        settings: this.tagSettings,
-      });
-    } catch (e) {
-      console.warn('CloudRelay host error:', e);
-    }
-
+    // Immediately notify UI so room code appears in 0ms synchronously!
     this.notifyStatus();
 
-    // Ensure connection is fully OPEN before announcing room creation
-    await this.ensureConnected(targetUrl);
+    // Launch background services asynchronously without blocking the UI
+    (async () => {
+      let targetUrl = null;
+      if (this.isNative) {
+        try {
+          const res = await LocalServer.startServer({ port: 9001 });
+          if (res && res.ip) {
+            this.localServerIp = res.ip;
+          }
+          await LocalServer.startAnnouncing({
+            roomCode: this.roomCode,
+            hostName: this.myName,
+            ip: this.localServerIp || '192.168.43.1',
+            port: 9001,
+            gameMode: this.gameMode,
+          });
+        } catch (e) {
+          console.error('Error starting native local server or UDP announce:', e);
+        }
+        targetUrl = 'ws://127.0.0.1:9001/yugioh-ws';
+      }
 
-    // Announce to WebSocket server
-    this.sendWs({
-      type: 'CREATE_ROOM',
-      roomCode: this.roomCode,
-      hostName: this.myName,
-      transport: this.transport,
-      gameMode: this.gameMode,
-      settings: this.tagSettings,
-    });
+      // Announce to Cloud Relay (matches duelists over 4G/5G, Internet, and Wi-Fi)
+      try {
+        cloudRelay.hostRoom(this.roomCode, {
+          hostName: this.myName,
+          gameMode: this.gameMode,
+          settings: this.tagSettings,
+        });
+      } catch (e) {
+        console.warn('CloudRelay host error:', e);
+      }
 
-    // Announce to Local Broadcast fallback
-    this.sendLocal({
-      type: 'ROOM_ANNOUNCE',
-      roomCode: this.roomCode,
-      hostName: this.myName,
-      transport: this.transport,
-      gameMode: this.gameMode,
-      settings: this.tagSettings,
-      senderId: this.instanceId,
-    });
+      this.notifyStatus();
+
+      // Ensure connection is fully OPEN before announcing room creation
+      try {
+        await this.ensureConnected(targetUrl);
+        this.sendWs({
+          type: 'CREATE_ROOM',
+          roomCode: this.roomCode,
+          hostName: this.myName,
+          transport: this.transport,
+          gameMode: this.gameMode,
+          settings: this.tagSettings,
+        });
+      } catch (e) {
+        console.warn('WebSocket connect error in host background:', e);
+      }
+
+      // Announce to Local Broadcast fallback
+      this.sendLocal({
+        type: 'ROOM_ANNOUNCE',
+        roomCode: this.roomCode,
+        hostName: this.myName,
+        transport: this.transport,
+        gameMode: this.gameMode,
+        settings: this.tagSettings,
+        senderId: this.instanceId,
+      });
+    })();
 
     return true;
   }
@@ -1324,6 +1340,8 @@ export class ConnectionManager {
       bluetoothSupported: this.isWebBluetoothSupported(),
       bluetoothDevice: this.bluetoothDevice,
       isNative: this.isNative,
+      peerOnHotspot: !!this.peerOnHotspot,
+      hotspotStatus: this.hotspotStatus || null,
     };
   }
 
@@ -1331,6 +1349,100 @@ export class ConnectionManager {
     const status = this.getStatus();
     for (const cb of this.statusListeners) {
       cb(status);
+    }
+  }
+
+  startLobbyDiscovery() {
+    if (this.lobbyDiscoveryActive) return;
+    this.lobbyDiscoveryActive = true;
+
+    // 1. In native Android, start continuous UDP discovery listener
+    if (this.isNative) {
+      try {
+        LocalServer.startDiscovery();
+      } catch (e) {}
+    }
+
+    // 2. Poll Hotspot and candidate gateways every 2.5 seconds
+    const checkHotspot = async () => {
+      if (!this.lobbyDiscoveryActive || this.connected) return;
+
+      if (this.isNative) {
+        try {
+          const hs = await LocalServer.checkHotspotStatus();
+          if (hs) {
+            this.hotspotStatus = hs;
+            const hasPeers = (hs.peerCount > 0) || (hs.isHotspotHost && hs.peers && hs.peers.length > 0);
+            if (this.peerOnHotspot !== hasPeers) {
+              this.peerOnHotspot = hasPeers;
+              this.notifyStatus();
+            }
+
+            // If we are a client connected to a hotspot, probe the hotspot host server directly
+            if (hs.isHotspotClient || hs.gatewayIp === '192.168.43.1') {
+              this.probeHotspotServer(hs.gatewayIp || '192.168.43.1');
+            }
+          }
+        } catch (e) {}
+      } else {
+        // In browser / dev server, query active rooms
+        this.sendWs({ type: 'GET_ACTIVE_ROOMS' });
+      }
+    };
+
+    checkHotspot();
+    this.hotspotCheckInterval = setInterval(checkHotspot, 2500);
+  }
+
+  async probeHotspotServer(ip = '192.168.43.1') {
+    if (this.connected || this.role === 'host') return;
+    try {
+      const probeWs = new WebSocket(`ws://${ip}:9001/yugioh-ws`);
+      probeWs.onopen = () => {
+        probeWs.send(JSON.stringify({ type: 'GET_ACTIVE_ROOMS' }));
+      };
+      probeWs.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'ACTIVE_ROOMS_LIST' && Array.isArray(msg.rooms)) {
+            const list = Array.isArray(this.discoveredRooms) ? [...this.discoveredRooms] : [];
+            for (const r of msg.rooms) {
+              const code = this.normalizeRoomCode(r.roomCode);
+              const idx = list.findIndex((x) => this.normalizeRoomCode(x.roomCode) === code);
+              const enriched = {
+                ...r,
+                roomCode: code,
+                ip: ip,
+                isHotspotDirect: true,
+                lastSeen: Date.now(),
+                transport: 'hotspot_direct',
+              };
+              if (idx !== -1) {
+                list[idx] = { ...list[idx], ...enriched };
+              } else {
+                list.unshift(enriched); // Hotspot rooms at the VERY TOP
+              }
+            }
+            this.discoveredRooms = list;
+            this.notifyStatus();
+          }
+        } catch (e) {}
+        try { probeWs.close(); } catch (e) {}
+      };
+      probeWs.onerror = () => {
+        try { probeWs.close(); } catch (e) {}
+      };
+      setTimeout(() => {
+        try { probeWs.close(); } catch (e) {}
+      }, 1500);
+    } catch (e) {}
+  }
+
+  stopLobbyDiscovery() {
+    this.lobbyDiscoveryActive = false;
+    if (this.hotspotCheckInterval) {
+      clearInterval(this.hotspotCheckInterval);
+      this.hotspotCheckInterval = null;
     }
   }
 

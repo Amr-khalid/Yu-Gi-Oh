@@ -420,9 +420,17 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
       }
     });
 
+    // Start active local and cloud discovery immediately on screen mount
+    if (typeof connectionManager.startLobbyDiscovery === 'function') {
+      connectionManager.startLobbyDiscovery();
+    }
+
     return () => {
       unsubStatus();
       unsubMsg();
+      if (typeof connectionManager.stopLobbyDiscovery === 'function') {
+        connectionManager.stopLobbyDiscovery();
+      }
       if (typeof connectionManager.stopHeartbeat === 'function') {
         connectionManager.stopHeartbeat();
       }
@@ -454,7 +462,14 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     soundManager.playDecide();
     hapticManager.triggerCombatVibration('click');
     setActionState('hosting');
-    connectionManager.host('wifi', playerName, mode, customTagSettings);
+    const code = connectionManager.prepareHostCode();
+    setStatus((prev) => ({
+      ...prev,
+      role: 'host',
+      roomCode: code,
+      gameMode: mode,
+    }));
+    connectionManager.host('wifi', playerName, mode, customTagSettings, code);
   };
 
   const handleJoin = () => {
@@ -1215,9 +1230,66 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
           </div>
         )}
 
-        {/* Instant Pharaonic Room Radar (Active Nearby Hotspot & Cloud Rooms) */}
+        {/* Instant Pharaonic Room Radar & Hotspot Detection */}
         {actionState === 'idle' && !status.connected && (
           <div style={{ width: '100%', marginBottom: 14 }}>
+            {/* Hotspot Auto-Detection Alert Banners */}
+            {status.peerOnHotspot && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'linear-gradient(90deg, rgba(34, 197, 94, 0.22) 0%, rgba(16, 185, 129, 0.12) 100%)',
+                  border: '1.5px solid #22c55e',
+                  boxShadow: '0 0 16px rgba(34, 197, 94, 0.3)',
+                  marginBottom: 10,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <WifiIcon size={20} color="#4ade80" />
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#4ade80' }}>
+                      تم رصد جهاز صاحبك متصل بنقطة الاتصال (Hotspot) معاك!
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)' }}>
+                      اعمل روم دلوقتي وهيظهر عنده في الرادار تلقائياً بنقرة واحدة!
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!status.peerOnHotspot && status.hotspotStatus?.isHotspotClient && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.2) 0%, rgba(234, 179, 8, 0.12) 100%)',
+                  border: '1.5px solid #38bdf8',
+                  boxShadow: '0 0 16px rgba(56, 189, 248, 0.25)',
+                  marginBottom: 10,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <WifiIcon size={20} color="#38bdf8" />
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: '#38bdf8' }}>
+                      أنت متصل بنقطة اتصال صاحبك (هوت سبوت)
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--pharaoh-text-gold)' }}>
+                      الرادار بيبحث عن غرفته تلقائياً... أول ما صاحبك يعمل روم هتظهرلك هنا فوراً!
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {status.discoveredRooms && status.discoveredRooms.filter((r) => Date.now() - (r.lastSeen || 0) < 40000).length > 0 ? (
               <div
                 className="stone-panel"
@@ -1819,6 +1891,31 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
               <div style={{ fontSize: 12.5, color: 'var(--pharaoh-text-gold)', fontWeight: 800, marginBottom: 8 }}>
                 صاحب الروم: {playerName}
               </div>
+
+              {status.peerOnHotspot && (
+                <div
+                  style={{
+                    background: 'rgba(34, 197, 94, 0.18)',
+                    border: '1px solid #22c55e',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    margin: '0 auto 12px',
+                    maxWidth: 380,
+                    fontSize: 12,
+                    fontWeight: 900,
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    boxShadow: '0 0 12px rgba(34, 197, 94, 0.25)',
+                  }}
+                >
+                  <WifiIcon size={16} color="#4ade80" />
+                  <span>تم رصد جهاز صاحبك متصل بنقطة الاتصال معاك! في انتظار دخوله...</span>
+                </div>
+              )}
+
               <PharaohHieroglyphRibbon opacity={0.6} style={{ marginBottom: 14 }} />
 
               {/* Big Room Code Box (Royal Egyptian Cartouche) */}
@@ -1860,7 +1957,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                       textShadow: '0 0 16px rgba(240, 203, 100, 0.65)',
                     }}
                   >
-                    #{status.roomCode || '....'}
+                    #{status.roomCode || connectionManager.roomCode || '....'}
                   </div>
                   <span style={{ fontSize: 24, color: 'var(--pharaoh-gold-bright)', fontFamily: 'Segoe UI Historic', userSelect: 'none' }}>
                     𓋹

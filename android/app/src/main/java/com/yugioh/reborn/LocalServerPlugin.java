@@ -200,6 +200,48 @@ public class LocalServerPlugin extends Plugin {
         call.resolve(ret);
     }
 
+    @PluginMethod
+    public void checkHotspotStatus(PluginCall call) {
+        Context context = getContext();
+        String myIp = getBestLocalIp();
+        String gwIp = detectGatewayIp(context);
+        boolean isHotspotHost = "192.168.43.1".equals(myIp) || myIp.endsWith(".43.1");
+        boolean isHotspotClient = "192.168.43.1".equals(gwIp) || (myIp.startsWith("192.168.43.") && !"192.168.43.1".equals(myIp));
+
+        // Read ARP table to detect connected peer devices
+        JSArray peers = new JSArray();
+        int peerCount = 0;
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("/proc/net/arp"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.trim().split("\\s+");
+                if (parts.length >= 4) {
+                    String ip = parts[0];
+                    String flags = parts[2];
+                    String mac = parts[3];
+                    if ("0x2".equals(flags) && !"00:00:00:00:00:00".equals(mac)) {
+                        if (ip.startsWith("192.168.43.") || ip.startsWith("192.168.")) {
+                            peers.put(ip);
+                            peerCount++;
+                        }
+                    }
+                }
+            }
+            br.close();
+        } catch (Exception ignored) {}
+
+        JSObject ret = new JSObject();
+        ret.put("myIp", myIp);
+        ret.put("gatewayIp", gwIp != null ? gwIp : "");
+        ret.put("isHotspotHost", isHotspotHost);
+        ret.put("isHotspotClient", isHotspotClient);
+        ret.put("isOnHotspot", isHotspotHost || isHotspotClient);
+        ret.put("peerCount", peerCount);
+        ret.put("peers", peers);
+        call.resolve(ret);
+    }
+
     public static String detectGatewayIp(Context context) {
         if (context == null) return null;
 
