@@ -52,8 +52,32 @@ export class ConnectionManager {
         // In browser / dev environment, connect to Vite dev server relay
         this.initWebSocket();
       } else {
-        // In Android APK, get initial IP address
+        // In Android APK, get initial IP address & setup UDP discovery
         this.queryDeviceIp();
+        try {
+          LocalServer.addListener('onRoomDiscovered', (room) => {
+            if (!room || !room.roomCode) return;
+            const code = this.normalizeRoomCode(room.roomCode);
+            const list = Array.isArray(this.discoveredRooms) ? [...this.discoveredRooms] : [];
+            const existingIdx = list.findIndex(
+              (r) => this.normalizeRoomCode(r.roomCode) === code
+            );
+            const enriched = {
+              ...room,
+              roomCode: code,
+              lastSeen: Date.now(),
+            };
+            if (existingIdx !== -1) {
+              list[existingIdx] = { ...list[existingIdx], ...enriched };
+            } else {
+              list.push(enriched);
+            }
+            this.discoveredRooms = list;
+            this.notifyStatus();
+          });
+        } catch (e) {
+          console.warn('Failed to register onRoomDiscovered listener:', e);
+        }
       }
       this.initLocalFallback();
     }
@@ -85,7 +109,7 @@ export class ConnectionManager {
     }
   }
 
-  connectWs(url) {
+  connectWs(url, timeoutMs = 2500) {
     return new Promise((resolve) => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN && this.currentWsUrl === url) {
         resolve(true);
@@ -113,7 +137,7 @@ export class ConnectionManager {
             resolved = true;
             resolve(false);
           }
-        }, 3500);
+        }, timeoutMs);
 
         ws.onopen = () => {
           if (!resolved) {
@@ -463,6 +487,9 @@ export class ConnectionManager {
     let targetUrl = null;
     if (this.isNative) {
       targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
+      try {
+        LocalServer.startDiscovery();
+      } catch (e) {}
     }
     this.notifyStatus();
     await this.ensureConnected(targetUrl);
@@ -548,30 +575,90 @@ export class ConnectionManager {
     this.pendingSlotIndex = targetSlotIndex;
     this.connected = false;
 
-    const hostIp = (customHostIp && customHostIp.trim()) ? customHostIp.trim() : this.targetHostIp;
-    this.targetHostIp = hostIp;
-
     let targetUrl = null;
     if (this.isNative) {
-      targetUrl = `ws://${hostIp}:9001/yugioh-ws`;
+      // Determine candidate IPs in priority order
+      const candidateIps = [];
+
+      // 1. Direct discovered room matching this exact code!
+      const matchingRoom = (this.discoveredRooms || []).find(
+        (r) => this.normalizeRoomCode(r.roomCode) === cleanCode
+      );
+      if (matchingRoom && matchingRoom.ip && !candidateIps.includes(matchingRoom.ip)) {
+        candidateIps.push(matchingRoom.ip);
+      }
+
+      // 2. Custom host IP if user explicitly typed one
+      if (customHostIp && customHostIp.trim() && !candidateIps.includes(customHostIp.trim())) {
+        candidateIps.push(customHostIp.trim());
+      }
+
+      // 3. DHCP Gateway IP (the phone whose hotspot or Wi-Fi router we are connected to)
+      try {
+        const gwRes = await LocalServer.getGatewayIp();
+        if (gwRes && gwRes.gatewayIp && !candidateIps.includes(gwRes.gatewayIp)) {
+          candidateIps.push(gwRes.gatewayIp);
+        }
+      } catch (e) {}
+
+      // 4. Any other discovered room IPs
+      for (const r of (this.discoveredRooms || [])) {
+        if (r.ip && !candidateIps.includes(r.ip)) {
+          candidateIps.push(r.ip);
+        }
+      }
+
+      // 5. Standard Hotspot / Wi-Fi fallback IPs
+      const defaultIps = ['192.168.43.1', '192.168.49.1', '192.168.50.1'];
+      for (const def of defaultIps) {
+        if (!candidateIps.includes(def)) candidateIps.push(def);
+      }
+
+      this.targetHostIp = candidateIps[0] || '192.168.43.1';
+      targetUrl = `ws://${this.targetHostIp}:9001/yugioh-ws`;
+
+      this.notifyStatus();
+
+      // Attempt primary candidate with fast fallback race
+      let isReady = await this.ensureConnected(targetUrl);
+
+      // If first candidate failed and we have others, try them swiftly!
+      if (!isReady && candidateIps.length > 1) {
+        for (let i = 1; i < candidateIps.length; i++) {
+          const altIp = candidateIps[i];
+          const altUrl = `ws://${altIp}:9001/yugioh-ws`;
+          isReady = await this.connectWs(altUrl, 1400);
+          if (isReady) {
+            this.targetHostIp = altIp;
+            targetUrl = altUrl;
+            break;
+          }
+        }
+      }
+
+      if (isReady) {
+        this.sendWs({
+          type: 'JOIN_ROOM',
+          roomCode: cleanCode,
+          clientName: this.myName,
+          targetSlotIndex,
+        });
+      }
+    } else {
+      // Browser / dev server
+      this.notifyStatus();
+      const isReady = await this.ensureConnected();
+      if (isReady) {
+        this.sendWs({
+          type: 'JOIN_ROOM',
+          roomCode: cleanCode,
+          clientName: this.myName,
+          targetSlotIndex,
+        });
+      }
     }
 
-    this.notifyStatus();
-
-    // 1. Ensure WebSocket connection is OPEN before sending join request!
-    const isReady = await this.ensureConnected(targetUrl);
-
-    // 2. Send join request to WebSocket server
-    if (isReady) {
-      this.sendWs({
-        type: 'JOIN_ROOM',
-        roomCode: cleanCode,
-        clientName: this.myName,
-        targetSlotIndex,
-      });
-    }
-
-    // 3. Send fallback via BroadcastChannel (for dual tabs on same computer/browser)
+    // Also send local BroadcastChannel fallback
     this.sendLocal({
       type: 'ROOM_CONNECT_REQ',
       roomCode: cleanCode,
@@ -580,7 +667,7 @@ export class ConnectionManager {
       senderId: this.instanceId,
     });
 
-    // 4. In case the host just created the room moments ago or network had small jitter,
+    // In case the host just created the room moments ago or network had small jitter,
     // retry JOIN_ROOM after 850ms and 1700ms if not connected yet
     if (this.joinRetryTimers) {
       this.joinRetryTimers.forEach((t) => clearTimeout(t));
@@ -810,7 +897,21 @@ export class ConnectionManager {
 
     // 4. List of active rooms from server
     else if (msg.type === 'ACTIVE_ROOMS_LIST') {
-      this.discoveredRooms = Array.isArray(msg.rooms) ? msg.rooms : [];
+      const incoming = Array.isArray(msg.rooms) ? msg.rooms : [];
+      const map = new Map();
+      for (const r of (this.discoveredRooms || [])) {
+        if (r && r.roomCode) {
+          map.set(this.normalizeRoomCode(r.roomCode), r);
+        }
+      }
+      for (const r of incoming) {
+        if (r && r.roomCode) {
+          const code = this.normalizeRoomCode(r.roomCode);
+          const prev = map.get(code) || {};
+          map.set(code, { ...prev, ...r, roomCode: code, lastSeen: Date.now() });
+        }
+      }
+      this.discoveredRooms = Array.from(map.values());
       this.notifyStatus();
     }
 
@@ -977,10 +1078,15 @@ export class ConnectionManager {
     if (this.role === 'host' && this.roomCode) {
       this.sendWs({ type: 'CLOSE_ROOM', roomCode: this.roomCode });
     }
-    if (this.isNative && this.role === 'host') {
+    if (this.isNative) {
       try {
-        await LocalServer.stopServer();
+        LocalServer.stopDiscovery();
       } catch (e) {}
+      if (this.role === 'host') {
+        try {
+          await LocalServer.stopServer();
+        } catch (e) {}
+      }
     }
     if (this.ws) {
       try {

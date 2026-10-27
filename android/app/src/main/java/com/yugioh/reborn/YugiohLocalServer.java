@@ -106,10 +106,18 @@ public class YugiohLocalServer extends WebSocketServer {
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocket, String> wsToRoom = new ConcurrentHashMap<>();
     private final Map<WebSocket, Boolean> wsIsHost = new ConcurrentHashMap<>();
+    private String serverIp = "192.168.43.1";
 
     public YugiohLocalServer(int port) {
+        this(port, "192.168.43.1");
+    }
+
+    public YugiohLocalServer(int port, String serverIp) {
         super(new InetSocketAddress("0.0.0.0", port));
         setReuseAddr(true);
+        if (serverIp != null && !serverIp.isEmpty()) {
+            this.serverIp = serverIp;
+        }
     }
 
     @Override
@@ -128,6 +136,7 @@ public class YugiohLocalServer extends WebSocketServer {
             Room room = rooms.get(roomCode);
             if (room != null) {
                 if (isHost != null && isHost) {
+                    YugiohDiscovery.stopAnnouncing();
                     try {
                         JSONObject disconnectMsg = new JSONObject();
                         disconnectMsg.put("type", "PEER_DISCONNECTED");
@@ -235,6 +244,8 @@ public class YugiohLocalServer extends WebSocketServer {
                     res.put("type", "ROOM_CREATED");
                     res.put("roomCode", code);
                     res.put("hostName", hostName);
+                    res.put("ip", serverIp);
+                    res.put("port", getPort());
                     res.put("transport", transport);
                     res.put("gameMode", gameMode);
                     res.put("settings", settings);
@@ -242,6 +253,7 @@ public class YugiohLocalServer extends WebSocketServer {
                         res.put("slots", existing.getCleanSlotsArray());
                     }
                     conn.send(res.toString());
+                    YugiohDiscovery.startAnnouncing(code, hostName, serverIp, getPort(), gameMode);
                     broadcastActiveRooms();
                     return;
                 }
@@ -279,6 +291,8 @@ public class YugiohLocalServer extends WebSocketServer {
                 res.put("type", "ROOM_CREATED");
                 res.put("roomCode", code);
                 res.put("hostName", hostName);
+                res.put("ip", serverIp);
+                res.put("port", getPort());
                 res.put("transport", transport);
                 res.put("gameMode", gameMode);
                 res.put("settings", settings);
@@ -287,6 +301,7 @@ public class YugiohLocalServer extends WebSocketServer {
                 }
                 conn.send(res.toString());
 
+                YugiohDiscovery.startAnnouncing(code, hostName, serverIp, getPort(), gameMode);
                 broadcastActiveRooms();
                 return;
             }
@@ -588,6 +603,18 @@ public class YugiohLocalServer extends WebSocketServer {
                 return;
             }
 
+            if ("CLOSE_ROOM".equals(type)) {
+                String code = msg.optString("roomCode", wsToRoom.get(conn));
+                if (code != null) {
+                    rooms.remove(code);
+                    wsToRoom.remove(conn);
+                    wsIsHost.remove(conn);
+                    YugiohDiscovery.stopAnnouncing();
+                    broadcastActiveRooms();
+                }
+                return;
+            }
+
             if ("GET_ACTIVE_ROOMS".equals(type)) {
                 sendActiveRooms(conn);
             }
@@ -614,6 +641,8 @@ public class YugiohLocalServer extends WebSocketServer {
                             item.put("maxSlots", 4);
                             item.put("transport", r.transport != null ? r.transport : "wifi");
                             item.put("settings", r.settings);
+                            item.put("ip", serverIp);
+                            item.put("port", getPort());
                             item.put("createdAt", r.createdAt);
                             active.put(item);
                         }
@@ -625,6 +654,8 @@ public class YugiohLocalServer extends WebSocketServer {
                         item.put("slotsOccupied", 1);
                         item.put("maxSlots", 2);
                         item.put("transport", r.transport != null ? r.transport : "wifi");
+                        item.put("ip", serverIp);
+                        item.put("port", getPort());
                         item.put("createdAt", r.createdAt);
                         active.put(item);
                     }
@@ -657,6 +688,8 @@ public class YugiohLocalServer extends WebSocketServer {
                             item.put("maxSlots", 4);
                             item.put("transport", r.transport != null ? r.transport : "wifi");
                             item.put("settings", r.settings);
+                            item.put("ip", serverIp);
+                            item.put("port", getPort());
                             item.put("createdAt", r.createdAt);
                             active.put(item);
                         }
@@ -668,6 +701,8 @@ public class YugiohLocalServer extends WebSocketServer {
                         item.put("slotsOccupied", 1);
                         item.put("maxSlots", 2);
                         item.put("transport", r.transport != null ? r.transport : "wifi");
+                        item.put("ip", serverIp);
+                        item.put("port", getPort());
                         item.put("createdAt", r.createdAt);
                         active.put(item);
                     }

@@ -14,19 +14,44 @@ function yugiohMultiplayerPlugin() {
 
       const wss = new WebSocketServer({ noServer: true });
 
-      function broadcastActiveRooms() {
+      function getActiveRoomsList() {
         const active = [];
         const now = Date.now();
         for (const [code, r] of rooms.entries()) {
-          if (r.hostWs && r.hostWs.readyState === WebSocket.OPEN && !r.clientWs && now - r.createdAt < 600000) {
-            active.push({
-              roomCode: code,
-              hostName: r.hostName,
-              transport: r.transport || 'wifi',
-              createdAt: r.createdAt,
-            });
+          if (r.hostWs && r.hostWs.readyState === WebSocket.OPEN && now - r.createdAt < 600000) {
+            if (r.gameMode === 'tag_2v2') {
+              const occupied = r.slots ? r.slots.filter((s) => s.isOccupied || s.isBot).length : 1;
+              if (occupied < 4) {
+                active.push({
+                  roomCode: code,
+                  hostName: r.hostName,
+                  transport: r.transport || 'wifi',
+                  gameMode: 'tag_2v2',
+                  slotsOccupied: occupied,
+                  maxSlots: 4,
+                  ip: '127.0.0.1',
+                  createdAt: r.createdAt,
+                });
+              }
+            } else if (!r.clientWs) {
+              active.push({
+                roomCode: code,
+                hostName: r.hostName,
+                transport: r.transport || 'wifi',
+                gameMode: '1v1',
+                slotsOccupied: 1,
+                maxSlots: 2,
+                ip: '127.0.0.1',
+                createdAt: r.createdAt,
+              });
+            }
           }
         }
+        return active;
+      }
+
+      function broadcastActiveRooms() {
+        const active = getActiveRoomsList();
         const payload = JSON.stringify({ type: 'ACTIVE_ROOMS_LIST', rooms: active });
         for (const client of wss.clients) {
           if (client.readyState === WebSocket.OPEN) {
@@ -56,18 +81,7 @@ function yugiohMultiplayerPlugin() {
         let isHost = false;
 
         // Immediately push current active rooms to newcomer
-        const initialActive = [];
-        const now = Date.now();
-        for (const [code, r] of rooms.entries()) {
-          if (r.hostWs && r.hostWs.readyState === WebSocket.OPEN && !r.clientWs && now - r.createdAt < 600000) {
-            initialActive.push({
-              roomCode: code,
-              hostName: r.hostName,
-              transport: r.transport || 'wifi',
-              createdAt: r.createdAt,
-            });
-          }
-        }
+        const initialActive = getActiveRoomsList();
         try {
           ws.send(JSON.stringify({ type: 'ACTIVE_ROOMS_LIST', rooms: initialActive }));
         } catch (e) {}

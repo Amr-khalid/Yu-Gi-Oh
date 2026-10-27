@@ -480,7 +480,12 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     }
     soundManager.playDecide();
     hapticManager.triggerCombatVibration('click');
-    const target = ipMode === 'hotspot' ? '192.168.43.1' : customHostIp;
+    const matchedRoom = (status.discoveredRooms || []).find(
+      (r) => connectionManager.normalizeRoomCode(r.roomCode) === cleanCode
+    );
+    const target = (matchedRoom && matchedRoom.ip)
+      ? matchedRoom.ip
+      : (ipMode === 'hotspot' ? '192.168.43.1' : customHostIp);
     setActionState('joining');
     setIsConnectingByCode(true);
     const ok = await connectionManager.joinByCode(cleanCode, target);
@@ -1993,14 +1998,14 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
                           روم: {room.hostName}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--pharaoh-text-muted)', marginTop: 2 }}>
-                          الكود: #{room.roomCode}
+                          الكود: #{room.roomCode} • {room.gameMode === 'tag_2v2' ? 'تاغ (2 ضد 2)' : 'مبارزة (1 ضد 1)'}
                         </div>
                       </div>
                       <button
                         onClick={() => {
                           soundManager.playDecide();
                           hapticManager.triggerCombatVibration('click');
-                          const target = ipMode === 'hotspot' ? '192.168.43.1' : customHostIp;
+                          const target = room.ip || (ipMode === 'hotspot' ? '192.168.43.1' : customHostIp);
                           connectionManager.joinByCode(room.roomCode, target);
                         }}
                         className="btn-pharaoh-gold"

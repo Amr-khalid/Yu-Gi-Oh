@@ -34,10 +34,10 @@ public class LocalServerPlugin extends Plugin {
                 server = null;
             }
 
-            server = new YugiohLocalServer(port);
+            String ip = getBestLocalIp();
+            server = new YugiohLocalServer(port, ip);
             server.start();
 
-            String ip = getBestLocalIp();
             JSObject ret = new JSObject();
             ret.put("running", true);
             ret.put("port", port);
@@ -54,6 +54,8 @@ public class LocalServerPlugin extends Plugin {
     @PluginMethod
     public void stopServer(PluginCall call) {
         try {
+            YugiohDiscovery.stopAnnouncing();
+            YugiohDiscovery.stopListening();
             if (server != null) {
                 server.stop(1000);
                 server = null;
@@ -65,6 +67,68 @@ public class LocalServerPlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "Failed to stop local server", e);
             call.reject("Failed to stop local server: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void getGatewayIp(PluginCall call) {
+        try {
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getContext().getApplicationContext().getSystemService(android.content.Context.WIFI_SERVICE);
+            if (wm != null) {
+                android.net.DhcpInfo dhcp = wm.getDhcpInfo();
+                if (dhcp != null && dhcp.gateway != 0) {
+                    int ipInt = dhcp.gateway;
+                    String gatewayIp = (ipInt & 0xFF) + "." +
+                            ((ipInt >> 8) & 0xFF) + "." +
+                            ((ipInt >> 16) & 0xFF) + "." +
+                            ((ipInt >> 24) & 0xFF);
+                    JSObject ret = new JSObject();
+                    ret.put("gatewayIp", gatewayIp);
+                    call.resolve(ret);
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to get gateway IP", e);
+        }
+        JSObject ret = new JSObject();
+        ret.put("gatewayIp", null);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void startDiscovery(PluginCall call) {
+        try {
+            YugiohDiscovery.startListening(getContext(), room -> {
+                try {
+                    JSObject obj = new JSObject();
+                    obj.put("roomCode", room.optString("roomCode"));
+                    obj.put("hostName", room.optString("hostName"));
+                    obj.put("ip", room.optString("ip"));
+                    obj.put("port", room.optInt("port", 9001));
+                    obj.put("gameMode", room.optString("gameMode", "1v1"));
+                    obj.put("timestamp", room.optLong("timestamp", System.currentTimeMillis()));
+                    notifyListeners("onRoomDiscovered", obj);
+                } catch (Exception ignored) {}
+            });
+            JSObject ret = new JSObject();
+            ret.put("listening", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting UDP discovery", e);
+            call.reject("Error starting UDP discovery: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void stopDiscovery(PluginCall call) {
+        try {
+            YugiohDiscovery.stopListening();
+            JSObject ret = new JSObject();
+            ret.put("listening", false);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Error stopping UDP discovery: " + e.getMessage());
         }
     }
 
