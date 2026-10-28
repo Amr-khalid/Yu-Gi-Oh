@@ -1,3 +1,4 @@
+import { hasMonsterEffect } from '../engine/MonsterEffects.js';
 /**
  * AIPlayer.js
  * Advanced Tactical AI Duelist with multi-tier difficulty and strategic planning

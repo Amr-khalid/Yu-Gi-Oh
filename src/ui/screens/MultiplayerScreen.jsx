@@ -334,22 +334,37 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     setTimeout(() => {
       setCountdownValue(null);
       const isHost = connectionManager.role === 'host';
-      const isTag = (extra?.gameMode || status.gameMode || connectionManager.gameMode || selectedMode) === 'tag_2v2';
+      const resolvedGameMode = (extra?.gameMode === '1v1' || extra?.gameMode === 'tag_2v2')
+        ? extra.gameMode
+        : ((status.gameMode === 'tag_2v2' || connectionManager.gameMode === 'tag_2v2') ? 'tag_2v2' : '1v1');
+      const isTag = resolvedGameMode === 'tag_2v2';
       
       let myActualName = isHost ? hostName : clientName;
       let peerActualName = isHost ? clientName : hostName;
       let teammateActualName = null;
-      let myActualSlot = typeof status.mySlot === 'number' ? status.mySlot : (typeof connectionManager.mySlot === 'number' ? connectionManager.mySlot : (isHost ? 0 : 1));
-      let myActualTeam = typeof status.myTeam === 'number' ? status.myTeam : (typeof connectionManager.myTeam === 'number' ? connectionManager.myTeam : (isTag ? (myActualSlot < 2 ? 0 : 1) : (isHost ? 0 : 1)));
+      let myActualSlot = isTag
+        ? (typeof status.mySlot === 'number' ? status.mySlot : (typeof connectionManager.mySlot === 'number' ? connectionManager.mySlot : (isHost ? 0 : 1)))
+        : (isHost ? 0 : 1);
+      let myActualTeam = isTag
+        ? (typeof status.myTeam === 'number' ? status.myTeam : (typeof connectionManager.myTeam === 'number' ? connectionManager.myTeam : (myActualSlot < 2 ? 0 : 1)))
+        : (isHost ? 0 : 1);
 
+      let duelSlots = [];
       if (isTag) {
-        const allSlots = extra?.slots || status.tagSlots || connectionManager.tagSlots || [];
-        myActualName = allSlots[myActualSlot]?.name || playerName;
+        duelSlots = extra?.slots || status.tagSlots || connectionManager.tagSlots || [];
+        myActualName = duelSlots[myActualSlot]?.name || playerName;
         const isTeam0 = myActualTeam === 0;
         const tmSlot = isTeam0 ? (myActualSlot === 0 ? 1 : 0) : (myActualSlot === 2 ? 3 : 2);
         const oppLeaderSlot = isTeam0 ? 2 : 0;
-        teammateActualName = allSlots[tmSlot]?.name || (isHost ? 'الزميل' : 'المستضيف');
-        peerActualName = allSlots[oppLeaderSlot]?.name || 'فريق الخصم';
+        teammateActualName = duelSlots[tmSlot]?.name || (isHost ? 'الزميل' : 'المستضيف');
+        peerActualName = duelSlots[oppLeaderSlot]?.name || 'فريق الخصم';
+      } else {
+        duelSlots = [
+          { slotIndex: 0, team: 0, isOccupied: true, isHost: true, isBot: false, name: hostName },
+          { slotIndex: 1, team: 1, isOccupied: true, isHost: false, isBot: false, name: clientName },
+        ];
+        teammateActualName = null;
+        peerActualName = isHost ? clientName : hostName;
       }
 
       const activeTurnMethod = extra?.turnOrderMethod || turnOrderMethod;
@@ -359,7 +374,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
         isHost,
         seed,
         gameMode: isTag ? 'tag_2v2' : '1v1',
-        slots: extra?.slots || status.tagSlots || connectionManager.tagSlots || [],
+        slots: duelSlots,
         settings: extra?.settings || status.tagSettings || connectionManager.tagSettings || customTagSettings,
         mySlot: myActualSlot,
         myTeam: myActualTeam,
@@ -399,6 +414,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
         connectionManager.matchSeed = msg.seed;
         if (msg.arenaId) connectionManager.syncedArenaId = msg.arenaId;
         if (msg.turnOrderMethod) setTurnOrderMethod(msg.turnOrderMethod);
+        if (msg.gameMode) connectionManager.gameMode = msg.gameMode;
         runSynchronizedCountdown(msg.seed, msg.hostName, msg.clientName, msg);
       } else if (msg.type === 'UPDATE_TURN_ORDER_METHOD') {
         if (msg.method) setTurnOrderMethod(msg.method);
@@ -493,11 +509,15 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     hapticManager.triggerCombatVibration('click');
     setActionState('hosting');
     const code = connectionManager.prepareHostCode();
+    connectionManager.gameMode = cleanMode;
     setStatus((prev) => ({
       ...prev,
       role: 'host',
       roomCode: code,
       gameMode: cleanMode,
+      mySlot: 0,
+      myTeam: 0,
+      teammateName: '',
     }));
     connectionManager.host('wifi', playerName, cleanMode, customTagSettings, code);
   };
@@ -684,6 +704,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
     connectionManager.send({
       type: 'DUEL_COUNTDOWN_START',
       seed: matchSeed,
+      gameMode: '1v1',
       hostName,
       clientName,
       arenaId: hostArenaId1v1,
@@ -693,6 +714,7 @@ export const MultiplayerScreen = ({ onBack, onStartDuel, theme, onToggleTheme })
 
     // Run local countdown
     runSynchronizedCountdown(matchSeed, hostName, clientName, {
+      gameMode: '1v1',
       arenaId: hostArenaId1v1,
       turnOrderMethod,
       startingPlayerRole,

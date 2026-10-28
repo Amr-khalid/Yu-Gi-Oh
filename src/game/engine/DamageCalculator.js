@@ -75,11 +75,20 @@ export function executeDirectAttack(state, attackerPlayerIndex, attackerZoneInde
   if (attackerSlot.canAttack === false) {
     throw new Error('الوحش ده متكتف ومايقدرش يهجم');
   }
+  if (state.swordsOfRevealingLight && state.swordsOfRevealingLight.active && state.swordsOfRevealingLight.playerIndex !== attackerPlayerIndex) {
+    throw new Error('سيوف النور الكاشفة (Swords of Revealing Light) مانعة وحوشك من إعلان أي هجوم!');
+  }
+  if (attackerSlot.card.level >= 4 && isGravityBindActive(state)) {
+    throw new Error('رباط الجاذبية (Gravity Bind) مانع أي وحش ليفل 4 أو أعلى من الهجوم!');
+  }
   if (attackerSlot.hasAttacked) {
     throw new Error('الوحش ده ضرب خلاص في الدور ده');
   }
+  if (state.swordsOfRevealingLight && state.swordsOfRevealingLight.active && state.swordsOfRevealingLight.playerIndex !== attackerPlayerIndex) {
+    throw new Error('سيوف النور الكاشفة (Swords of Revealing Light) مانعة وحوشك من إعلان أي هجوم!');
+  }
   if (attackerSlot.card.level >= 4 && isGravityBindActive(state)) {
-    throw new Error('رباط الجاذبية (Gravity Bind) مانع أي وحش ليفل 4 أو أعلى من الهجوم');
+    throw new Error('رباط الجاذبية (Gravity Bind) مانع أي وحش ليفل 4 أو أعلى من الهجوم!');
   }
 
   const hasOpponentMonsters = defenderPlayer.monsterZones.some(m => m !== null);
@@ -217,6 +226,14 @@ export function executeMonsterAttack(state, attackerPlayerIndex, attackerZoneInd
   let isDefenseBlocked = false;
   let isDefenseShatter = false;
   let log = '';
+
+// Single-use battle protection: Legendary Knight Hermos / Critias / Timaeus
+  const defCardName = (defenderSlot.card?.name || '').toLowerCase();
+  if (defCardName.includes('legendary knight') && !defenderSlot.hasUsedSingleUseEffect) {
+    defenderSlot.hasUsedSingleUseEffect = true;
+    attackerSlot.currentAtk = 0;
+    state.lastLog.push(`قدرة فارس الأساطير (${defenderSlot.card.name})! استُخدمت لمرة واحدة فقط وخفّضت هجوم الوحش المهاجم إلى 0!`);
+  }
 
   if (defenderSlot.position === 'face_up_attack') {
     // Attack vs Attack

@@ -5,7 +5,7 @@
 
 import { checkWinConditions } from './WinCondition.js';
 import { drawCardForTurnPlayer } from './PhaseManager.js';
-import { resolveMonsterEffect, isTrapNegated, isIndestructibleByBattle } from './MonsterEffects.js';
+import { resolveMonsterEffect, isTrapNegated, isIndestructibleByBattle, hasMonsterEffect } from './MonsterEffects.js';
 import { shuffleDeck } from './GameState.js';
 import { resolveSpellEffect as dispatchSpellEffect } from './SpellEffects.js';
 import { resolveTrapEffect as dispatchTrapEffect } from './TrapEffects.js';
@@ -18,14 +18,14 @@ export const FIELD_SPELLS = {
     bgImage: '/assets/fie_dark.png',
     bgLight: '/assets/fie_dark_light.png',
     themeClass: 'field-theme-yami',
-    arabicSummary: '+200 هجوم ودفاع للوحوش الساحرة والشياطين / -200 للجنيات',
+    arabicSummary: '+200 هجوم ودفاع للوحوش الساحرة والشياطين / -200 للجنيات والأنوار',
     getModifier(card) {
       let atk = 0;
       let def = 0;
-      if (card.race === 'Spellcaster' || card.race === 'Fiend') {
+      if (card.race === 'Spellcaster' || card.race === 'Fiend' || card.attribute === 'DARK') {
         atk += 200;
         def += 200;
-      } else if (card.race === 'Fairy') {
+      } else if (card.race === 'Fairy' || card.attribute === 'LIGHT') {
         atk -= 200;
         def -= 200;
       }
@@ -46,7 +46,7 @@ export const FIELD_SPELLS = {
       if (['Fish', 'Sea Serpent', 'Thunder', 'Aqua'].includes(card.race) || card.attribute === 'WATER') {
         atk += 200;
         def += 200;
-      } else if (['Machine', 'Pyro'].includes(card.race)) {
+      } else if (['Machine', 'Pyro'].includes(card.race) || card.attribute === 'FIRE') {
         atk -= 200;
         def -= 200;
       }
@@ -60,7 +60,7 @@ export const FIELD_SPELLS = {
     bgImage: '/assets/fie_desert.png',
     bgLight: '/assets/fie_desert_light.png',
     themeClass: 'field-theme-sogen',
-    arabicSummary: '+200 هجوم ودفاع للمحاربين والمحاربين الوحوش',
+    arabicSummary: '+200 هجوم ودفاع للمحاربين ومحاربي الوحوش',
     getModifier(card) {
       let atk = 0;
       let def = 0;
@@ -75,8 +75,8 @@ export const FIELD_SPELLS = {
     key: 'forest',
     name: 'Forest',
     arabicName: 'ساحة الغابة (Forest)',
-    bgImage: '/assets/fie_desert.png',
-    bgLight: '/assets/fie_desert_light.png',
+    bgImage: '/assets/fie_emerald_oasis.jpg',
+    bgLight: '/assets/fie_emerald_oasis.jpg',
     themeClass: 'field-theme-forest',
     arabicSummary: '+200 هجوم ودفاع للحشرات والوحوش الكاسرة والنباتية',
     getModifier(card) {
@@ -93,16 +93,19 @@ export const FIELD_SPELLS = {
     key: 'mountain',
     name: 'Mountain',
     arabicName: 'ساحة الجبل (Mountain)',
-    bgImage: '/assets/fie_desert.png',
-    bgLight: '/assets/fie_desert_light.png',
+    bgImage: '/assets/fie_crimson_thunder.jpg',
+    bgLight: '/assets/fie_crimson_thunder.jpg',
     themeClass: 'field-theme-mountain',
-    arabicSummary: '+200 هجوم ودفاع للتنانين والوحوش المجنحة والرعدية',
+    arabicSummary: '+200 هجوم ودفاع للتنانين والوحوش المجنحة والرعدية / -200 لعنصر الأرض',
     getModifier(card) {
       let atk = 0;
       let def = 0;
-      if (['Dragon', 'Winged Beast', 'Thunder'].includes(card.race)) {
+      if (['Dragon', 'Winged Beast', 'Thunder'].includes(card.race) || card.attribute === 'WIND') {
         atk += 200;
         def += 200;
+      } else if (card.attribute === 'EARTH') {
+        atk -= 200;
+        def -= 200;
       }
       return { atk, def };
     },
@@ -147,7 +150,7 @@ export const FIELD_SPELLS = {
     themeClass: 'field-theme-burn',
     arabicSummary: '+500 هجوم و -400 دفاع لوحوش عنصر النار',
     getModifier(card) {
-      if (card.attribute === 'FIRE') return { atk: 500, def: -400 };
+      if (card.attribute === 'FIRE' || card.race === 'Pyro') return { atk: 500, def: -400 };
       return { atk: 0, def: 0 };
     },
   },
@@ -160,7 +163,33 @@ export const FIELD_SPELLS = {
     themeClass: 'field-theme-shine',
     arabicSummary: '+500 هجوم و -400 دفاع لوحوش عنصر النور',
     getModifier(card) {
-      if (card.attribute === 'LIGHT') return { atk: 500, def: -400 };
+      if (card.attribute === 'LIGHT' || card.race === 'Fairy') return { atk: 500, def: -400 };
+      return { atk: 0, def: 0 };
+    },
+  },
+  plasma: {
+    key: 'plasma',
+    name: 'Mystic Plasma Zone',
+    arabicName: 'منطقة البلازما الغامضة (Mystic Plasma Zone)',
+    bgImage: '/assets/fie_black_hole.jpg',
+    bgLight: '/assets/fie_black_hole.jpg',
+    themeClass: 'field-theme-dark',
+    arabicSummary: '+500 هجوم و -400 دفاع لوحوش عنصر الظلام',
+    getModifier(card) {
+      if (card.attribute === 'DARK' || card.race === 'Fiend') return { atk: 500, def: -400 };
+      return { atk: 0, def: 0 };
+    },
+  },
+  wind: {
+    key: 'wind',
+    name: 'Rising Air Current',
+    arabicName: 'تيار الهواء الصاعد (Rising Air Current)',
+    bgImage: '/assets/fie_winged_ra.jpg',
+    bgLight: '/assets/fie_winged_ra.jpg',
+    themeClass: 'field-theme-light',
+    arabicSummary: '+500 هجوم و -400 دفاع لوحوش عنصر الرياح',
+    getModifier(card) {
+      if (card.attribute === 'WIND' || card.race === 'Winged Beast') return { atk: 500, def: -400 };
       return { atk: 0, def: 0 };
     },
   },
@@ -168,13 +197,28 @@ export const FIELD_SPELLS = {
     key: 'sanctuary',
     name: 'Chorus of Sanctuary',
     arabicName: 'ساحة كورال الملاذ (Sanctuary)',
-    bgImage: '/assets/fie_light.png',
-    bgLight: '/assets/fie_light.png',
+    bgImage: '/assets/fie_silver_sanctuary.jpg',
+    bgLight: '/assets/fie_silver_sanctuary.jpg',
     themeClass: 'field-theme-sanctuary',
     arabicSummary: '+500 دفاع لجميع الوحوش في وضع الدفاع',
     getModifier(card, slot) {
       if (slot && (slot.position === 'face_up_defense' || slot.position === 'face_down_defense')) {
         return { atk: 0, def: 500 };
+      }
+      return { atk: 0, def: 0 };
+    },
+  },
+  necrovalley: {
+    key: 'necrovalley',
+    name: 'Necrovalley',
+    arabicName: 'وادي الموتى (Necrovalley)',
+    bgImage: '/assets/fie_anubis_scales.jpg',
+    bgLight: '/assets/fie_anubis_scales.jpg',
+    themeClass: 'field-theme-necrovalley',
+    arabicSummary: '+500 هجوم ودفاع لجميع وحوش حراس القبور (Gravekeeper)',
+    getModifier(card) {
+      if ((card.name || '').toLowerCase().includes('gravekeeper')) {
+        return { atk: 500, def: 500 };
       }
       return { atk: 0, def: 0 };
     },
@@ -192,6 +236,7 @@ export function applyFieldSpellModifierToSlot(activeFieldSpell, slot) {
 }
 
 export function recalculateAllMonsterStats(state) {
+  if (!state || !Array.isArray(state.players)) return;
   const activeField = state.activeFieldSpell;
   const config = activeField ? FIELD_SPELLS[activeField.key] : null;
 
@@ -362,6 +407,7 @@ export function normalSummon(
   applyFieldSpellModifierToSlot(state.activeFieldSpell, slot);
 
   player.monsterZones[targetZone] = slot;
+  recalculateAllMonsterStats(state);
 
   const isSet = position === 'face_down_defense';
   const desc = isSet ? 'وحش مقلوب في وضع الدفاع' : `${card.name} (هجوم: ${card.atk} / دفاع: ${card.def})`;
@@ -455,7 +501,8 @@ export function changeMonsterPosition(state, playerIndex, zoneIndex, context = {
   } else {
     slot.position = 'face_up_attack';
     state.lastLog.push(`اتحوّل ${slot.card.name} لوضع الهجوم.`);
-    if (wasFaceDown && slot.card.subType === 'effect') {
+    if (wasFaceDown && slot.card.subType === 'effect' && !slot.hasFlipped) {
+      slot.hasFlipped = true;
       flipResult = resolveMonsterEffect(state, playerIndex, slot.card, 'flip', {
         zoneIndex,
         destroyMonster: destroyMonsterSlot,
@@ -467,6 +514,44 @@ export function changeMonsterPosition(state, playerIndex, zoneIndex, context = {
 
   slot.canChangePosition = false;
   return { state, flipResult, wasFaceDown };
+}
+
+export function activateMonsterEffect(state, playerIndex, zoneIndex, targetContext = {}) {
+  const player = state.players[playerIndex];
+  if (!player) throw new Error('اللاعب غير موجود');
+  if (state.currentTurnPlayer !== playerIndex) {
+    throw new Error('ماينفعش تشغل قدرات وحوشك إلا في دورك يا بطل!');
+  }
+  if (state.phase !== 'MAIN1' && state.phase !== 'MAIN2') {
+    throw new Error('تقدر تشغل قدرات الوحوش في المرحلة الرئيسية (Main Phase 1 أو 2) بس!');
+  }
+  const slot = player.monsterZones[zoneIndex];
+  if (!slot || !slot.card) {
+    throw new Error('مفيش وحش في الخانة دي');
+  }
+  if (slot.position === 'face_down_defense') {
+    throw new Error('الوحش مقلوب في وضع الدفاع، لازم تقلبه مكشوف الأول!');
+  }
+  if (slot.hasUsedEffectThisTurn) {
+    throw new Error('لقد استخدمت قدرة هذا الوحش في هذا الدور بالفعل! القدرة تعمل مرة واحدة فقط كل دور.');
+  }
+
+  const card = slot.card;
+  const res = resolveMonsterEffect(state, playerIndex, card, 'ignition', {
+    zoneIndex,
+    slot,
+    ...targetContext,
+    destroyMonster: destroyMonsterSlot,
+  });
+
+  if (!res || res.success === false) {
+    throw new Error(res?.reason || 'القدرة لم تنجح أو ليس لها شروط ملائمة حالياً');
+  }
+
+  // Mark once-per-turn as used
+  slot.hasUsedEffectThisTurn = true;
+  checkWinConditions(state);
+  return { state, result: res, card };
 }
 
 export function setSpellTrap(state, playerIndex, handIndex, zoneIndex) {
@@ -1354,7 +1439,36 @@ function checkSummonTraps(state, summoningPlayerIndex, summonedMonster, summoned
     if (slot && !slot.faceUp && slot.card.type === 'trap') {
       const trapName = slot.card.name.toLowerCase();
 
-      // 1. Trap Hole: Destroy summoned monster with ATK >= 1000
+      // 1. Bottomless Trap Hole: Destroy and banish summoned monster with ATK >= 1500
+      if (trapName.includes('bottomless') && summonedMonster.atk >= 1500) {
+        slot.faceUp = true;
+        opponent.spellTrapZones[i] = null;
+        opponent.graveyard.push(slot.card);
+
+        const zoneIdx = state.players[summoningPlayerIndex].monsterZones.indexOf(summonedSlot);
+        if (zoneIdx !== -1) {
+          state.players[summoningPlayerIndex].monsterZones[zoneIdx] = null;
+          if (!state.players[summoningPlayerIndex].banished) state.players[summoningPlayerIndex].banished = [];
+          state.players[summoningPlayerIndex].banished.push(summonedMonster);
+          state.lastLog.push(`تفعيل فخ حفرة الهاوية (Bottomless Trap Hole)! سقط ${summonedMonster.name} وتم تدميره ونفيه خارج اللعبة!`);
+        }
+        if (typeof state.onSpellTriggered === 'function') {
+          state.onSpellTriggered({
+            playerIndex: 1 - summoningPlayerIndex,
+            spellCard: slot.card,
+            effectMeta: {
+              type: 'bottomless',
+              effectCategory: 'TRAP_AMBUSH',
+              title: slot.card.name,
+              desc: `سقط ${summonedMonster.name} في حفرة الهاوية وتم نفيه خارج أبعاد المعركة!`,
+              targetCard: summonedMonster,
+            },
+          });
+        }
+        break;
+      }
+
+      // 2. Trap Hole: Destroy summoned monster with ATK >= 1000
       if (trapName.includes('trap hole') && summonedMonster.atk >= 1000) {
         slot.faceUp = true;
         opponent.spellTrapZones[i] = null;
@@ -1363,12 +1477,25 @@ function checkSummonTraps(state, summoningPlayerIndex, summonedMonster, summoned
         const zoneIdx = state.players[summoningPlayerIndex].monsterZones.indexOf(summonedSlot);
         if (zoneIdx !== -1) {
           destroyMonsterSlot(state, summoningPlayerIndex, zoneIdx, 'trap_effect', slot.card);
-          state.lastLog.push(`تفعيل فخ الحفرة (Trap Hole)! سقط ${summonedMonster.name} ودُمر.`);
+          state.lastLog.push(`تفعيل فخ الحفرة (Trap Hole)! سقط ${summonedMonster.name} في الهاوية ودُمر.`);
+        }
+        if (typeof state.onSpellTriggered === 'function') {
+          state.onSpellTriggered({
+            playerIndex: 1 - summoningPlayerIndex,
+            spellCard: slot.card,
+            effectMeta: {
+              type: 'trap_hole',
+              effectCategory: 'TRAP_AMBUSH',
+              title: slot.card.name,
+              desc: `سقط ${summonedMonster.name} في حفرة الفخ ودُمر بالكامل!`,
+              targetCard: summonedMonster,
+            },
+          });
         }
         break;
       }
 
-      // 2. Torrential Tribute: When monster is summoned, destroy ALL monsters on field!
+      // 3. Torrential Tribute: When monster is summoned, destroy ALL monsters on field!
       if (trapName.includes('torrential tribute')) {
         slot.faceUp = true;
         opponent.spellTrapZones[i] = null;
@@ -1384,6 +1511,18 @@ function checkSummonTraps(state, summoningPlayerIndex, summonedMonster, summoned
           }
         }
         state.lastLog.push(`تفعيل فخ الجزية الجارفة (Torrential Tribute)! طوفان هائل دمر جميع وحوش الساحة (${destroyedCount} وحش)!`);
+        if (typeof state.onSpellTriggered === 'function') {
+          state.onSpellTriggered({
+            playerIndex: 1 - summoningPlayerIndex,
+            spellCard: slot.card,
+            effectMeta: {
+              type: 'torrential_tribute',
+              effectCategory: 'TRAP_AMBUSH',
+              title: slot.card.name,
+              desc: `طوفان هائل دمر جميع الوحوش في الساحة (${destroyedCount} وحش)!`,
+            },
+          });
+        }
         break;
       }
     }

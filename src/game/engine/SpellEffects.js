@@ -9,7 +9,24 @@
 
 import { checkWinConditions } from './WinCondition.js';
 import { drawCardForTurnPlayer } from './PhaseManager.js';
+import cardsData from '../../data/cards.json' with { type: 'json' };
 
+const cardsByName = new Map();
+if (Array.isArray(cardsData)) {
+  for (const c of cardsData) {
+    if (c && c.name) {
+      cardsByName.set(c.name.toLowerCase().trim(), c);
+    }
+  }
+}
+
+/**
+ * Main Spell Resolution Entry Point
+ * @param {Object} state - Authoritative Duel GameState
+ * @param {number} playerIndex - 0 (User/Team 0) or 1 (Opponent/Team 1)
+ * @param {Object} spell - The spell card object being activated
+ * @param {Object} targetContext - Optional targeting payload (selectedTargetCard, targetZoneIndex, etc.)
+ * @param {Object} helpers - Engine callbacks: { destroyMonsterSlot, recalculateAllMonsterStats, FIELD_SPELLS }
 /**
  * Main Spell Resolution Entry Point
  * @param {Object} state - Authoritative Duel GameState
@@ -20,13 +37,8 @@ import { drawCardForTurnPlayer } from './PhaseManager.js';
  * @returns {Object} Effect metadata for UI animation and logging
  */
 export function resolveSpellEffect(state, playerIndex, spell, targetContext = null, helpers = {}) {
-  const player = state.players[playerIndex];
-  const opponent = state.players[1 - playerIndex];
-  const name = (spell.name || '').toLowerCase();
-  const subType = spell.subType || 'normal';
-  const desc = (spell.description || '').toLowerCase();
-
-  const destroySlot = helpers.destroyMonsterSlot || ((s, pIdx, zIdx, reason, src) => {
+  const trackedDestructions = [];
+  const rawDestroySlot = helpers.destroyMonsterSlot || ((s, pIdx, zIdx, reason, src) => {
     const p = s.players[pIdx];
     if (p && p.monsterZones[zIdx]) {
       const c = p.monsterZones[zIdx].card;
@@ -37,6 +49,49 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     return null;
   });
 
+  const trackedDestroySlot = (s, pIdx, zIdx, reason, src) => {
+    const p = s.players[pIdx];
+    if (p && p.monsterZones[zIdx]) {
+      trackedDestructions.push({
+        playerIndex: pIdx,
+        zoneIndex: zIdx,
+        card: p.monsterZones[zIdx].card,
+        position: p.monsterZones[zIdx].position,
+      });
+    }
+    return rawDestroySlot(s, pIdx, zIdx, reason, src);
+  };
+
+  const enrichedHelpers = {
+    ...helpers,
+    destroyMonsterSlot: trackedDestroySlot,
+  };
+
+  const res = _resolveSpellEffectInternal(state, playerIndex, spell, targetContext, enrichedHelpers);
+  if (!res) return res;
+
+  const spellName = (spell.name || '').toLowerCase();
+  if (trackedDestructions.length > 0) {
+    res.effectCategory = res.effectCategory || 'MONSTER_DESTRUCTION';
+    res.destroyedZones = res.destroyedZones || trackedDestructions;
+    if (!res.destructionType) {
+      if (spellName.includes('raigeki')) res.destructionType = 'lightning';
+      else if (spellName.includes('dark hole')) res.destructionType = 'vortex';
+      else if (spellName.includes('fissure') || spellName.includes('tribute to the doomed')) res.destructionType = 'shatter';
+      else res.destructionType = 'shatter';
+    }
+  }
+  return res;
+}
+
+function _resolveSpellEffectInternal(state, playerIndex, spell, targetContext = null, helpers = {}) {
+  const player = state.players[playerIndex];
+  const opponent = state.players[1 - playerIndex];
+  const name = (spell.name || '').toLowerCase();
+  const subType = spell.subType || 'normal';
+  const desc = (spell.description || '').toLowerCase();
+
+  const destroySlot = helpers.destroyMonsterSlot;
   const recalcStats = helpers.recalculateAllMonsterStats || (() => {});
   const fieldSpellsDict = helpers.FIELD_SPELLS || {};
 
@@ -67,9 +122,12 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     name.includes('gaia power') ||
     name.includes('molten destruction') ||
     name.includes('luminous spark') ||
-    name.includes('sanctuary') ||
-    name.includes('umiiruka') ||
+    name.includes('mystic plasma') ||
     name.includes('rising air') ||
+    name.includes('air current') ||
+    name.includes('sanctuary') ||
+    name.includes('necrovalley') ||
+    name.includes('umiiruka') ||
     name.includes('seal of orichalcos') ||
     name.includes('fusion gate');
 
@@ -83,7 +141,10 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     else if (name.includes('gaia')) fieldKey = 'gaia';
     else if (name.includes('molten') || name.includes('burning')) fieldKey = 'burn';
     else if (name.includes('luminous') || name.includes('shine')) fieldKey = 'shine';
+    else if (name.includes('plasma')) fieldKey = 'plasma';
+    else if (name.includes('rising air') || name.includes('air current')) fieldKey = 'wind';
     else if (name.includes('sanctuary')) fieldKey = 'sanctuary';
+    else if (name.includes('necrovalley')) fieldKey = 'necrovalley';
 
     const fieldConfig = fieldSpellsDict[fieldKey] || {
       arabicName: spell.name,
@@ -279,6 +340,7 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     state.lastLog.push(`اندماج أسطوري! دمج ${player.name} وحوشه واستدعى ${fusedCard.name} (هجوم: ${fusedCard.atk})!`);
     return {
       type: 'fusion_summon',
+      effectCategory: 'FUSION_SUMMON',
       title: 'الانصهار الخارق (Polymerization)',
       desc: `اندمجت الوحوش وخرج العملاق ${fusedCard.name} إلى الساحة!`,
       summonedCard: fusedCard,
@@ -609,6 +671,7 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     state.lastLog.push(`عاصفة ريش هاربي المدمرة أطاحت بـ ${destroyed} من بطاقات السحر والفخاخ!`);
     return {
       type: 'heavy_storm',
+      effectCategory: 'SPELL_TRAP_DESTRUCTION',
       title: name.includes('harpie') ? 'مكنسة هاربي (Harpie\'s Duster)' : 'العاصفة الهوجاء (Heavy Storm)',
       desc: `رياح عاتية دمرت جميع بطاقات السحر والفخاخ (${destroyed} بطاقة)!`,
       destroyedCount: destroyed,
@@ -695,6 +758,9 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     state.lastLog.push(`سحر ناري مباشر! سدد ${burnDmg} نقطة ضرر لـ ${opponent.name}.`);
     return {
       type: 'burn_damage',
+      effectCategory: 'BURN_DAMAGE',
+      burnAmount: burnDmg,
+      targetPlayerIndex: 1 - playerIndex,
       title: spell.name,
       desc: `قذيفة سحرية حارقة أصابت نقاط حياة ${opponent.name} بـ ${burnDmg} نقطة ضرر مباشر!`,
       damage: burnDmg,
@@ -729,6 +795,9 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     state.lastLog.push(`شفاء مقدس! استعاد ${player.name} ${heal} نقطة حياة.`);
     return {
       type: 'heal',
+      effectCategory: 'LP_HEAL',
+      healAmount: heal,
+      targetPlayerIndex: playerIndex,
       title: spell.name,
       desc: `نور الشفاء الأسطوري أعاد لـ ${player.name} ${heal} نقطة حياة!`,
       heal,
@@ -736,8 +805,28 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
   }
 
   // =========================================================================
-  // 8. HAND & DRAW ADVANTAGE SPELLS
+  // 8. HAND & DRAW ADVANTAGE SPELLS (Pot of Greed, Cup of Ace, etc.)
   // =========================================================================
+  if (name.includes('cup of ace')) {
+    const isHeads = Math.random() < 0.5;
+    const coinFlip = isHeads ? 'heads' : 'tails';
+    const recipient = isHeads ? player : opponent;
+    const recipientName = isHeads ? player.name : opponent.name;
+    const drawCount = 2;
+    for (let i = 0; i < drawCount; i++) {
+      if (recipient.deck.length > 0) {
+        recipient.hand.push(recipient.deck.shift());
+      }
+    }
+    state.lastLog.push(`كأس الحظ (Cup of Ace)! استقرت العملة على [ ${isHeads ? 'وجه (Heads)' : 'ظهر (Tails)'} ] وسحب ${recipientName} ورقتين!`);
+    return {
+      type: 'cup_of_ace',
+      effectCategory: 'CHANCE_COIN',
+      title: 'كأس الحظ (Cup of Ace)',
+      desc: isHeads ? 'وجه! سحبت بطاقتين لمجموعتك.' : 'ظهر! سحب الخصم بطاقتين لمجموعته.',
+      coinFlip,
+    };
+  }
   if (name.includes('pot of greed')) {
     drawCardForTurnPlayer(state);
     drawCardForTurnPlayer(state);
@@ -836,7 +925,7 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
   if (name.includes('monster reborn')) {
     let revived = targetContext?.selectedTargetCard;
     if (!revived) {
-      const allGY = [...player.graveyard, ...opponent.graveyard].filter((c) => c.type === 'monster');
+      const allGY = [...player.graveyard, ...opponent.graveyard].filter((c) => c && (c.type === 'monster' || typeof c.atk === 'number'));
       allGY.sort((a, b) => (b.atk || 0) - (a.atk || 0));
       if (allGY.length > 0) revived = allGY[0];
     }
@@ -863,9 +952,13 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
         state.lastLog.push(`ولادة الوحش (Monster Reborn)! استدعى ${player.name} الوحش ${revived.name} إلى الساحة.`);
         return {
           type: 'monster_reborn',
+          effectCategory: 'GRAVEYARD_SUMMON',
+          revivedCard: revived,
+          originZone: inPlayerGY !== -1 ? 'player_graveyard' : 'opponent_graveyard',
+          targetPlayerIndex: playerIndex,
+          targetZoneIndex: emptyZone,
           title: 'ولادة الوحش (Monster Reborn)',
           desc: `أعيد إحياء ${revived.name} (هجوم: ${revived.atk} / دفاع: ${revived.def}) إلى ساحة ${player.name}!`,
-          revivedCard: revived,
         };
       }
     }
@@ -876,7 +969,7 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
       player.lifePoints -= 800;
       let target = targetContext?.selectedTargetCard;
       if (!target) {
-        const pMonsters = player.graveyard.filter((c) => c.type === 'monster');
+        const pMonsters = player.graveyard.filter((c) => c && (c.type === 'monster' || typeof c.atk === 'number'));
         pMonsters.sort((a, b) => (b.atk || 0) - (a.atk || 0));
         if (pMonsters.length > 0) target = pMonsters[0];
       }
@@ -897,9 +990,13 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
           state.lastLog.push(`الدفن المبكر! دفع ${player.name} 800 نقطة واستدعى ${target.name}.`);
           return {
             type: 'premature_burial',
+            effectCategory: 'GRAVEYARD_SUMMON',
+            revivedCard: target,
+            originZone: 'player_graveyard',
+            targetPlayerIndex: playerIndex,
+            targetZoneIndex: emptyZone,
             title: 'الدفن المبكر (Premature Burial)',
             desc: `دفع ${player.name} 800 نقطة واستدعى ${target.name} (هجوم: ${target.atk})!`,
-            revivedCard: target,
           };
         }
       }
@@ -930,13 +1027,16 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
     state.lastLog.push('القبر السطحي: استدعى كلا اللاعبين وحشاً مقلوباً في وضع الدفاع من المقبرة.');
     return {
       type: 'shallow_grave',
+      effectCategory: 'GRAVEYARD_SUMMON',
+      originZone: 'player_graveyard',
+      targetPlayerIndex: playerIndex,
       title: 'القبر السطحي (The Shallow Grave)',
       desc: 'استُدعي وحش من المقبرة لكل لاعب مقلوباً في وضع الدفاع!',
     };
   }
 
   if (name.includes('reincarnation') || name.includes('monster recovery') || name.includes('salvage')) {
-    const pMonsters = player.graveyard.filter((c) => c.type === 'monster');
+    const pMonsters = player.graveyard.filter((c) => c && (c.type === 'monster' || typeof c.atk === 'number'));
     if (pMonsters.length > 0) {
       const target = pMonsters[pMonsters.length - 1];
       const idx = player.graveyard.indexOf(target);
@@ -945,6 +1045,10 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
       state.lastLog.push(`استعادة الوحش! استعاد ${player.name} الوحش ${target.name} من المقبرة إلى يده.`);
       return {
         type: 'monster_recover',
+        effectCategory: 'GRAVEYARD_TO_HAND',
+        retrievedCard: target,
+        originZone: 'player_graveyard',
+        targetPlayerIndex: playerIndex,
         title: 'استعادة الوحش إلى اليد',
         desc: `تمت استعادة ${target.name} بنجاح من المقبرة إلى يد ${player.name}!`,
         targetCard: target,
@@ -1191,11 +1295,28 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
           m.currentDef = (m.currentDef || m.card.def) + boost;
         }
         state.lastLog.push(`نرد النعمة الرشيق! أظهر النرد الرقم (${roll}) وزاد هجوم ودفاع وحوشك بـ +${boost} نقطة.`);
+        return {
+          type: 'graceful_dice',
+          effectCategory: 'DICE_ROLL',
+          title: 'نرد النعمة (Graceful Dice)',
+          desc: `أظهر النرد الرقم [ ${roll} ] وزاد هجوم ودفاع جميع وحوشك بـ +${boost} نقطة!`,
+          diceRoll: roll,
+          roll,
+          boostAmount: boost,
+          targetCard: target.card,
+        };
       } else if (name.includes('limiter removal')) {
         for (const m of myMonsters) {
           m.currentAtk = (m.currentAtk || m.card.atk) * 2;
         }
         state.lastLog.push('إزالة المحددات (Limiter Removal)! تضاعف هجوم جميع الآلات بالساحة إلى الضعف.');
+        return {
+          type: 'limiter_removal',
+          effectCategory: 'STAT_MODIFY',
+          title: 'إزالة المحددات (Limiter Removal)',
+          desc: 'تضاعف هجوم جميع الآلات بالساحة إلى الضعف!',
+          targetCard: target.card,
+        };
       } else if (name.includes('shield & sword')) {
         for (const p of [player, opponent]) {
           for (const m of p.monsterZones) {
@@ -1238,12 +1359,48 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
         state.lastLog.push(`تغيير النوايا / سرقة السيطرة! تمت السيطرة على وحش الخصم ${target.slot.card.name} ونقله لساحتك.`);
         return {
           type: 'control_steal',
+          effectCategory: 'CONTROL_STEAL',
           title: spell.name,
           desc: `تمت السيطرة الكاملة على ${target.slot.card.name} وضمه لتحالفك!`,
           targetCard: target.slot.card,
           targetAffected: { playerIndex: oppIdx, zoneIndex: target.idx, actionText: 'تمت السيطرة على الوحش!', effectType: 'control' },
         };
       }
+    }
+  }
+
+  // Shrink (Halve original ATK of 1 face-up monster)
+  if (name.includes('shrink')) {
+    let target = null;
+    if (targetContext?.targetZoneIndex !== undefined && targetContext?.playerIndex !== undefined) {
+      target = state.players[targetContext.playerIndex]?.monsterZones[targetContext.targetZoneIndex];
+    }
+    if (!target) {
+      const oppMonsters = opponent.monsterZones.filter(m => m !== null && m.position !== 'face_down_defense');
+      if (oppMonsters.length > 0) {
+        oppMonsters.sort((a, b) => (b.currentAtk || 0) - (a.currentAtk || 0));
+        target = oppMonsters[0];
+      } else {
+        const myMonsters = player.monsterZones.filter(m => m !== null && m.position !== 'face_down_defense');
+        if (myMonsters.length > 0) {
+          myMonsters.sort((a, b) => (b.currentAtk || 0) - (a.currentAtk || 0));
+          target = myMonsters[0];
+        }
+      }
+    }
+    if (target) {
+      const originalAtk = target.card.atk || 0;
+      const halvedAtk = Math.floor(originalAtk / 2);
+      target.currentAtk = halvedAtk;
+      state.lastLog.push(`الانكماش (Shrink)! تم تنصيف هجوم ${target.card.name} إلى ${halvedAtk} نقطة!`);
+      return {
+        type: 'shrink',
+        effectCategory: 'STAT_MODIFY',
+        title: 'الانكماش (Shrink)',
+        desc: `تم تنصيف الهجوم الأصلي لـ ${target.card.name} إلى ${halvedAtk} نقطة!`,
+        targetCard: target.card,
+        halvedAtk,
+      };
     }
   }
 
@@ -1297,6 +1454,7 @@ export function resolveSpellEffect(state, playerIndex, spell, targetContext = nu
       state.lastLog.push(`تجهيز سلاح سحري: ${spell.name}! زاد هجوم ${target.s.card.name} بـ +${boostAtk} نقطة (أصبح ${target.s.currentAtk}).`);
       return {
         type: 'buff_atk',
+        effectCategory: 'STAT_MODIFY',
         title: `تجهيز: ${spell.name}`,
         desc: `سلاح ${spell.name} الأسطوري عزز قوى ${target.s.card.name} بمقدار +${boostAtk} هجوم و +${boostDef} دفاع!`,
         boostAtk,

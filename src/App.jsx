@@ -130,7 +130,7 @@ export const loadActiveDeckFromStorage = () => {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
         const valid = parsed.filter(hasValidCardImage);
-        if (valid.length >= 20) return valid;
+        if (valid.length >= 40) return valid;
       }
     } catch (e) {
       // Fallback
@@ -139,7 +139,7 @@ export const loadActiveDeckFromStorage = () => {
 
   // Initialize with balanced 40-card Pharaoh Legendary Starter Deck on first launch
   const starter = getPharaohStarterDeck();
-  if (starter && starter.length >= 20) {
+  if (starter && starter.length >= 40) {
     try {
       localStorage.setItem('yugioh_active_deck', JSON.stringify(starter));
       localStorage.setItem('yugioh_active_deck_name', 'مجموعة الفرعون الأسطورية');
@@ -255,12 +255,12 @@ export const App = () => {
         return tagEngine;
       }
 
-      const myActiveDeck = (customDeckCards && customDeckCards.length >= 20)
+      const myActiveDeck = (customDeckCards && customDeckCards.length >= 40)
         ? customDeckCards
         : loadActiveDeckFromStorage();
 
       // On BOTH Host and Client, p0 is the LOCAL player!
-      const p0Cards = (myActiveDeck && myActiveDeck.length >= 20)
+      const p0Cards = (myActiveDeck && myActiveDeck.length >= 40)
         ? myActiveDeck
         : ((decksData[0] || {}).mainDeck || []);
 
@@ -294,7 +294,10 @@ export const App = () => {
       const localStartingPlayer = (isHost === hostStarts) ? 0 : 1;
 
       const customEngine = new DuelEngine(p0Cards, p1Cards, p0Name, p1Name, undefined, localStartingPlayer);
+      customEngine.state.isTagMode = false;
       customEngine.state.players = [p0State, p1State];
+      customEngine.state.players[0].teammateName = '';
+      customEngine.state.players[1].teammateName = '';
       customEngine.state.currentTurnPlayer = localStartingPlayer;
       customEngine.state.deviceTeam = isHost ? 0 : 1;
       customEngine.state.mySlot = isHost ? 0 : 1;
@@ -308,16 +311,16 @@ export const App = () => {
       return customEngine;
     }
 
-    const activeDeck = (customDeckCards && customDeckCards.length >= 20)
+    const activeDeck = (customDeckCards && customDeckCards.length >= 40)
       ? customDeckCards
       : loadActiveDeckFromStorage();
 
-    const p0Cards = (activeDeck && activeDeck.length >= 20)
+    const p0Cards = (activeDeck && activeDeck.length >= 40)
       ? activeDeck
       : (decksData[playerDeckIndex] || decksData[0]).mainDeck;
 
     const p1Cards = (decksData[opponentDeckIndex] || decksData[1]).mainDeck;
-    const p0Name = (activeDeck && activeDeck.length >= 20)
+    const p0Name = (activeDeck && activeDeck.length >= 40)
       ? (localStorage.getItem('yugioh_active_deck_name') || 'المجموعة المخصصة')
       : (decksData[playerDeckIndex]?.name || 'يوجي');
 
@@ -330,9 +333,12 @@ export const App = () => {
 
   const handleStartSoloDuel = (chosenDifficulty) => {
     const freshDeck = loadActiveDeckFromStorage();
-    if (freshDeck && freshDeck.length >= 20) {
-      setCustomDeckCards(freshDeck);
+    if (!freshDeck || freshDeck.length < 40) {
+      alert(`عذراً يا بطل! مجموعتك تحتوي على ${freshDeck ? freshDeck.length : 0} بطاقة فقط.\nالحد الأدنى الرسمي للمجموعة هو 40 بطاقة لبدء المبارزة!\nيرجى إكمال مجموعتك في صانع المجموعات أولاً.`);
+      setCurrentScreen('decks');
+      return;
     }
+    setCustomDeckCards(freshDeck);
     const diff = chosenDifficulty || aiDifficulty;
     setAiDifficulty(diff);
     localStorage.setItem('yugioh_ai_difficulty', diff);
@@ -351,6 +357,12 @@ export const App = () => {
   };
 
   const handleStartMultiplayerDuel = (data) => {
+    const freshDeck = loadActiveDeckFromStorage();
+    if (!freshDeck || freshDeck.length < 40) {
+      alert(`عذراً يا بطل! مجموعتك تحتوي على ${freshDeck ? freshDeck.length : 0} بطاقة فقط.\nالحد الأدنى الرسمي للمجموعة هو 40 بطاقة للمبارزة!\nيرجى إكمال مجموعتك في صانع المجموعات أولاً.`);
+      setCurrentScreen('decks');
+      return;
+    }
     setIsMultiplayer(true);
     setMultiplayerData(data);
     setStartingPlayerIndex(data?.startingPlayer ?? 0);
@@ -385,7 +397,7 @@ export const App = () => {
           playerDeckName={
             isMultiplayer
               ? (multiplayerData?.myName || 'أنت')
-              : (((customDeckCards && customDeckCards.length >= 20) || loadActiveDeckFromStorage())
+              : (((customDeckCards && customDeckCards.length >= 40) || loadActiveDeckFromStorage())
                 ? (localStorage.getItem('yugioh_active_deck_name') || 'المجموعة المخصصة')
                 : (decksData[playerDeckIndex]?.name || 'يوجي'))
           }
@@ -451,7 +463,7 @@ export const App = () => {
         <DeckBuilderScreen
           onBack={() => {
             const fresh = loadActiveDeckFromStorage();
-            if (fresh && fresh.length >= 20) {
+            if (fresh && fresh.length >= 40) {
               setCustomDeckCards(fresh);
             }
             setCurrentScreen('title');

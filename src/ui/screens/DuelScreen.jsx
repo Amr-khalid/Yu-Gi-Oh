@@ -10,6 +10,20 @@ import { SettingsModal } from '../components/SettingsModal.jsx';
 import { GraveyardModal } from '../components/GraveyardModal.jsx';
 import { CardSelectModal } from '../components/CardSelectModal.jsx';
 import { ShuffleAnimation } from '../components/ShuffleAnimation.jsx';
+import { CardArcFlightAnimation } from '../components/CardArcFlightAnimation.jsx';
+import { DiceCoinSimulator } from '../components/DiceCoinSimulator.jsx';
+import { TurnStallOverlay } from '../components/TurnStallOverlay.jsx';
+import { TrapReactionVFX } from '../components/TrapReactionVFX.jsx';
+import { CardFlowAnimation } from '../components/CardFlowAnimation.jsx';
+import { GraveyardRebirthVFX } from '../components/GraveyardRebirthVFX.jsx';
+import { ControlStealVFX } from '../components/ControlStealVFX.jsx';
+import { BanishmentVoidVFX } from '../components/BanishmentVoidVFX.jsx';
+import { CounterNegationVFX } from '../components/CounterNegationVFX.jsx';
+import { StatModifierVFX } from '../components/StatModifierVFX.jsx';
+import { FusionRitualVFX } from '../components/FusionRitualVFX.jsx';
+import { isGravityBindActive } from '../../game/engine/TrapEffects.js';
+import { hasMonsterEffect } from '../../game/engine/MonsterEffects.js';
+import { recalculateAllMonsterStats } from '../../game/engine/CardResolver.js';
 import { connectionManager } from '../../multiplayer/ConnectionManager.js';
 import { getCardImageUrl } from '../../game/utils/cardImageHelper.js';
 import {
@@ -556,8 +570,8 @@ export const DuelScreen = ({
   // Battle Arena Theme & Static Duel Field State
   const [chosenArena, setChosenArena] = useState(() => {
     const isSync = (typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_sync_mode') : null) !== 'independent';
-    if (isMultiplayer && isSync && multiplayerData?.arenaId) {
-      return getArenaTheme(multiplayerData.arenaId, theme);
+    if (isMultiplayer && isSync && (multiplayerData?.arenaId || connectionManager.syncedArenaId)) {
+      return getArenaTheme(multiplayerData?.arenaId || connectionManager.syncedArenaId, theme);
     }
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('yugioh_arena_theme') : null;
     if (!saved || saved === 'random') {
@@ -714,6 +728,7 @@ export const DuelScreen = ({
         globalTurnTeam,
         tagActiveSlot: currentState.tagActiveSlot,
         arenaId: chosenArena?.id,
+        activeFieldSpell: currentState.activeFieldSpell || null,
         team0: {
           lifePoints: team0.lifePoints,
           monsterZones: team0.monsterZones,
@@ -741,10 +756,18 @@ export const DuelScreen = ({
           connectionManager.send({
             type: 'DUEL_ARENA_SYNC',
             arenaId: chosenArena.id,
+            activeFieldSpell: engine.state.activeFieldSpell || null,
           });
         }
       }, 400);
       return () => clearTimeout(initTimer);
+    } else if (isMultiplayer && connectionManager.role !== 'host') {
+      const reqTimer = setTimeout(() => {
+        connectionManager.send({
+          type: 'REQUEST_ARENA_SYNC',
+        });
+      }, 250);
+      return () => clearTimeout(reqTimer);
     }
   }, [arenaSyncMode, chosenArena?.id]);
 
@@ -789,10 +812,17 @@ export const DuelScreen = ({
         turnNumber: engine.state.turnNumber,
         phase: engine.state.phase,
         tagActiveSlot: engine.state.tagActiveSlot,
+        activeFieldSpell: engine.state.activeFieldSpell || null,
       });
 
       if (engine.state?.isTagMode) {
         connectionManager.syncTeammateHand(engine.state.players[0]?.hand || []);
+      }
+      if (engine.state.activeFieldSpell) {
+        connectionManager.send({
+          type: 'DUEL_FIELD_SPELL_SYNC',
+          activeFieldSpell: engine.state.activeFieldSpell,
+        });
       }
       broadcastTagFieldSnapshot(actionSlot, actionTeam);
     }
@@ -805,6 +835,9 @@ export const DuelScreen = ({
     if (!isMultiplayer) return;
 
     const unsubMsg = connectionManager.onMessage((msg) => {
+      // Ignore self-sent messages
+      if (msg.senderId && msg.senderId === connectionManager.instanceId) return;
+
       if (msg.type === 'DUEL_ACTION') {
         try {
           if (engine.state?.isTagMode) {
@@ -963,11 +996,24 @@ export const DuelScreen = ({
               setSelectedSetSTZone(null);
               setInspectCard(null);
               const targetTurn = typeof msg.turnNumber === 'number' ? msg.turnNumber : (engine.state.turnNumber + 1);
-              if (engine.state.turnNumber < targetTurn || engine.state.currentTurnPlayer !== 0) {
+              // Remote opponent ended their turn, pass turn to local player
+              if (engine.state.currentTurnPlayer !== 0 || engine.state.turnNumber < targetTurn) {
                 engine.endTurn();
               }
+              engine.state.currentTurnPlayer = 0; // Guaranteed to be local player's turn!
+              engine.notify();
             } else if (typeof engine[msg.action] === 'function') {
               engine[msg.action](...msg.args);
+            }
+
+            if (msg.activeFieldSpell !== undefined) {
+              const prevKey = engine.state.activeFieldSpell?.key;
+              const newKey = msg.activeFieldSpell?.key;
+              if (prevKey !== newKey) {
+                engine.state.activeFieldSpell = msg.activeFieldSpell;
+                recalculateAllMonsterStats(engine.state);
+                engine.notify();
+              }
             }
 
             if (connectionManager.role === 'host') {
@@ -988,6 +1034,15 @@ export const DuelScreen = ({
           if (arenaSyncMode === 'synced' && msg.snapshot.arenaId && chosenArena?.id !== msg.snapshot.arenaId) {
             const synced = getArenaTheme(msg.snapshot.arenaId, theme);
             if (synced) setChosenArena(synced);
+          }
+          if (msg.snapshot.activeFieldSpell !== undefined) {
+            const prevFieldKey = engine.state.activeFieldSpell?.key;
+            const newFieldKey = msg.snapshot.activeFieldSpell?.key;
+            if (prevFieldKey !== newFieldKey) {
+              engine.state.activeFieldSpell = msg.snapshot.activeFieldSpell;
+              recalculateAllMonsterStats(engine.state);
+              engine.notify();
+            }
           }
           const isTag = engine.state?.isTagMode || multiplayerData?.gameMode === 'tag_2v2';
           const isHost = connectionManager.role === 'host' || Boolean(multiplayerData?.isHost);
@@ -1090,7 +1145,32 @@ export const DuelScreen = ({
         if (arenaSyncMode === 'synced' && msg.arenaId) {
           const synced = getArenaTheme(msg.arenaId, theme);
           if (synced && synced.id !== chosenArena?.id) {
+            setChosenArena(synced);
             triggerArenaTransition(synced, 'تمت مزامنة ساحة المعركة مع الخصم', 'مزامنة الساحة الموحدة');
+          }
+        }
+        if (msg.activeFieldSpell !== undefined) {
+          engine.state.activeFieldSpell = msg.activeFieldSpell;
+          recalculateAllMonsterStats(engine.state);
+          engine.notify();
+        }
+      } else if (msg.type === 'REQUEST_ARENA_SYNC') {
+        if (chosenArena?.id) {
+          connectionManager.send({
+            type: 'DUEL_ARENA_SYNC',
+            arenaId: chosenArena.id,
+            activeFieldSpell: engine.state.activeFieldSpell || null,
+          });
+        }
+      } else if (msg.type === 'DUEL_FIELD_SPELL_SYNC') {
+        if (msg.activeFieldSpell !== undefined) {
+          engine.state.activeFieldSpell = msg.activeFieldSpell;
+          recalculateAllMonsterStats(engine.state);
+          engine.notify();
+          soundManager.playPowerSummon();
+          hapticManager.triggerCombatVibration('powerSummon');
+          if (msg.activeFieldSpell?.arabicName) {
+            showGameToast(`تحولت أرض المعركة إلى [ ${msg.activeFieldSpell.arabicName} ]!`, 3200);
           }
         }
       } else if (msg.type === 'SURRENDER') {
@@ -1260,6 +1340,17 @@ export const DuelScreen = ({
   const [tributeAscensionAnimation, setTributeAscensionAnimation] = useState(null);
   // { summoningCard: Object, sacrificedCards: Object[], stage: 'sacrificing' | 'ascending', playerName: string, isOpponent: boolean }
 
+  // Comprehensive Ability Simulation VFX States
+  const [diceCoinSim, setDiceCoinSim] = useState(null);
+  const [trapReactionSim, setTrapReactionSim] = useState(null);
+  const [cardFlowSim, setCardFlowSim] = useState(null);
+  const [graveyardRebirthSim, setGraveyardRebirthSim] = useState(null);
+  const [controlStealSim, setControlStealSim] = useState(null);
+  const [banishmentVoidSim, setBanishmentVoidSim] = useState(null);
+  const [counterNegationSim, setCounterNegationSim] = useState(null);
+  const [statModifierSim, setStatModifierSim] = useState(null);
+  const [fusionRitualSim, setFusionRitualSim] = useState(null);
+
   // Spell Activation Animation State
   const [spellAnimation, setSpellAnimation] = useState(null);
   // { playerIndex: number, spellCard: Object, effectMeta: Object }
@@ -1316,9 +1407,25 @@ export const DuelScreen = ({
   const prevP1MonstersRef = useRef([]);
   const p0LpRef = useRef(null);
   const p1LpRef = useRef(null);
+  const p0GraveyardRef = useRef(null);
+  const p1GraveyardRef = useRef(null);
+  const p0HandRef = useRef(null);
   const arenaRef = useRef(null);
   const prevTurnPlayerRef = useRef(state.currentTurnPlayer);
   const prevTurnNumberRef = useRef(state.turnNumber);
+
+  // Spell & Trap Visual FX Engine State
+  const [cardArcFlight, setCardArcFlight] = useState(null);
+  const [shatteringMonsters, setShatteringMonsters] = useState({});
+  const [floatingLpBadges, setFloatingLpBadges] = useState([]);
+
+  const spawnFloatingLpBadge = (playerIndex, amount, type) => {
+    const id = Date.now() + Math.random();
+    setFloatingLpBadges((prev) => [...prev, { id, playerIndex, amount, type }]);
+    setTimeout(() => {
+      setFloatingLpBadges((prev) => prev.filter((b) => b.id !== id));
+    }, 1800);
+  };
   const [turnTransitionBanner, setTurnTransitionBanner] = useState(null);
 
   const triggerTurnBanner = (turnNum, opponentName) => {
@@ -1833,15 +1940,17 @@ export const DuelScreen = ({
       };
 
       if (evt.trapTriggered) {
-        // Magical Trap / Spell Effect Triggered in Battle:
-        // Show the spell/trap effect window to explain the magical effect
+        const trapCard = evt.trapTriggered.trapCard || evt.trapTriggered;
         triggerSpellAnimation({
           playerIndex: 1 - evt.attackerPlayer,
-          spellCard: evt.trapTriggered,
+          spellCard: trapCard,
           effectMeta: {
-            title: evt.trapTriggered.arabicName || evt.trapTriggered.name,
-            desc: evt.trapTriggered.arabicDescription || evt.trapTriggered.description || 'تأثير الفخ السحري اشتغل وتصدى للهجوم!',
-            type: 'trap_activation',
+            title: trapCard.arabicName || trapCard.name || 'فخ معركة دفاعي',
+            desc: evt.trapTriggered.log || 'تفعيل فخ معركة قاطع أحبط هجوم الخصم!',
+            type: evt.trapTriggered.type || 'trap_activation',
+            burnAmount: evt.trapTriggered.damage || 0,
+            healAmount: evt.trapTriggered.heal || 0,
+            effectCategory: evt.trapTriggered.type === 'magic_cylinder' ? 'BURN_DAMAGE' : (evt.trapTriggered.attackerDestroyed ? 'MONSTER_DESTRUCTION' : 'TRAP_AMBUSH'),
           },
         });
       }
@@ -2215,24 +2324,342 @@ export const DuelScreen = ({
       }
     }
 
-    const type = data.effectMeta?.type;
-    if (type === 'raigeki' || type === 'dark_hole' || type === 'heavy_storm') {
+    const effectMeta = data.effectMeta || {};
+    const type = effectMeta.type;
+    const effectCat = effectMeta.effectCategory;
+
+    // 1. Graveyard Special Summon (Monster Reborn, Premature Burial, Call of the Haunted, etc.)
+    if (effectCat === 'GRAVEYARD_SUMMON' || ['monster_reborn', 'premature_burial', 'call_of_the_haunted', 'shallow_grave', 'time_machine'].includes(type)) {
+      const isOppGY = effectMeta.originZone === 'opponent_graveyard';
+      const sourceEl = isOppGY ? p1GraveyardRef.current : p0GraveyardRef.current;
+      const targetPIdx = effectMeta.targetPlayerIndex ?? (data.playerIndex ?? 0);
+      const targetZIdx = effectMeta.targetZoneIndex ?? 2;
+      const targetEl = targetPIdx === 0 ? p0MonsterRefs.current[targetZIdx] : p1MonsterRefs.current[targetZIdx];
+
+      if (sourceEl && targetEl) {
+        const startRect = sourceEl.getBoundingClientRect();
+        const endRect = targetEl.getBoundingClientRect();
+        setCardArcFlight({
+          card: effectMeta.revivedCard || data.spellCard,
+          startRect,
+          endRect,
+          originType: 'graveyard',
+          label: effectMeta.title || 'ولادة الوحش: استدعاء خاص من المقبرة',
+          onComplete: () => {
+            setCardArcFlight(null);
+            soundManager.playPowerSummon();
+            hapticManager.triggerCombatVibration('summon');
+          },
+        });
+      }
+    }
+
+    // 2. Graveyard to Hand (Monster Reincarnation, Salvage, etc.)
+    if (effectCat === 'GRAVEYARD_TO_HAND' || type === 'monster_recover') {
+      const sourceEl = p0GraveyardRef.current;
+      const targetEl = p0HandRef.current;
+      if (sourceEl) {
+        const startRect = sourceEl.getBoundingClientRect();
+        const endRect = targetEl
+          ? targetEl.getBoundingClientRect()
+          : { left: window.innerWidth / 2 - 40, top: window.innerHeight - 80, width: 80, height: 110 };
+        setCardArcFlight({
+          card: effectMeta.retrievedCard || effectMeta.targetCard || data.spellCard,
+          startRect,
+          endRect,
+          originType: 'hand',
+          label: effectMeta.title || 'استعادة الوحش إلى اليد',
+          onComplete: () => {
+            setCardArcFlight(null);
+            soundManager.playCardPlace();
+          },
+        });
+      }
+    }
+
+    // 3. Monster Destruction (Raigeki, Dark Hole, Mirror Force, Trap Hole, Fissure, etc.)
+    if (effectCat === 'MONSTER_DESTRUCTION' && Array.isArray(effectMeta.destroyedZones) && effectMeta.destroyedZones.length > 0) {
+      const newShatters = {};
+      effectMeta.destroyedZones.forEach((z) => {
+        const key = `${z.playerIndex}_${z.zoneIndex}`;
+        newShatters[key] = {
+          card: z.card,
+          destructionType: effectMeta.destructionType || 'shatter',
+          playerIndex: z.playerIndex,
+          zoneIndex: z.zoneIndex,
+        };
+      });
+      setShatteringMonsters((prev) => ({ ...prev, ...newShatters }));
+
       setIsScreenShaking(true);
       setTimeout(() => {
         soundManager.playDestroy();
         setIsScreenShaking(false);
       }, 500);
-    } else if (type === 'dian_keto') {
+
+      setTimeout(() => {
+        setShatteringMonsters((prev) => {
+          const next = { ...prev };
+          Object.keys(newShatters).forEach((k) => delete next[k]);
+          return next;
+        });
+      }, 1600);
+    } else if (type === 'raigeki' || type === 'dark_hole' || type === 'heavy_storm') {
+      setIsScreenShaking(true);
+      setTimeout(() => {
+        soundManager.playDestroy();
+        setIsScreenShaking(false);
+      }, 500);
+    }
+
+    // 4. Life Points Heal (Dian Keto, Solemn Wishes, etc.)
+    if (effectCat === 'LP_HEAL' || effectMeta.healAmount > 0 || type === 'dian_keto' || type === 'heal') {
+      const healAmt = effectMeta.healAmount || effectMeta.heal || 1000;
+      const targetP = effectMeta.targetPlayerIndex ?? (data.playerIndex ?? 0);
+      spawnFloatingLpBadge(targetP, healAmt, 'heal');
       soundManager.playLifeUp();
-    } else if (type === 'burn_damage') {
+    }
+
+    // 5. Burn Damage (Ookazi, Hinotama, Tremendous Fire, Magic Cylinder, etc.)
+    if (effectCat === 'BURN_DAMAGE' || effectMeta.burnAmount > 0 || type === 'burn_damage' || type === 'magic_cylinder') {
+      const burnAmt = effectMeta.burnAmount || effectMeta.damage || 500;
+      const targetP = effectMeta.targetPlayerIndex ?? (1 - (data.playerIndex ?? 0));
+      spawnFloatingLpBadge(targetP, burnAmt, 'burn');
       setTimeout(() => {
         soundManager.playDamage();
       }, 400);
     }
 
+    const sName = (data.spellCard?.name || '').toLowerCase();
+
+    // 6. Multi-Card Rapid Flow (Pot of Greed, Graceful Charity, Card Destruction)
+    if (effectCat === 'DRAW' || type === 'pot_of_greed' || sName.includes('pot of greed')) {
+      setCardFlowSim({
+        count: 2,
+        label: '+2 بطاقات من المجموعة',
+        origin: 'deck',
+        destination: 'hand',
+        sourceRect: null,
+        targetRect: p0HandRef?.current ? p0HandRef.current.getBoundingClientRect() : null,
+      });
+    } else if (type === 'graceful_charity' || sName.includes('graceful charity')) {
+      setCardFlowSim({
+        count: 3,
+        label: '+3 بطاقات (إسقاط بطاقتين)',
+        origin: 'deck',
+        destination: 'hand',
+        sourceRect: null,
+        targetRect: p0HandRef?.current ? p0HandRef.current.getBoundingClientRect() : null,
+      });
+    } else if (sName.includes('card destruction')) {
+      setCardFlowSim({
+        count: 4,
+        label: 'استبدال كل البطاقات في اليد!',
+        origin: 'deck',
+        destination: 'hand',
+        sourceRect: null,
+        targetRect: p0HandRef?.current ? p0HandRef.current.getBoundingClientRect() : null,
+      });
+    }
+
+    // 7. Dice / Coin Simulation
+    if (sName.includes('graceful dice') || type === 'graceful_dice') {
+      const roll = effectMeta.diceRoll || Math.floor(Math.random() * 6) + 1;
+      setDiceCoinSim({
+        type: 'dice',
+        outcome: roll,
+        cardName: data.spellCard.name,
+        arabicName: data.spellCard.arabicName,
+        title: 'نرد النعمة (Graceful Dice)',
+        description: `زاد هجوم ودفاع جميع وحوشك بمقدار [ ${roll * 100} ] نقطة!`,
+      });
+    } else if (sName.includes('skull dice') || type === 'skull_dice') {
+      const roll = effectMeta.diceRoll || Math.floor(Math.random() * 6) + 1;
+      setDiceCoinSim({
+        type: 'dice',
+        outcome: roll,
+        cardName: data.spellCard.name,
+        arabicName: data.spellCard.arabicName,
+        title: 'نرد الجماجم (Skull Dice)',
+        description: `انخفض هجوم ودفاع جميع وحوش الخصم بمقدار [ ${roll * 100} ] نقطة!`,
+      });
+    } else if (sName.includes('cup of ace') || type === 'cup_of_ace') {
+      const flip = effectMeta.coinFlip || (Math.random() < 0.5 ? 'heads' : 'tails');
+      setDiceCoinSim({
+        type: 'coin',
+        outcome: flip,
+        cardName: data.spellCard.name,
+        arabicName: data.spellCard.arabicName,
+        title: 'كأس الحظ (Cup of Ace)',
+        description: flip === 'heads' ? 'وجه! سحبت بطاقتين لمجموعتك' : 'ظهر! يسحب الخصم بطاقتين لمجموعته',
+      });
+    }
+
+    // 8. Trap Ambush Reactions (Trap Hole, Bottomless, Mirror Force, Magic Cylinder)
+    if (sName.includes('trap hole') || sName.includes('bottomless')) {
+      setTrapReactionSim({
+        type: sName.includes('bottomless') ? 'bottomless' : 'trap_hole',
+        card: data.spellCard,
+        title: effectMeta.title || 'حفرة الهاوية (Trap Hole)',
+        desc: effectMeta.desc || 'انفتحت هاوية الموت وابتلعت الوحش إلى العدم!',
+      });
+    } else if (sName.includes('mirror force')) {
+      setTrapReactionSim({
+        type: 'mirror_force',
+        card: data.spellCard,
+        title: 'قوة المرآة (Mirror Force)',
+        desc: 'درع بلوري عاكس فجّر هجوم الخصم ودمّر جميع وحوشه في وضع الهجوم!',
+      });
+    } else if (sName.includes('magic cylinder')) {
+      setTrapReactionSim({
+        type: 'magic_cylinder',
+        card: data.spellCard,
+        title: 'الأسطوانة السحرية (Magic Cylinder)',
+        desc: 'امتصت الأسطوانة الهجوم وعكسته مباشرة إلى نقاط حياة الخصم!',
+      });
+    }
+
+    // 9. Graveyard Rebirth (All variations: own, either, blood cost, recycle)
+    if (sName.includes('premature burial')) {
+      setGraveyardRebirthSim({
+        mode: 'blood_cost',
+        card: effectMeta.revivedCard || data.spellCard,
+        lpCost: 800,
+        label: 'الدفن المبكر: دفع 800 نقطة حياة لإحياء الوحش!',
+      });
+    } else if (sName.includes('autonomous action unit')) {
+      setGraveyardRebirthSim({
+        mode: 'theft',
+        card: effectMeta.revivedCard || data.spellCard,
+        lpCost: 1500,
+        label: 'سرقة وحش من مقبرة الخصم مقابل 1500 نقطة حياة!',
+      });
+    } else if (sName.includes('monster reborn') || type === 'monster_reborn') {
+      setGraveyardRebirthSim({
+        mode: 'either_gy',
+        card: effectMeta.revivedCard || data.spellCard,
+        label: 'ولادة الوحش: إحياء مقدس من المقبرة!',
+      });
+    } else if (sName.includes('shallow grave')) {
+      setGraveyardRebirthSim({
+        mode: 'either_gy',
+        card: effectMeta.revivedCard || data.spellCard,
+        label: 'القبر الضحل: إحياء وحش في وضع الدفاع لكلا اللاعبين!',
+      });
+    } else if (sName.includes('salvage') || sName.includes('reincarnation') || sName.includes('dark factory')) {
+      setGraveyardRebirthSim({
+        mode: 'recycle',
+        card: effectMeta.retrievedCard || data.spellCard,
+        label: 'استرجاع من المقبرة إلى اليد!',
+      });
+    }
+
+    // 10. Control Steal (Change of Heart, Snatch Steal, Brain Control, Creature Swap)
+    if (sName.includes('change of heart')) {
+      setControlStealSim({
+        type: 'change_of_heart',
+        card: effectMeta.targetCard || data.spellCard,
+        label: 'تغيير القلوب: السيطرة على وحش الخصم لدور كامل!',
+      });
+    } else if (sName.includes('snatch steal')) {
+      setControlStealSim({
+        type: 'snatch_steal',
+        card: effectMeta.targetCard || data.spellCard,
+        label: 'السرقة الخاطفة: الاستيلاء المستمر على وحش الخصم!',
+      });
+    } else if (sName.includes('brain control')) {
+      setControlStealSim({
+        type: 'brain_control',
+        card: effectMeta.targetCard || data.spellCard,
+        label: 'التحكم العقلي: السيطرة على وحش الخصم لدور واحد!',
+      });
+    } else if (sName.includes('creature swap')) {
+      setControlStealSim({
+        type: 'creature_swap',
+        card: effectMeta.targetCard || data.spellCard,
+        label: 'تبادل المخلوقات: مبادلة وحشين في الساحة!',
+      });
+    }
+
+    // 11. Banishment Void (Soul Release, Macro Cosmos, Dimensional Fissure)
+    if (sName.includes('soul release') || sName.includes('macro cosmos') || sName.includes('dimensional fissure')) {
+      setBanishmentVoidSim({
+        card: effectMeta.banishedCard || data.spellCard,
+        label: 'النفي البعدي: طرد البطاقات إلى البعد الآخر خارج اللعبة!',
+      });
+    }
+
+    // 12. Counter Trap Negation (Solemn Judgment, Magic Jammer, Seven Tools, Dark Bribe)
+    if (sName.includes('solemn judgment')) {
+      setCounterNegationSim({
+        card: effectMeta.negatedCard || data.spellCard,
+        trapCard: data.spellCard,
+        lpCost: 4000,
+        title: 'الحكم الصارم (Solemn Judgment)',
+        label: 'إلغاء قاطع لا يُرد بدفع نصف نقاط الحياة!',
+      });
+    } else if (sName.includes('magic jammer') || sName.includes('seven tools') || sName.includes('dark bribe')) {
+      setCounterNegationSim({
+        card: effectMeta.negatedCard || data.spellCard,
+        trapCard: data.spellCard,
+        lpCost: 0,
+        title: data.spellCard.arabicName || data.spellCard.name,
+        label: 'فخ مضاد سريع: إبطال المفعول وتدمير البطاقة!',
+      });
+    }
+
+    // 13. Stat Modifiers & Equips (Axe of Despair, Mage Power, United We Stand, Shrink, Limiter Removal)
+    if (sName.includes('axe of despair') || sName.includes('mage power') || sName.includes('united we stand')) {
+      setStatModifierSim({
+        monsterCard: effectMeta.targetCard || data.spellCard,
+        equipCard: data.spellCard,
+        atkDelta: 1000,
+        isBoost: true,
+        label: `تجهيز سحري زاد من قوة الهجوم!`,
+      });
+    } else if (sName.includes('shrink')) {
+      setStatModifierSim({
+        monsterCard: effectMeta.targetCard || data.spellCard,
+        equipCard: data.spellCard,
+        atkDelta: -1000,
+        isBoost: false,
+        label: 'تنصيف هجوم الوحش إلى النصف!',
+      });
+    } else if (sName.includes('limiter removal')) {
+      setStatModifierSim({
+        monsterCard: effectMeta.targetCard || data.spellCard,
+        equipCard: data.spellCard,
+        atkDelta: 2000,
+        isBoost: true,
+        label: 'إزالة المحددات: مضاعفة هجوم جميع وحوش الآلات!',
+      });
+    }
+
+    // 14. Fusion & Ritual Summoning (Polymerization, Black Luster Ritual, Dark Magic Ritual)
+    if (sName.includes('polymerization') || sName.includes('super polymerization')) {
+      setFusionRitualSim({
+        type: 'fusion',
+        bossCard: effectMeta.summonedBoss || data.spellCard,
+        label: 'الانصهار الخارق: ولادة وحش الدمج الجديد!',
+      });
+    }
+
+    // 15. Field Spell Terrain Transformation (Umi, Yami, Forest, Mountain, Sogen, Wasteland, Gaia, etc.)
+    if (type === 'field_spell' || effectMeta?.fieldKey || effectMeta?.type === 'field_spell') {
+      soundManager.playPowerSummon();
+      hapticManager.triggerCombatVibration('powerSummon');
+      showGameToast(`تحولت أرض المعركة إلى [ ${effectMeta.title || data.spellCard.name} ]!`, 3500);
+    } else if (sName.includes('ritual')) {
+      setFusionRitualSim({
+        type: 'ritual',
+        bossCard: effectMeta.summonedBoss || data.spellCard,
+        label: 'الطقوس الفرعونية: نزول الوحش الطقوسي الأسطوري!',
+      });
+    }
+
     setTimeout(() => {
       setSpellAnimation(null);
-    }, 2200);
+    }, 3500);
   };
 
   const triggerMonsterEffectAnimation = (data) => {
@@ -2259,9 +2686,96 @@ export const DuelScreen = ({
       soundManager.playLifeUp();
     }
 
+    // Dice & Coin Monster Effects
+    if (cardName.includes('dark master') || cardName.includes('zorc')) {
+      const roll = data.result?.roll || Math.floor(Math.random() * 6) + 1;
+      setDiceCoinSim({
+        type: 'dice',
+        outcome: roll,
+        cardName: data.card.name,
+        arabicName: data.card.arabicName,
+        title: 'سيد الظلام - زورك (Dark Master - Zorc)',
+        description: roll === 6 ? 'نتيجة 6: تم تدمير وحوشك الخاصة!' : `نتيجة ${roll}: تم تدمير وحوش الخصم بنجاح!`,
+      });
+    } else if (cardName.includes('snipe hunter')) {
+      const roll = data.result?.roll || Math.floor(Math.random() * 6) + 1;
+      setDiceCoinSim({
+        type: 'dice',
+        outcome: roll,
+        cardName: data.card.name,
+        arabicName: data.card.arabicName,
+        title: 'قناص الصيد (Snipe Hunter)',
+        description: [1, 6].includes(roll) ? 'فشل القنص (نتيجة 1 أو 6)!' : `نجح القنص (نتيجة ${roll}) وتم تدمير البطاقة المستهدفة!`,
+      });
+    } else if (cardName.includes('time wizard')) {
+      const flip = data.result?.flip || (Math.random() < 0.5 ? 'heads' : 'tails');
+      setDiceCoinSim({
+        type: 'coin',
+        outcome: flip,
+        cardName: data.card.name,
+        arabicName: data.card.arabicName,
+        title: 'ساحر الوقت (Time Wizard)',
+        description: flip === 'heads' ? 'وجه! دمر جميع وحوش الخصم!' : 'ظهر! دمر جميع وحوشك وتلقيت ضرراً!',
+      });
+    } else if (cardName.includes('barrel dragon') || cardName.includes('blowback dragon')) {
+      const flip = data.result?.flip || (Math.random() < 0.5 ? 'heads' : 'tails');
+      setDiceCoinSim({
+        type: 'coin',
+        outcome: flip,
+        cardName: data.card.name,
+        arabicName: data.card.arabicName,
+        title: 'تنين البراميل (Barrel Dragon)',
+        description: 'رمية مسدسات البراميل الدوارة!',
+      });
+    } else if (cardName.includes('sangan') || cardName.includes('witch of the black forest')) {
+      setCardFlowSim({
+        count: 1,
+        label: '+1 إضافة وحش من المجموعة إلى اليد',
+        origin: 'deck',
+        destination: 'hand',
+        sourceRect: null,
+        targetRect: p0HandRef?.current ? p0HandRef.current.getBoundingClientRect() : null,
+      });
+    } else if (cardName.includes('morphing jar')) {
+      setCardFlowSim({
+        count: 5,
+        label: '+5 بطاقات جديدة تم سحبها لليد!',
+        origin: 'deck',
+        destination: 'hand',
+        sourceRect: null,
+        targetRect: p0HandRef?.current ? p0HandRef.current.getBoundingClientRect() : null,
+      });
+    }
+
+    // Phoenix / Self-Rebirth Monster Effects
+    if (cardName.includes('phoenix') || cardName.includes('vampire lord') || cardName.includes('treeborn')) {
+      setGraveyardRebirthSim({
+        mode: 'phoenix',
+        card: data.card,
+        label: 'انبعاث أسطوري تلقائي من المقبرة!',
+      });
+    }
+
+    // Banishment Monster Effects (D.D. Warrior Lady, Chaos Sorcerer, BLS)
+    if (cardName.includes('d.d.') || cardName.includes('chaos sorcerer') || cardName.includes('envoy of the beginning')) {
+      setBanishmentVoidSim({
+        card: data.result?.targetCard || data.card,
+        label: 'نفي الوحش بواسطة قدرة البعد الآخر!',
+      });
+    }
+
+    // Control Steal Monster Effects (Relinquished)
+    if (cardName.includes('relinquished')) {
+      setControlStealSim({
+        type: 'relinquished',
+        card: data.result?.targetCard || data.card,
+        label: 'امتص المتخلي وحش الخصم كدرع تجهيز!',
+      });
+    }
+
     setTimeout(() => {
       setMonsterEffectAnimation(null);
-    }, 2400);
+    }, 3500);
   };
 
   const getCardActionState = (card) => {
@@ -3180,6 +3694,23 @@ export const DuelScreen = ({
     }
   };
 
+const handleActivateMonsterEffect = (zoneIdx) => {
+    const slot = p0.monsterZones[zoneIdx];
+    if (!slot) return;
+    if (slot.hasUsedEffectThisTurn) {
+      showGameToast('لقد استخدمت قدرة هذا الوحش في هذا الدور بالفعل، ستتاح مجدداً في دورك القادم!', 2500);
+      return;
+    }
+    try {
+      soundManager.playSpellActivate();
+      hapticManager.triggerCombatVibration('powerSummon');
+      executeAndBroadcast('activateMonsterEffect', zoneIdx);
+      setSelectedFieldMonsterZone(null);
+    } catch (err) {
+      showGameToast(err.message || 'فشل تفعيل قدرة الوحش', 2200);
+    }
+  };
+
   const handleActivateSetST = (zoneIndex) => {
     const slot = p0.spellTrapZones[zoneIndex];
     if (!slot) return;
@@ -3423,6 +3954,18 @@ export const DuelScreen = ({
                     {popup.isHeal ? `+${popup.amount}` : `-${popup.amount}`}
                   </div>
                 ))}
+
+              {/* Floating Spell/Trap LP Effect Badges (Heal & Burn) */}
+              {floatingLpBadges
+                .filter((b) => b.playerIndex === 1)
+                .map((b) => (
+                  <div key={b.id} className={`floating-lp-badge floating-lp-${b.type}`}>
+                    {b.type === 'heal' ? `+${b.amount} LP` : `-${b.amount} LP`}
+                  </div>
+                ))}
+              {floatingLpBadges.some((b) => b.playerIndex === 1 && b.type === 'heal') && (
+                <div className="spell-heal-fountain" />
+              )}
 
               <span
                 className={`lp-value-text ${lpPulseP1 === 'loss' ? 'pulse-loss' : lpPulseP1 === 'heal' ? 'pulse-heal' : ''}`}
@@ -4131,12 +4674,13 @@ export const DuelScreen = ({
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--slot-gap, 8px)' }}>
           {/* Opponent Graveyard Field Slot */}
           <div
+            ref={p1GraveyardRef}
             onClick={() => {
               soundManager.playClick();
               hapticManager.triggerCombatVibration('click');
               setGraveyardViewer({ isOpen: true, playerIndex: 1 });
             }}
-            className="pharaoh-slot pharaoh-slot-st"
+            className={`pharaoh-slot pharaoh-slot-st ${cardArcFlight?.originType === 'graveyard' && cardArcFlight.startRect?.top < window.innerHeight / 2 ? 'graveyard-portal-active' : ''}`}
             style={{
               cursor: 'pointer',
               borderColor: arenaPalette.primary,
@@ -4442,10 +4986,23 @@ export const DuelScreen = ({
                     )}
                   </div>
                 ) : (
-                  <div className="zone-slot-floor-rune">
-                    <span className="rune-glyph">𓂀</span>
-                    <span className="rune-label">M{idx + 1}</span>
-                  </div>
+                  shatteringMonsters[`1_${idx}`] ? (
+                    <div className="slot-shatter-container">
+                      {shatteringMonsters[`1_${idx}`].destructionType === 'lightning' && <div className="slot-lightning-beam" />}
+                      <img
+                        src={getCardImageUrl(shatteringMonsters[`1_${idx}`].card, 'art')}
+                        alt="Destroyed Monster"
+                        className={`slot-shatter-card slot-shatter-${shatteringMonsters[`1_${idx}`].destructionType || 'standard'}`}
+                      />
+                      <div className="slot-fracture-overlay" />
+                      <div className="destroyed-slot-badge">تم التدمير!</div>
+                    </div>
+                  ) : (
+                    <div className="zone-slot-floor-rune">
+                      <span className="rune-glyph">𓂀</span>
+                      <span className="rune-label">M{idx + 1}</span>
+                    </div>
+                  )
                 )}
               </div>
             );
@@ -4996,10 +5553,23 @@ export const DuelScreen = ({
                     )}
                   </div>
                 ) : (
-                  <div className="zone-slot-floor-rune">
-                    <span className="rune-glyph">𓂀</span>
-                    <span className="rune-label">M{idx + 1}</span>
-                  </div>
+                  shatteringMonsters[`0_${idx}`] ? (
+                    <div className="slot-shatter-container">
+                      {shatteringMonsters[`0_${idx}`].destructionType === 'lightning' && <div className="slot-lightning-beam" />}
+                      <img
+                        src={getCardImageUrl(shatteringMonsters[`0_${idx}`].card, 'art')}
+                        alt="Destroyed Monster"
+                        className={`slot-shatter-card slot-shatter-${shatteringMonsters[`0_${idx}`].destructionType || 'standard'}`}
+                      />
+                      <div className="slot-fracture-overlay" />
+                      <div className="destroyed-slot-badge">تم التدمير!</div>
+                    </div>
+                  ) : (
+                    <div className="zone-slot-floor-rune">
+                      <span className="rune-glyph">𓂀</span>
+                      <span className="rune-label">M{idx + 1}</span>
+                    </div>
+                  )
                 )}
               </div>
             );
@@ -5010,12 +5580,13 @@ export const DuelScreen = ({
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--slot-gap, 8px)' }}>
           {/* Player Graveyard Field Slot */}
           <div
+            ref={p0GraveyardRef}
             onClick={() => {
               soundManager.playClick();
               hapticManager.triggerCombatVibration('click');
               setGraveyardViewer({ isOpen: true, playerIndex: 0 });
             }}
-            className="pharaoh-slot pharaoh-slot-st"
+            className={`pharaoh-slot pharaoh-slot-st ${cardArcFlight?.originType === 'graveyard' && cardArcFlight.startRect?.top >= window.innerHeight / 2 ? 'graveyard-portal-active' : ''}`}
             style={{
               cursor: 'pointer',
               borderColor: arenaPalette.primary,
@@ -5535,7 +6106,7 @@ export const DuelScreen = ({
       {/* Tribute Selection Mode Interactive Control Banner */}
       {tributeSelection && (
         <div
-          className="stone-panel"
+          className="stone-panel hidden"
           style={{
             position: 'absolute',
             bottom: 220,
@@ -5546,7 +6117,7 @@ export const DuelScreen = ({
             alignItems: 'center',
             gap: 14,
             zIndex: 150,
-            border: '2px solid #f59e0b',
+            border: '2px solid rgb(69 60 45)',
             boxShadow: '0 0 24px rgba(245, 158, 11, 0.7)',
             background: 'rgba(15, 11, 7, 0.95)',
             maxWidth: '94vw',
@@ -5554,7 +6125,7 @@ export const DuelScreen = ({
             justifyContent: 'center',
           }}
         >
-          <div style={{ textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', display: 'none' }}>
             <div style={{ fontSize: 13, fontWeight: 900, color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <span>𓊽</span>
               <span>طقوس التضحية لاستدعاء: {tributeSelection.card.arabicName || tributeSelection.card.name} ({tributeSelection.card.level} نجوم)</span>
@@ -5582,7 +6153,7 @@ export const DuelScreen = ({
                   gap: 6,
                 }}
               >
-                <span>أكّد التضحية والطقوس الأسطورية</span>
+                <span>أكّد التضحية</span>
               </button>
             )}
 
@@ -5812,6 +6383,18 @@ export const DuelScreen = ({
                 </div>
               ))}
 
+            {/* Floating Spell/Trap LP Effect Badges (Heal & Burn) */}
+            {floatingLpBadges
+              .filter((b) => b.playerIndex === 0)
+              .map((b) => (
+                <div key={b.id} className={`floating-lp-badge floating-lp-${b.type}`}>
+                  {b.type === 'heal' ? `+${b.amount} LP` : `-${b.amount} LP`}
+                </div>
+              ))}
+            {floatingLpBadges.some((b) => b.playerIndex === 0 && b.type === 'heal') && (
+              <div className="spell-heal-fountain" />
+            )}
+
             {/* Sculpted Track with Ghost & Fill Bars */}
             <div className="lp-gauge-track lp-gauge-track-p0">
               {/* Ghost Trailing Bar (Red Blood Depletion Chunk) */}
@@ -5862,6 +6445,7 @@ export const DuelScreen = ({
 
         {/* Hand Cards Horizontal Scroll (Large & High Definition for Mobile: clamp(72px, 18.5vw, 92px)) */}
         <div
+          ref={p0HandRef}
           onScroll={updateSelectedCardRect}
           style={{
             display: 'flex',
@@ -6176,61 +6760,52 @@ export const DuelScreen = ({
         }}
       />
 
-      {/* Spell Activation Visual Effects Overlay */}
+      {/* Spell / Trap Activation Visual Effects Overlay (Master Duel Style Non-blocking) */}
       {spellAnimation && (
         <div className="spell-activation-overlay">
-          {/* Rotating Magic Circle */}
-          <div className="spell-magic-circle" />
-
-          {/* Floating Spell Card */}
-          <div className="spell-card-floating">
-            <img
-              src={getCardImageUrl(spellAnimation.spellCard, 'full')}
-              alt={spellAnimation.spellCard.name}
-              className="card-art-enhanced"
-              style={{
-                width: 130,
-                height: 188,
-                aspectRatio: '200 / 290',
-                objectFit: 'contain',
-                display: 'block',
-                borderRadius: 5,
-              }}
-              onError={(e) => {
-                const fallbackMini = getCardImageUrl(spellAnimation.spellCard, 'mini');
-                if (e.target.src !== fallbackMini) {
-                  e.target.src = fallbackMini;
-                }
-              }}
-            />
-          </div>
-
-          {/* Spell Announcement Cartouche Banner */}
-          <div
-            className="stone-panel"
-            style={{
-              marginTop: 18,
-              padding: '10px 22px',
-              textAlign: 'center',
-              border: '2px solid var(--pharaoh-gold-bright)',
-              boxShadow: '0 0 30px rgba(212, 175, 55, 0.7)',
-              background: 'rgba(12, 10, 7, 0.95)',
-              zIndex: 20,
-              maxWidth: '90vw',
-            }}
-          >
-            <div style={{ fontSize: 11, color: '#38bdf8', fontWeight: 900, letterSpacing: 1 }}>
-              سحر اشتغل بواسطة {state.players[spellAnimation.playerIndex].name}
+          {/* Sleek Side Dock Cartouche */}
+          <div className="activation-side-dock">
+            <div className="spell-card-floating">
+              <img
+                src={getCardImageUrl(spellAnimation.spellCard, 'full')}
+                alt={spellAnimation.spellCard.name}
+                className="card-art-enhanced"
+                style={{
+                  width: 72,
+                  height: 104,
+                  aspectRatio: '200 / 290',
+                  objectFit: 'contain',
+                  display: 'block',
+                  borderRadius: 5,
+                }}
+                onError={(e) => {
+                  const fallbackMini = getCardImageUrl(spellAnimation.spellCard, 'mini');
+                  if (e.target.src !== fallbackMini) {
+                    e.target.src = fallbackMini;
+                  }
+                }}
+              />
             </div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--pharaoh-gold-bright)', marginTop: 2 }}>
-              {spellAnimation.effectMeta?.title || spellAnimation.spellCard.name}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--pharaoh-text-light)', marginTop: 4, fontWeight: 700 }}>
-              {spellAnimation.effectMeta?.desc || 'تأثير السحر اتطبّق على الساحة!'}
+
+            <div className="activation-info-cartouche">
+              <div className="activation-badge-tag">
+                <span>
+                  {spellAnimation.spellCard?.frameType === 'trap' || spellAnimation.spellCard?.type?.toLowerCase().includes('trap') || spellAnimation.effectMeta?.type === 'trap_activation'
+                    ? '⚡ فخ تفعل بواسطة'
+                    : '✨ سحر اشتغل بواسطة'}
+                </span>
+                <span className="activation-player-name">{state.players[spellAnimation.playerIndex]?.name || 'المبارز'}</span>
+              </div>
+              <div className="activation-card-title">
+                {spellAnimation.effectMeta?.title || spellAnimation.spellCard.arabicName || spellAnimation.spellCard.name}
+              </div>
+              <div className="activation-card-desc">
+                {spellAnimation.effectMeta?.desc || 'تأثير السحر اتطبّق على الساحة!'}
+              </div>
             </div>
           </div>
 
-          {/* Elemental Specific Visual Overlays */}
+          {/* Elemental Specific Visual Overlays across the arena */}
           {spellAnimation.effectMeta?.type === 'raigeki' && <div className="spell-fx-lightning" />}
           {spellAnimation.effectMeta?.type === 'dark_hole' && <div className="spell-fx-vortex" />}
           {spellAnimation.effectMeta?.type === 'dian_keto' && <div className="spell-fx-heal" />}
@@ -6252,92 +6827,137 @@ export const DuelScreen = ({
         </div>
       )}
 
-      {/* Monster Effect Radiating Activation Overlay */}
+      {/* 3D Arc Trajectory Flight for Graveyard Resurrections and Hand Returns */}
+      <CardArcFlightAnimation flight={cardArcFlight} />
+
+      {/* 3D Egyptian Die & Millennium Coin Chance Simulation */}
+      {diceCoinSim && (
+        <DiceCoinSimulator
+          simulation={diceCoinSim}
+          onComplete={() => setDiceCoinSim(null)}
+        />
+      )}
+
+      {/* Dynamic Trap Ambush Visual Reactions (Trap Hole, Mirror Force, Magic Cylinder) */}
+      {trapReactionSim && (
+        <TrapReactionVFX
+          reaction={trapReactionSim}
+          onComplete={() => setTrapReactionSim(null)}
+        />
+      )}
+
+      {/* Multi-Card Rapid Flow Flight (Pot of Greed, Graceful Charity, Sangan) */}
+      {cardFlowSim && (
+        <CardFlowAnimation
+          flow={cardFlowSim}
+          onComplete={() => setCardFlowSim(null)}
+        />
+      )}
+
+      {/* Continuous Turn Stall Visuals (Swords of Revealing Light, Gravity Bind) */}
+      <TurnStallOverlay
+        swordsState={state?.swordsOfRevealingLight}
+        gravityBindActive={isGravityBindActive(state)}
+      />
+
+      {/* Graveyard Rebirth (All 5 Variations: Own GY, Either GY, Blood Cost, Recycle, Phoenix) */}
+      {graveyardRebirthSim && (
+        <GraveyardRebirthVFX
+          rebirth={graveyardRebirthSim}
+          onComplete={() => setGraveyardRebirthSim(null)}
+        />
+      )}
+
+      {/* Monster Control Steal (Change of Heart, Snatch Steal, Brain Control, Relinquished) */}
+      {controlStealSim && (
+        <ControlStealVFX
+          steal={controlStealSim}
+          onComplete={() => setControlStealSim(null)}
+        />
+      )}
+
+      {/* Dimensional Banishment (D.D. Warrior Lady, Chaos Sorcerer, Soul Release) */}
+      {banishmentVoidSim && (
+        <BanishmentVoidVFX
+          banish={banishmentVoidSim}
+          onComplete={() => setBanishmentVoidSim(null)}
+        />
+      )}
+
+      {/* Counter Trap Negation (Solemn Judgment, Magic Jammer, Seven Tools) */}
+      {counterNegationSim && (
+        <CounterNegationVFX
+          negation={counterNegationSim}
+          onComplete={() => setCounterNegationSim(null)}
+        />
+      )}
+
+      {/* ATK / DEF Stat Modifiers & Equips (Axe of Despair, Mage Power, Shrink, Limiter Removal) */}
+      {statModifierSim && (
+        <StatModifierVFX
+          stat={statModifierSim}
+          onComplete={() => setStatModifierSim(null)}
+        />
+      )}
+
+      {/* Fusion & Ritual Summoning (Polymerization, Black Luster Ritual) */}
+      {fusionRitualSim && (
+        <FusionRitualVFX
+          summon={fusionRitualSim}
+          onComplete={() => setFusionRitualSim(null)}
+        />
+      )}
+
+      {/* Monster Effect Radiating Activation Overlay (Master Duel Style Non-blocking) */}
       {monsterEffectAnimation && (
         <div className="monster-effect-overlay">
-          {/* Rotating Radiant Sunburst Beams */}
-          <div className="monster-radiate-rays" />
-
-          {/* Pulsing Energy Shockwaves */}
-          <div className="monster-radiate-pulse" />
-          <div className="monster-radiate-pulse pulse-delay-1" />
-
-          {/* Radiating Monster Card with Intense Aura */}
-          <div className="monster-card-radiating">
-            <img
-              src={getCardImageUrl(monsterEffectAnimation.card, 'full')}
-              alt={monsterEffectAnimation.card.name}
-              className="card-art-enhanced"
-              style={{
-                width: 145,
-                height: 210,
-                aspectRatio: '200 / 290',
-                objectFit: 'contain',
-                display: 'block',
-                borderRadius: 6,
-              }}
-              onError={(e) => {
-                const fallbackMini = getCardImageUrl(monsterEffectAnimation.card, 'mini');
-                if (e.target.src !== fallbackMini) {
-                  e.target.src = fallbackMini;
-                }
-              }}
-            />
-            {/* Golden Glint Sheen over card */}
-            <div className="monster-card-sheen" />
-          </div>
-
-          {/* Monster Announcement Cartouche Banner */}
-          <div
-            className="stone-panel"
-            style={{
-              marginTop: 18,
-              padding: '12px 24px',
-              textAlign: 'center',
-              border: '2px solid #f59e0b',
-              boxShadow: '0 0 35px rgba(245, 158, 11, 0.75), inset 0 0 20px rgba(245, 158, 11, 0.2)',
-              background: 'rgba(15, 11, 6, 0.96)',
-              zIndex: 30,
-              maxWidth: '92vw',
-              borderRadius: 8,
-              animation: 'panelSlideUp 0.35s ease-out',
-            }}
-          >
-            <div
-              style={{
-                fontSize: 11,
-                color: monsterEffectAnimation.trigger === 'flip' ? '#38bdf8' : '#f87171',
-                fontWeight: 900,
-                letterSpacing: 1,
-              }}
-            >
-              {monsterEffectAnimation.trigger === 'flip'
-                ? `تأثير قلب اشتغل! (${state.players[monsterEffectAnimation.playerIndex]?.name})`
-                : monsterEffectAnimation.trigger === 'onDestroy'
-                ? `تأثير عند التدمير! (${state.players[monsterEffectAnimation.playerIndex]?.name})`
-                : `قدرة وحش اشتغلت! (${state.players[monsterEffectAnimation.playerIndex]?.name})`}
+          {/* Sleek Side Dock Cartouche */}
+          <div className="activation-side-dock monster-dock">
+            <div className="monster-card-radiating">
+              <img
+                src={getCardImageUrl(monsterEffectAnimation.card, 'full')}
+                alt={monsterEffectAnimation.card.name}
+                className="card-art-enhanced"
+                style={{
+                  width: 72,
+                  height: 104,
+                  aspectRatio: '200 / 290',
+                  objectFit: 'contain',
+                  display: 'block',
+                  borderRadius: 5,
+                }}
+                onError={(e) => {
+                  const fallbackMini = getCardImageUrl(monsterEffectAnimation.card, 'mini');
+                  if (e.target.src !== fallbackMini) {
+                    e.target.src = fallbackMini;
+                  }
+                }}
+              />
+              <div className="monster-card-sheen" />
             </div>
-            <div
-              style={{
-                fontSize: 18,
-                fontWeight: 900,
-                color: '#facc15',
-                marginTop: 3,
-                textShadow: '0 0 14px rgba(250, 204, 21, 0.8)',
-              }}
-            >
-              {monsterEffectAnimation.arabicName || monsterEffectAnimation.card.name}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: '#fef08a',
-                marginTop: 5,
-                fontWeight: 700,
-                lineHeight: 1.4,
-              }}
-            >
-              {monsterEffectAnimation.desc || 'تم تفعيل قدرة الوحش وتطبيق تأثيره بالكامل!'}
+
+            <div className="activation-info-cartouche">
+              <div
+                className="activation-badge-tag"
+                style={{
+                  color: monsterEffectAnimation.trigger === 'flip' ? '#38bdf8' : '#f87171',
+                }}
+              >
+                <span>
+                  {monsterEffectAnimation.trigger === 'flip'
+                    ? '👁️ تأثير قلب اشتغل!'
+                    : monsterEffectAnimation.trigger === 'onDestroy'
+                    ? '💥 تأثير عند التدمير!'
+                    : '🌟 قدرة وحش اشتغلت!'}
+                </span>
+                <span className="activation-player-name">({state.players[monsterEffectAnimation.playerIndex]?.name || 'المبارز'})</span>
+              </div>
+              <div className="activation-card-title">
+                {monsterEffectAnimation.arabicName || monsterEffectAnimation.card.arabicName || monsterEffectAnimation.card.name}
+              </div>
+              <div className="activation-card-desc">
+                {monsterEffectAnimation.desc || 'تم تفعيل قدرة الوحش وتطبيق تأثيره بالكامل!'}
+              </div>
             </div>
           </div>
         </div>

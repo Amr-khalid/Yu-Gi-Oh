@@ -163,6 +163,9 @@ export const RockPaperScissorsScreen = ({
     if (!isMultiplayer) return;
 
     const unsubMsg = connectionManager.onMessage((msg) => {
+      // Ignore self-sent messages
+      if (msg.senderId && msg.senderId === connectionManager.instanceId) return;
+
       // 0. Peer greeted or mounted: re-broadcast my choice if already locked
       if (msg.type === 'JANKEN_HELLO') {
         if (playerChoiceRef.current) {

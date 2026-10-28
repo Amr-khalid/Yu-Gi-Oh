@@ -62,13 +62,8 @@ export function isImperialOrderActive(state) {
  * @returns {Object} Effect metadata for UI animation and logging
  */
 export function resolveTrapEffect(state, playerIndex, trap, targetContext = null, helpers = {}) {
-  const player = state.players[playerIndex];
-  const opponent = state.players[1 - playerIndex];
-  const name = (trap.name || '').toLowerCase();
-  const race = (trap.race || '').toLowerCase();
-  const desc = (trap.description || trap.desc || '').toLowerCase();
-
-  const destroySlot = helpers.destroyMonsterSlot || ((s, pIdx, zIdx, reason, src) => {
+  const trackedDestructions = [];
+  const rawDestroySlot = helpers.destroyMonsterSlot || ((s, pIdx, zIdx, reason, src) => {
     const p = s.players[pIdx];
     if (p && p.monsterZones[zIdx]) {
       const c = p.monsterZones[zIdx].card;
@@ -79,6 +74,49 @@ export function resolveTrapEffect(state, playerIndex, trap, targetContext = null
     return null;
   });
 
+  const trackedDestroySlot = (s, pIdx, zIdx, reason, src) => {
+    const p = s.players[pIdx];
+    if (p && p.monsterZones[zIdx]) {
+      trackedDestructions.push({
+        playerIndex: pIdx,
+        zoneIndex: zIdx,
+        card: p.monsterZones[zIdx].card,
+        position: p.monsterZones[zIdx].position,
+      });
+    }
+    return rawDestroySlot(s, pIdx, zIdx, reason, src);
+  };
+
+  const enrichedHelpers = {
+    ...helpers,
+    destroyMonsterSlot: trackedDestroySlot,
+  };
+
+  const res = _resolveTrapEffectInternal(state, playerIndex, trap, targetContext, enrichedHelpers);
+  if (!res) return res;
+
+  const trapName = (trap.name || '').toLowerCase();
+  if (trackedDestructions.length > 0) {
+    res.effectCategory = res.effectCategory || 'MONSTER_DESTRUCTION';
+    res.destroyedZones = res.destroyedZones || trackedDestructions;
+    if (!res.destructionType) {
+      if (trapName.includes('mirror force')) res.destructionType = 'mirror';
+      else if (trapName.includes('trap hole') || trapName.includes('hole')) res.destructionType = 'hole';
+      else if (trapName.includes('torrential tribute')) res.destructionType = 'vortex';
+      else res.destructionType = 'shatter';
+    }
+  }
+  return res;
+}
+
+function _resolveTrapEffectInternal(state, playerIndex, trap, targetContext = null, helpers = {}) {
+  const player = state.players[playerIndex];
+  const opponent = state.players[1 - playerIndex];
+  const name = (trap.name || '').toLowerCase();
+  const race = (trap.race || '').toLowerCase();
+  const desc = (trap.description || trap.desc || '').toLowerCase();
+
+  const destroySlot = helpers.destroyMonsterSlot;
   const recalcStats = helpers.recalculateAllMonsterStats || (() => {});
 
   // =========================================================================
@@ -99,6 +137,8 @@ export function resolveTrapEffect(state, playerIndex, trap, targetContext = null
     state.lastLog.push(`تفعيل قوة المراية (Mirror Force)! عكست الهجوم ودمّرت كل وحوش الهجوم (${destroyedCount} وحش) في ساحة ${opponent.name}!`);
     return {
       type: 'mirror_force',
+      effectCategory: 'MONSTER_DESTRUCTION',
+      destructionType: 'mirror',
       title: 'قوة المرآة (Mirror Force)',
       desc: `عكست قوة المراية الهجوم ودمّرت ${destroyedCount} وحش في وضع الهجوم لـ ${opponent.name}!`,
       destroyedCount,
@@ -110,11 +150,14 @@ export function resolveTrapEffect(state, playerIndex, trap, targetContext = null
   if (name.includes('magic cylinder') || name.includes('cylinder')) {
     const oppAttackers = opponent.monsterZones.filter(m => m !== null && m.position === 'face_up_attack');
     oppAttackers.sort((a, b) => (b.currentAtk || 0) - (a.currentAtk || 0));
-    const dmg = oppAttackers.length > 0 ? (oppAttackers[0].currentAtk || oppAttackers[0].card.atk || 1000) : 1000;
+    const dmg = targetContext?.attackerCard?.atk || (oppAttackers.length > 0 ? (oppAttackers[0].currentAtk || oppAttackers[0].card.atk || 1000) : 1000);
     opponent.lifePoints = Math.max(0, opponent.lifePoints - dmg);
     state.lastLog.push(`تفعيل الأسطوانة السحرية (Magic Cylinder)! شفطت الهجوم وردّت ${dmg} ضرر مباشر لنقاط حياة ${opponent.name}!`);
     return {
       type: 'magic_cylinder',
+      effectCategory: 'BURN_DAMAGE',
+      burnAmount: dmg,
+      targetPlayerIndex: 1 - playerIndex,
       title: 'الأسطوانة السحرية (Magic Cylinder)',
       desc: `امتصت الأسطوانة السحرية هجوم الخصم وسددت ${dmg} ضرر مباشر لنقاط حياة ${opponent.name}!`,
       damage: dmg,
@@ -948,10 +991,14 @@ export function resolveTrapEffect(state, playerIndex, trap, targetContext = null
         state.lastLog.push(`نداء المسكونين (Call Of The Haunted)! استدعى ${player.name} الوحش ${revived.name} من المقبرة في وضع الهجوم!`);
         return {
           type: 'call_of_the_haunted',
+          effectCategory: 'GRAVEYARD_SUMMON',
+          revivedCard: revived,
+          originZone: 'player_graveyard',
+          targetPlayerIndex: playerIndex,
+          targetZoneIndex: emptyZone,
           stayOnField: true,
           title: 'نداء المسكونين (Call Of The Haunted)',
           desc: `أعيد إحياء ${revived.name} (هجوم: ${revived.atk}) في وضع الهجوم!`,
-          revivedCard: revived,
         };
       }
     }
@@ -977,9 +1024,13 @@ export function resolveTrapEffect(state, playerIndex, trap, targetContext = null
         state.lastLog.push(`آلة الزمن (Time Machine)! أعادت الوحش الساقط ${revived.name} للحياة في نفس اللحظة!`);
         return {
           type: 'time_machine',
+          effectCategory: 'GRAVEYARD_SUMMON',
+          revivedCard: revived,
+          originZone: 'player_graveyard',
+          targetPlayerIndex: playerIndex,
+          targetZoneIndex: emptyZone,
           title: 'آلة الزمن (Time Machine)',
           desc: `أعادت آلة الزمن الوحش ${revived.name} فوراً إلى ساحة القتال!`,
-          revivedCard: revived,
         };
       }
     }
@@ -1312,8 +1363,10 @@ export function resolveTrapEffect(state, playerIndex, trap, targetContext = null
     state.lastLog.push(`نرد الجمجمة (Skull Dice)! نتيجة النرد [${roll}]: خفّض هجوم ودفاع كل وحوش الخصم بمقدار -${debuff} نقطة!`);
     return {
       type: 'skull_dice',
+      effectCategory: 'DICE_ROLL',
       title: 'نرد الجمجمة (Skull Dice)',
       desc: `ألقى نرد الجمجمة لعنة أضعفت هجوم ودفاع وحوش الخصم بـ -${debuff} نقطة!`,
+      diceRoll: roll,
       roll,
       debuff,
     };
@@ -1475,7 +1528,6 @@ export function checkBattleTrap(state, attackerPlayerIndex, attackerSlot, defend
   const attackerPlayer = state.players[attackerPlayerIndex];
 
   if (isTrapNegated(state)) return null;
-  if (defenderPlayerIndex === 0) return null; // Human player battle traps are handled via prompt
 
   const destroySlot = helpers.destroyMonsterSlot || ((s, pIdx, zIdx, reason, src) => {
     const p = s.players[pIdx];
@@ -1535,6 +1587,83 @@ export function checkBattleTrap(state, attackerPlayerIndex, attackerSlot, defend
           negated: true,
           attackerDestroyed: false,
           damage: dmg,
+          log,
+        };
+      }
+
+      // Draining Shield (Negate attack and gain LP equal to ATK)
+      if (name.includes('draining shield')) {
+        slot.faceUp = true;
+        defenderPlayer.spellTrapZones[i] = null;
+        defenderPlayer.graveyard.push(slot.card);
+        const heal = attackerSlot.currentAtk || attackerSlot.card.atk || 0;
+        defenderPlayer.lifePoints += heal;
+        const log = `تشغيل درع الاستنزاف (Draining Shield)! امتص هجوم ${attackerSlot.card.name} وزاد نقاط حياة ${defenderPlayer.name} بمقدار +${heal} نقطة!`;
+        state.lastLog.push(log);
+        return {
+          trapCard: slot.card,
+          type: 'draining_shield',
+          negated: true,
+          attackerDestroyed: false,
+          heal,
+          log,
+        };
+      }
+
+      // Dimensional Prison (Banish attacking monster)
+      if (name.includes('dimensional prison')) {
+        slot.faceUp = true;
+        defenderPlayer.spellTrapZones[i] = null;
+        defenderPlayer.graveyard.push(slot.card);
+        const aZoneIdx = attackerPlayer.monsterZones.indexOf(attackerSlot);
+        if (aZoneIdx !== -1) {
+          attackerPlayer.monsterZones[aZoneIdx] = null;
+          if (!attackerPlayer.banished) attackerPlayer.banished = [];
+          attackerPlayer.banished.push(attackerSlot.card);
+        }
+        const log = `تشغيل السجن البعدي (Dimensional Prison)! تم نفي الوحش المهاجم ${attackerSlot.card.name} خارج أبعاد اللعبة!`;
+        state.lastLog.push(log);
+        return {
+          trapCard: slot.card,
+          type: 'dimensional_prison',
+          negated: true,
+          attackerDestroyed: true,
+          banished: true,
+          log,
+        };
+      }
+
+      // Dimension Wall (Attacking player takes all battle damage instead)
+      if (name.includes('dimension wall')) {
+        slot.faceUp = true;
+        defenderPlayer.spellTrapZones[i] = null;
+        defenderPlayer.graveyard.push(slot.card);
+        const dmg = attackerSlot.currentAtk || attackerSlot.card.atk || 0;
+        attackerPlayer.lifePoints = Math.max(0, attackerPlayer.lifePoints - dmg);
+        const log = `تشغيل جدار البعد (Dimension Wall)! ارتد الضرر بالكامل (${dmg} نقطة) على نقاط حياة ${attackerPlayer.name}!`;
+        state.lastLog.push(log);
+        return {
+          trapCard: slot.card,
+          type: 'magic_cylinder',
+          negated: true,
+          attackerDestroyed: false,
+          damage: dmg,
+          log,
+        };
+      }
+
+      // Threatening Roar (Opponent cannot declare attack this turn)
+      if (name.includes('threatening roar')) {
+        slot.faceUp = true;
+        defenderPlayer.spellTrapZones[i] = null;
+        defenderPlayer.graveyard.push(slot.card);
+        const log = `تشغيل الزئير المرعب (Threatening Roar)! زئير وحشي أرعب وحوش ${attackerPlayer.name} وأوقف الهجوم بالكامل!`;
+        state.lastLog.push(log);
+        return {
+          trapCard: slot.card,
+          type: 'negate_attack',
+          negated: true,
+          attackerDestroyed: false,
           log,
         };
       }
@@ -1674,6 +1803,23 @@ export function checkBattleTrap(state, attackerPlayerIndex, attackerSlot, defend
         }
       }
     }
+  }
+
+  // Check Kuriboh in defender hand (Discard to reduce battle damage to 0)
+  const kuriIdx = defenderPlayer.hand.findIndex((c) => c && (c.name || '').toLowerCase().includes('kuriboh'));
+  if (kuriIdx !== -1) {
+    const kuriCard = defenderPlayer.hand.splice(kuriIdx, 1)[0];
+    defenderPlayer.graveyard.push(kuriCard);
+    defenderPlayer.zeroBattleDamage = true;
+    const log = `تفعيل كوريبو (Kuriboh) من اليد! ضحّى بنفسه لحماية ${defenderPlayer.name} وأصبح ضرر المعركة 0!`;
+    state.lastLog.push(log);
+    return {
+      trapCard: kuriCard,
+      type: 'kuriboh',
+      negated: false,
+      preventDamage: true,
+      log,
+    };
   }
 
   return null;

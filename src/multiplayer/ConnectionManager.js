@@ -876,10 +876,12 @@ export class ConnectionManager {
           this.peerName = msg.clientName || 'المنافس';
           this.mySlot = 0;
           this.myTeam = 0;
+          this.teammateName = '';
         } else {
           this.peerName = msg.hostName || 'المستضيف';
           this.mySlot = 1;
           this.myTeam = 1;
+          this.teammateName = '';
         }
       }
 
@@ -1055,8 +1057,11 @@ export class ConnectionManager {
   handleCloudRelayMessage(topic, msg) {
     if (!msg || !msg.type) return;
 
-    // Deduplicate identical packets
-    const msgKey = msg.msgId || (msg.type + '_' + (msg.timestamp || '') + '_' + (msg.senderSlot ?? ''));
+    // Filter out self-echoed packets from MQTT broker
+    if (msg.senderId && msg.senderId === this.instanceId) return;
+
+    // Deduplicate identical packets using unique msgId
+    const msgKey = msg.msgId || `${msg.type}_${msg.senderId || ''}_${msg.timestamp || ''}_${msg.senderSlot ?? ''}`;
     if (this.seenMessageIds.has(msgKey)) return;
     this.seenMessageIds.add(msgKey);
     if (this.seenMessageIds.size > 250) {
@@ -1095,7 +1100,11 @@ export class ConnectionManager {
           timestamp: Date.now(),
         });
       } else {
+        this.gameMode = '1v1';
         this.peerName = msg.clientName || 'المنافس';
+        this.mySlot = 0;
+        this.myTeam = 0;
+        this.teammateName = '';
         this.connected = true;
         this.transport = 'cloud_relay';
         this.notifyStatus();
@@ -1104,6 +1113,8 @@ export class ConnectionManager {
           type: 'ROOM_CONNECTED',
           roomCode: this.roomCode,
           gameMode: '1v1',
+          mySlot: 1,
+          myTeam: 1,
           hostName: this.myName,
           clientName: this.peerName,
           transport: 'cloud_relay',
@@ -1130,6 +1141,7 @@ export class ConnectionManager {
           this.peerName = msg.hostName || 'المستضيف';
           this.mySlot = 1;
           this.myTeam = 1;
+          this.teammateName = '';
         }
         this.transport = 'cloud_relay';
         this.notifyStatus();
@@ -1170,12 +1182,18 @@ export class ConnectionManager {
             transport: this.transport,
           });
         } else {
+          this.gameMode = '1v1';
           this.peerName = msg.clientName || 'المنافس';
+          this.mySlot = 0;
+          this.myTeam = 0;
+          this.teammateName = '';
           this.notifyStatus();
           this.sendLocal({
             type: 'ROOM_CONNECTED_LOCAL',
             roomCode: this.roomCode,
             gameMode: '1v1',
+            mySlot: 1,
+            myTeam: 1,
             hostName: this.myName,
             clientName: this.peerName,
             transport: this.transport,
@@ -1199,9 +1217,11 @@ export class ConnectionManager {
           this.teammateName = msg.hostName || 'المستضيف (زميلك)';
           this.peerName = msg.slots?.[2]?.name || 'سيتو كايبا (بوت)';
         } else {
+          this.gameMode = '1v1';
           this.peerName = msg.hostName || 'المستضيف';
           this.mySlot = 1;
           this.myTeam = 1;
+          this.teammateName = '';
         }
         if (msg.transport) this.transport = msg.transport;
         this.notifyStatus();
@@ -1249,9 +1269,27 @@ export class ConnectionManager {
   }
 
   send(message) {
-    if (this.roomCode && typeof message === 'object' && message !== null && !message.roomCode) {
-      message.roomCode = this.roomCode;
+    if (typeof message === 'object' && message !== null) {
+      if (this.roomCode && !message.roomCode) {
+        message.roomCode = this.roomCode;
+      }
+      if (!message.senderId) {
+        message.senderId = this.instanceId;
+      }
+      if (!message.msgId) {
+        message.msgId = `${this.instanceId}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      }
+      if (!message.timestamp) {
+        message.timestamp = Date.now();
+      }
+      if (typeof message.senderSlot !== 'number') {
+        message.senderSlot = typeof this.mySlot === 'number' ? this.mySlot : (this.role === 'host' ? 0 : 1);
+      }
+      if (typeof message.senderTeam !== 'number') {
+        message.senderTeam = typeof this.myTeam === 'number' ? this.myTeam : (this.role === 'host' ? 0 : 1);
+      }
     }
+
     // 1. Send to WebSocket server
     this.sendWs(message);
 

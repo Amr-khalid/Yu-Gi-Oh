@@ -6,7 +6,7 @@
 import { createInitialGameState, cloneGameState } from './GameState.js';
 import { advancePhase, endTurn, drawCardForTurnPlayer } from './PhaseManager.js';
 import { executeMonsterAttack, executeDirectAttack } from './DamageCalculator.js';
-import { normalSummon, changeMonsterPosition, setSpellTrap, activateSpell, activateSetCard } from './CardResolver.js';
+import { normalSummon, changeMonsterPosition, setSpellTrap, activateSpell, activateSetCard, resolveSpellEffect, recalculateAllMonsterStats, activateMonsterEffect } from './CardResolver.js';
 
 export class DuelEngine {
   constructor(
@@ -21,6 +21,7 @@ export class DuelEngine {
   ) {
     this.state = createInitialGameState(p0Deck, p1Deck, p0Name, p1Name, seed, startingPlayer, isTagMode, tagConfig);
     this.state.onMonsterEffectTriggered = (data) => this.notifyMonsterEffect(data);
+    this.state.onSpellTriggered = (data) => this.notifySpell(data);
     drawCardForTurnPlayer(this.state);
     this.state.phase = 'MAIN1';
     this.listeners = [];
@@ -137,6 +138,7 @@ export class DuelEngine {
           currentAtk: card.atk ?? 0,
           currentDef: card.def ?? 0,
         };
+        recalculateAllMonsterStats(this.state);
         player.normalSummonsRemaining = Math.max(0, (player.normalSummonsRemaining ?? 2) - 1);
 
         this.notifySummon({
@@ -175,12 +177,24 @@ export class DuelEngine {
         };
       }
     } else if (action === 'ACTIVATE_SPELL') {
-      player.graveyard.push(card);
+      const effectMeta = resolveSpellEffect(this.state, targetTeam, card);
+      if (effectMeta?.type !== 'field_spell' && card.subType !== 'field') {
+        player.graveyard.push(card);
+      }
       if (targetTeam === 0 && Array.isArray(player.teammateHand)) {
         const foundIdx = player.teammateHand.findIndex(c => c && (c.id === card.id || c.name === card.name));
         if (foundIdx !== -1) player.teammateHand.splice(foundIdx, 1);
+      } else if (targetTeam === 1 && Array.isArray(player.hand)) {
+        const foundIdx = player.hand.findIndex(c => c && (c.id === card.id || c.name === card.name));
+        if (foundIdx !== -1) player.hand.splice(foundIdx, 1);
+        else player.hand.splice(0, 1);
       }
       this.state.lastLog.push(`فعّل ${player.name} بطاقة السحر: ${card.name}!`);
+      this.notifySpell({
+        playerIndex: targetTeam,
+        spellCard: card,
+        effectMeta: effectMeta || {},
+      });
     }
 
     this.notify();
@@ -338,6 +352,13 @@ export class DuelEngine {
 
   setMonster(handIndex, zoneIndex) {
     return this.normalSummon(handIndex, zoneIndex, 'face_down_defense', []);
+  }
+
+activateMonsterEffect(zoneIndex, targetContext = {}) {
+    const playerIndex = this.state.currentTurnPlayer;
+    const res = activateMonsterEffect(this.state, playerIndex, zoneIndex, targetContext);
+    this.notify();
+    return res;
   }
 
   changePosition(zoneIndex, context = {}, playerIndex = null) {

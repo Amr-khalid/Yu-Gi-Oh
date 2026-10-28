@@ -1171,6 +1171,28 @@ class SoundController {
           osc.stop(now + 0.5);
           break;
 
+        case 'diceRoll':
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.setValueAtTime(340, now + 0.04);
+          osc.frequency.setValueAtTime(680, now + 0.08);
+          osc.frequency.setValueAtTime(410, now + 0.12);
+          gain.gain.setValueAtTime(0.4 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          osc.start(now);
+          osc.stop(now + 0.18);
+          break;
+
+        case 'diceLand':
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(280, now);
+          osc.frequency.exponentialRampToValueAtTime(65, now + 0.14);
+          gain.gain.setValueAtTime(0.6 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+          osc.start(now);
+          osc.stop(now + 0.16);
+          break;
+
         default:
           osc.type = 'sine';
           osc.frequency.setValueAtTime(440, now);
@@ -1202,6 +1224,27 @@ class SoundController {
   playStart() { this.play('start', 0.9); }
   playWin() { this.play('win', 0.9); }
   playLose() { this.play('lose', 0.9); }
+
+  playSynthesized(type, vol = 0.5) {
+    this.playSynthesizedFallback(type, vol);
+  }
+
+  playDiceRoll() {
+    this.playSynthesized('diceRoll', 0.85);
+  }
+
+  playDiceLand() {
+    this.playSynthesized('diceLand', 0.95);
+  }
+
+  playNegate() {
+    this.playShieldShatter();
+  }
+
+  playPowerSummon() {
+    this.playSummon();
+    this.playSynthesized('magicBlast', 0.95);
+  }
 
   // Unique Combat & Destruction SFX
   playSwordSlash() { this.playSynthesized('swordSlash', 0.95); }

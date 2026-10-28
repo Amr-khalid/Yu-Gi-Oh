@@ -1422,26 +1422,31 @@ export const MONSTER_EFFECT_REGISTRY = {
   [norm('Barrel Dragon')]: {
     name: 'Barrel Dragon',
     arabicName: 'تنين البراميل (Barrel Dragon)',
-    trigger: 'onSummon',
-    execute(state, controllerIdx) {
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
       const oppIdx = 1 - controllerIdx;
       const opp = state.players[oppIdx];
-      // Target opponent monster
-      const targetZone = opp.monsterZones.findIndex((z) => z !== null);
-      if (targetZone !== -1) {
-        // Roll 3 coins (success if 2 or more heads)
+      const targetZone = ctx.targetZoneIndex !== undefined && ctx.targetZoneIndex !== null && opp.monsterZones[ctx.targetZoneIndex]
+        ? ctx.targetZoneIndex
+        : opp.monsterZones.findIndex((z) => z !== null);
+      if (targetZone !== -1 && opp.monsterZones[targetZone]) {
         const heads = [Math.random() > 0.5, Math.random() > 0.5, Math.random() > 0.5].filter(Boolean).length;
         if (heads >= 2) {
           const destroyed = opp.monsterZones[targetZone];
-          opp.graveyard.push(destroyed.card);
-          opp.monsterZones[targetZone] = null;
-          state.lastLog.push(`تأثير تنين البراميل! رمية العملة نجحت (${heads} ملك) وتم تدمير ${destroyed.card.name}!`);
-          return { success: true, destroyedCard: destroyed.card, zoneIndex: targetZone };
+          if (typeof ctx.destroyMonster === 'function') {
+            ctx.destroyMonster(state, oppIdx, targetZone, 'monster_effect', card);
+          } else {
+            opp.graveyard.push(destroyed.card);
+            opp.monsterZones[targetZone] = null;
+          }
+          state.lastLog.push(`تأثير تنين البراميل! رمية العملات نجحت (${heads} ملك) وتم تدمير ${destroyed.card.name}!`);
+          return { success: true, destroyedCard: destroyed.card, zoneIndex: targetZone, heads };
         } else {
-          state.lastLog.push(`تأثير تنين البراميل: رمية العملة ما نجحتش (${heads} ملك بس).`);
+          state.lastLog.push(`تأثير تنين البراميل: رمية العملات ما نجحتش (${heads} ملك فقط من أصل 3).`);
+          return { success: true, heads, missed: true };
         }
       }
-      return { success: false };
+      return { success: false, reason: 'لا توجد وحوش للخصم لتدميرها' };
     },
   },
 
@@ -1449,15 +1454,45 @@ export const MONSTER_EFFECT_REGISTRY = {
     name: 'Breaker the Magical Warrior',
     arabicName: 'بريكر المحارب الساحر (Breaker the Magical Warrior)',
     trigger: 'onSummon',
+    triggers: {
+      onSummon(state, controllerIdx, card, ctx = {}) {
+        const player = state.players[controllerIdx];
+        const zoneIdx = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex((z) => z && z.card.id === card.id);
+        if (zoneIdx !== -1 && player.monsterZones[zoneIdx]) {
+          player.monsterZones[zoneIdx].currentAtk += 300;
+          player.monsterZones[zoneIdx].hasSpellCounter = true;
+          state.lastLog.push(`تأثير بريكر المحارب الساحر! خد عداد سحر وزاد هجومه بمقدار +300 نقطة (هجومه دلوقتي: ${player.monsterZones[zoneIdx].currentAtk})!`);
+          return { success: true };
+        }
+        return { success: false };
+      },
+      ignition(state, controllerIdx, card, ctx = {}) {
+        const player = state.players[controllerIdx];
+        const oppIdx = 1 - controllerIdx;
+        const opp = state.players[oppIdx];
+        const zoneIdx = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex((z) => z && z.card.id === card.id);
+        if (zoneIdx !== -1 && player.monsterZones[zoneIdx]) {
+          const slot = player.monsterZones[zoneIdx];
+          if (slot.hasSpellCounter) {
+            slot.hasSpellCounter = false;
+            slot.currentAtk = Math.max(card.atk, slot.currentAtk - 300);
+            const targetST = opp.spellTrapZones.findIndex(z => z !== null);
+            if (targetST !== -1) {
+              const destroyedST = opp.spellTrapZones[targetST];
+              opp.graveyard.push(destroyedST.card);
+              opp.spellTrapZones[targetST] = null;
+              state.lastLog.push(`قدرة بريكر المحارب الساحر! أزال عداد السحر ودمر بطاقة سحر/فخ ${destroyedST.card.name} للخصم!`);
+              return { success: true, destroyedCard: destroyedST.card };
+            }
+            state.lastLog.push(`أزال بريكر عداد السحر (-300 هجوم) لكن مفيش سحر/فخ عند الخصم!`);
+            return { success: true };
+          }
+        }
+        return { success: false, reason: 'لا يملك بريكر عداد سحر لإزالته' };
+      },
+    },
     execute(state, controllerIdx, card, ctx = {}) {
-      const player = state.players[controllerIdx];
-      const zoneIdx = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex((z) => z && z.card.id === card.id);
-      if (zoneIdx !== -1 && player.monsterZones[zoneIdx]) {
-        player.monsterZones[zoneIdx].currentAtk += 300;
-        state.lastLog.push(`تأثير بريكر المحارب الساحر! خد عداد سحر وزاد هجومه بمقدار +300 نقطة (هجومه دلوقتي: ${player.monsterZones[zoneIdx].currentAtk})!`);
-        return { success: true };
-      }
-      return { success: false };
+      return this.triggers.onSummon(state, controllerIdx, card, ctx);
     },
   },
 
@@ -2023,6 +2058,412 @@ export const MONSTER_EFFECT_REGISTRY = {
     }
   },
 
+  // === IGNITION / ONCE-PER-TURN ACTIVATED MONSTERS ===
+  [norm('Time Wizard')]: {
+    name: 'Time Wizard',
+    arabicName: 'معالج الوقت (Time Wizard)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const player = state.players[controllerIdx];
+      const isHeads = Math.random() < 0.5;
+
+      if (isHeads) {
+        let destroyedCount = 0;
+        opp.monsterZones.forEach((slot, idx) => {
+          if (slot) {
+            opp.graveyard.push(slot.card);
+            opp.monsterZones[idx] = null;
+            destroyedCount++;
+          }
+        });
+        state.lastLog.push(`سحر معالج الوقت (Time Wizard)! رمية العملة نجحت (ملك) ودمرت كل وحوش ${opp.name} (${destroyedCount} وحوش)!`);
+        return {
+          success: true,
+          isHeads: true,
+          destroyedCount,
+          title: 'معالج الوقت - نجاح رمية العملة!',
+          desc: `أصابت رمية العملة (ملك) ودمرت ${destroyedCount} وحوش للخصم!`,
+        };
+      } else {
+        let totalAtk = 0;
+        let destroyedCount = 0;
+        player.monsterZones.forEach((slot, idx) => {
+          if (slot) {
+            totalAtk += (slot.currentAtk ?? slot.card.atk ?? 0);
+            player.graveyard.push(slot.card);
+            player.monsterZones[idx] = null;
+            destroyedCount++;
+          }
+        });
+        const damage = Math.floor(totalAtk / 2);
+        player.lifePoints = Math.max(0, player.lifePoints - damage);
+        state.lastLog.push(`سحر معالج الوقت! رمية العملة فشلت (كتابة)، تدمرت وحوشك (${destroyedCount}) وخسرت ${damage} نقطة حياة!`);
+        return {
+          success: true,
+          isHeads: false,
+          destroyedCount,
+          damage,
+          title: 'معالج الوقت - ارتداد السحر!',
+          desc: `فشلت رمية العملة (كتابة)، تدمرت وحوشك وخسرت ${damage} نقطة حياة!`,
+        };
+      }
+    },
+  },
+
+  [norm('Relinquished')]: {
+    name: 'Relinquished',
+    arabicName: 'المتخلي (Relinquished)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const player = state.players[controllerIdx];
+      const myZone = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex(z => z && z.card.id === card.id);
+      if (myZone === -1 || !player.monsterZones[myZone]) return { success: false, reason: 'المتخلي غير موجود في الملعب' };
+
+      const mySlot = player.monsterZones[myZone];
+      if (mySlot.equippedMonster) {
+        return { success: false, reason: 'المتخلي مجهز بوحش بالفعل! لا يمكن ابتلاع أكثر من وحش واحد.' };
+      }
+
+      let targetZone = -1;
+      let maxAtk = -1;
+      opp.monsterZones.forEach((slot, i) => {
+        if (slot && (slot.currentAtk ?? slot.card.atk ?? 0) > maxAtk) {
+          maxAtk = slot.currentAtk ?? slot.card.atk ?? 0;
+          targetZone = i;
+        }
+      });
+
+      if (targetZone === -1 || !opp.monsterZones[targetZone]) {
+        return { success: false, reason: 'لا توجد وحوش للخصم في الملعب لابتلاعها!' };
+      }
+
+      const absorbed = opp.monsterZones[targetZone];
+      opp.monsterZones[targetZone] = null;
+      mySlot.equippedMonster = absorbed.card;
+      mySlot.currentAtk = (absorbed.currentAtk ?? absorbed.card.atk ?? 0);
+      mySlot.currentDef = (absorbed.currentDef ?? absorbed.card.def ?? 0);
+
+      state.lastLog.push(`قدرة المتخلي (Relinquished)! ابتلع وحش الخصم ${absorbed.card.name} واكتسب قوته (هجوم: ${mySlot.currentAtk} / دفاع: ${mySlot.currentDef})!`);
+      return {
+        success: true,
+        absorbedCard: absorbed.card,
+        newAtk: mySlot.currentAtk,
+        newDef: mySlot.currentDef,
+        title: 'المتخلي - ابتلاع وتجهيز الوحش!',
+        desc: `ابتلع المتخلي وحش ${absorbed.card.name} واكتسب هجومه ودفاعه (${mySlot.currentAtk} ATK)!`,
+      };
+    },
+  },
+
+  [norm('Thousand-Eyes Restrict')]: {
+    name: 'Thousand-Eyes Restrict',
+    arabicName: 'حابس الأعين الألف (Thousand-Eyes Restrict)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const player = state.players[controllerIdx];
+      const myZone = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex(z => z && z.card.id === card.id);
+      if (myZone === -1 || !player.monsterZones[myZone]) return { success: false, reason: 'الوحش غير موجود في الملعب' };
+
+      const mySlot = player.monsterZones[myZone];
+      if (mySlot.equippedMonster) {
+        return { success: false, reason: 'حابس الأعين مجهز بوحش بالفعل!' };
+      }
+
+      let targetZone = -1;
+      let maxAtk = -1;
+      opp.monsterZones.forEach((slot, i) => {
+        if (slot && (slot.currentAtk ?? slot.card.atk ?? 0) > maxAtk) {
+          maxAtk = slot.currentAtk ?? slot.card.atk ?? 0;
+          targetZone = i;
+        }
+      });
+
+      if (targetZone === -1 || !opp.monsterZones[targetZone]) {
+        return { success: false, reason: 'لا توجد وحوش للخصم في الملعب لابتلاعها!' };
+      }
+
+      const absorbed = opp.monsterZones[targetZone];
+      opp.monsterZones[targetZone] = null;
+      mySlot.equippedMonster = absorbed.card;
+      mySlot.currentAtk = (absorbed.currentAtk ?? absorbed.card.atk ?? 0);
+      mySlot.currentDef = (absorbed.currentDef ?? absorbed.card.def ?? 0);
+
+      state.lastLog.push(`قدرة حابس الأعين الألف! ابتلع ${absorbed.card.name} واكتسب طاقته الكاملة!`);
+      return {
+        success: true,
+        absorbedCard: absorbed.card,
+        newAtk: mySlot.currentAtk,
+        newDef: mySlot.currentDef,
+        title: 'حابس الأعين الألف - شلل وابتلاع!',
+        desc: `ابتلع ${absorbed.card.name} وأصبح هجومه ${mySlot.currentAtk}!`,
+      };
+    },
+  },
+
+  [norm('Bazoo the Soul-Eater')]: {
+    name: 'Bazoo the Soul-Eater',
+    arabicName: 'بازو آكل الأرواح (Bazoo the Soul-Eater)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const player = state.players[controllerIdx];
+      const myZone = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex(z => z && z.card.id === card.id);
+      if (myZone === -1 || !player.monsterZones[myZone]) return { success: false, reason: 'الوحش غير موجود في الملعب' };
+
+      const monstersInGy = player.graveyard.filter(c => c.type === 'monster');
+      if (monstersInGy.length === 0) {
+        return { success: false, reason: 'لا توجد وحوش في مقبرتك لنفيها!' };
+      }
+
+      const countToBanish = Math.min(3, monstersInGy.length);
+      for (let i = 0; i < countToBanish; i++) {
+        const gyIdx = player.graveyard.findIndex(c => c.type === 'monster');
+        if (gyIdx !== -1) {
+          const banishedCard = player.graveyard.splice(gyIdx, 1)[0];
+          if (!player.banished) player.banished = [];
+          player.banished.push(banishedCard);
+        }
+      }
+
+      const boost = countToBanish * 300;
+      player.monsterZones[myZone].currentAtk = (player.monsterZones[myZone].currentAtk ?? card.atk) + boost;
+      state.lastLog.push(`قدرة بازو آكل الأرواح! نفى ${countToBanish} وحوش من المقبرة وزاد هجومه بـ +${boost} نقطة (هجومه الآن: ${player.monsterZones[myZone].currentAtk})!`);
+      return {
+        success: true,
+        banishedCount: countToBanish,
+        boost,
+        title: 'بازو آكل الأرواح - التهام الأرواح!',
+        desc: `نفى ${countToBanish} وحوش واكتسب +${boost} نقطة هجوم!`,
+      };
+    },
+  },
+
+  [norm('Chaos Sorcerer')]: {
+    name: 'Chaos Sorcerer',
+    arabicName: 'ساحر الفوضى (Chaos Sorcerer)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const player = state.players[controllerIdx];
+      const myZone = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex(z => z && z.card.id === card.id);
+
+      let targetZone = -1;
+      let maxAtk = -1;
+      opp.monsterZones.forEach((slot, i) => {
+        if (slot && slot.position !== 'face_down_defense' && (slot.currentAtk ?? slot.card.atk ?? 0) > maxAtk) {
+          maxAtk = slot.currentAtk ?? slot.card.atk ?? 0;
+          targetZone = i;
+        }
+      });
+
+      if (targetZone === -1 || !opp.monsterZones[targetZone]) {
+        return { success: false, reason: 'لا يوجد وحش مكشوف للخصم لنفيه!' };
+      }
+
+      const banished = opp.monsterZones[targetZone];
+      opp.monsterZones[targetZone] = null;
+      if (!opp.banished) opp.banished = [];
+      opp.banished.push(banished.card);
+
+      if (myZone !== -1 && player.monsterZones[myZone]) {
+        player.monsterZones[myZone].canAttack = false;
+      }
+
+      state.lastLog.push(`قدرة ساحر الفوضى (Chaos Sorcerer)! نفى ${banished.card.name} خارج اللعبة! (لا يمكن لساحر الفوضى الهجوم هذا الدور).`);
+      return {
+        success: true,
+        banishedCard: banished.card,
+        title: 'ساحر الفوضى - نفي إلى بُعد الفوضى!',
+        desc: `تم نفي وحش الخصم ${banished.card.name} إلى بُعد الفراغ!`,
+      };
+    },
+  },
+
+  [norm('Black Luster Soldier - Envoy of the Beginning')]: {
+    name: 'Black Luster Soldier - Envoy of the Beginning',
+    arabicName: 'جندي بريق الظلام - مبعوث البداية',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const player = state.players[controllerIdx];
+      const myZone = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex(z => z && z.card.id === card.id);
+
+      let targetZone = -1;
+      let maxAtk = -1;
+      opp.monsterZones.forEach((slot, i) => {
+        if (slot && (slot.currentAtk ?? slot.card.atk ?? 0) > maxAtk) {
+          maxAtk = slot.currentAtk ?? slot.card.atk ?? 0;
+          targetZone = i;
+        }
+      });
+
+      if (targetZone === -1 || !opp.monsterZones[targetZone]) {
+        return { success: false, reason: 'لا توجد وحوش للخصم لنفيها!' };
+      }
+
+      const banished = opp.monsterZones[targetZone];
+      opp.monsterZones[targetZone] = null;
+      if (!opp.banished) opp.banished = [];
+      opp.banished.push(banished.card);
+
+      if (myZone !== -1 && player.monsterZones[myZone]) {
+        player.monsterZones[myZone].canAttack = false;
+      }
+
+      state.lastLog.push(`قدرة مبعوث البداية (BLS)! نفى ${banished.card.name} خارج الساحة تماماً!`);
+      return {
+        success: true,
+        banishedCard: banished.card,
+        title: 'مبعوث البداية - نفي بُعدي ساحق!',
+        desc: `نفى ${banished.card.name} إلى الأبد، وتم تعطيل هجومه لهذا الدور!`,
+      };
+    },
+  },
+
+  [norm('Exiled Force')]: {
+    name: 'Exiled Force',
+    arabicName: 'القوة المنفية (Exiled Force)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const player = state.players[controllerIdx];
+      const myZone = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex(z => z && z.card.id === card.id);
+
+      let targetZone = opp.monsterZones.findIndex(z => z !== null);
+      if (targetZone === -1) return { success: false, reason: 'لا توجد وحوش للخصم لتدميرها!' };
+
+      if (myZone !== -1 && player.monsterZones[myZone]) {
+        player.graveyard.push(player.monsterZones[myZone].card);
+        player.monsterZones[myZone] = null;
+      }
+
+      const destroyed = opp.monsterZones[targetZone];
+      opp.graveyard.push(destroyed.card);
+      opp.monsterZones[targetZone] = null;
+
+      state.lastLog.push(`تضحية القوة المنفية! ضحّت بنفسها ودمّرت وحش الخصم ${destroyed.card.name}!`);
+      return {
+        success: true,
+        destroyedCard: destroyed.card,
+        title: 'القوة المنفية - التضحية الانتحارية!',
+        desc: `ضحّت القوة المنفية بنفسها ودمّرت ${destroyed.card.name}!`,
+      };
+    },
+  },
+
+  [norm('Cannon Soldier')]: {
+    name: 'Cannon Soldier',
+    arabicName: 'جندي المدفع (Cannon Soldier)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const player = state.players[controllerIdx];
+      const myZone = ctx.zoneIndex !== undefined ? ctx.zoneIndex : player.monsterZones.findIndex(z => z && z.card.id === card.id);
+
+      const otherIdx = player.monsterZones.findIndex((z, i) => z !== null && i !== myZone);
+      if (otherIdx === -1) return { success: false, reason: 'لا يوجد وحش آخر في ساحتك للتضحية به لجندي المدفع!' };
+
+      const tributed = player.monsterZones[otherIdx];
+      player.graveyard.push(tributed.card);
+      player.monsterZones[otherIdx] = null;
+
+      opp.lifePoints = Math.max(0, opp.lifePoints - 500);
+      state.lastLog.push(`قذيفة جندي المدفع! ضحى بـ ${tributed.card.name} وأصاب ${opp.name} بـ 500 نقطة ضرر مباشر!`);
+      return {
+        success: true,
+        damage: 500,
+        tributedCard: tributed.card,
+        title: 'جندي المدفع - إطلاق قذيفة المدفع!',
+        desc: `ضحى بـ ${tributed.card.name} وسدد 500 ضرر مباشر لنقاط حياة الخصم!`,
+      };
+    },
+  },
+
+  [norm('Alien Telepath')]: {
+    name: 'Alien Telepath',
+    arabicName: 'الكائن الفضائي تيليباث (Alien Telepath)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const oppIdx = 1 - controllerIdx;
+      const opp = state.players[oppIdx];
+      const targetST = opp.spellTrapZones.findIndex(z => z !== null);
+      if (targetST === -1) return { success: false, reason: 'لا توجد بطاقات سحر أو فخ للخصم لاستهدافها!' };
+
+      const destroyed = opp.spellTrapZones[targetST];
+      opp.graveyard.push(destroyed.card);
+      opp.spellTrapZones[targetST] = null;
+      state.lastLog.push(`قدرة الكائن الفضائي تيليباث! دمر بطاقة سحر/فخ الخصم ${destroyed.card.name}!`);
+      return {
+        success: true,
+        destroyedCard: destroyed.card,
+        title: 'الكائن الفضائي تيليباث - تدمير سحر/فخ!',
+        desc: `تم تدمير ${destroyed.card.name} بنجاح!`,
+      };
+    },
+  },
+
+  [norm('Skull Flame')]: {
+    name: 'Skull Flame',
+    arabicName: 'لهب الجمجمة (Skull Flame)',
+    trigger: 'ignition',
+    execute(state, controllerIdx, card, ctx = {}) {
+      const player = state.players[controllerIdx];
+      const emptyZone = player.monsterZones.findIndex(z => z === null);
+      if (emptyZone === -1) return { success: false, reason: 'لا توجد خانة وحوش شاغرة في ساحتك!' };
+
+      const handIdx = player.hand.findIndex(c => (c.name || '').toLowerCase().includes('burning skull head'));
+      let summonedCard = null;
+      if (handIdx !== -1) {
+        summonedCard = player.hand.splice(handIdx, 1)[0];
+      } else {
+        summonedCard = {
+          id: 999901,
+          name: 'Burning Skull Head',
+          arabicName: 'رأس الجمجمة المحترق',
+          type: 'monster',
+          subType: 'effect',
+          level: 3,
+          atk: 1000,
+          def: 800,
+          attribute: 'FIRE',
+          race: 'Zombie',
+          desc: 'When this card is Special Summoned from your hand, inflict 1000 damage to your opponent.',
+        };
+      }
+
+      player.monsterZones[emptyZone] = {
+        card: summonedCard,
+        position: 'face_up_attack',
+        currentAtk: summonedCard.atk,
+        currentDef: summonedCard.def,
+        canAttack: true,
+        canChangePosition: false,
+        hasAttacked: false,
+      };
+
+      const oppIdx = 1 - controllerIdx;
+      state.players[oppIdx].lifePoints = Math.max(0, state.players[oppIdx].lifePoints - 1000);
+      state.lastLog.push(`قدرة لهب الجمجمة! استدعى رأس الجمجمة المحترق وسدد 1000 ضرر مباشر لـ ${state.players[oppIdx].name}!`);
+      return {
+        success: true,
+        summonedCard,
+        damage: 1000,
+        title: 'لهب الجمجمة - استدعاء رأس الجمجمة!',
+        desc: `تم استدعاء رأس الجمجمة المحترق وتسديد 1000 ضرر مباشر!`,
+      };
+    },
+  },
+
+
 };
 
 /**
@@ -2043,6 +2484,18 @@ export function hasMonsterEffect(card, triggerType) {
     if (triggerType === 'flip' && (desc.includes('flip:') || desc.includes('flip :'))) return true;
     if (triggerType === 'onDestroy' && (desc.includes('sent to the graveyard') || desc.includes('destroyed by battle') || desc.includes('sent from the field to the graveyard') || desc.includes('when this card is destroyed'))) return true;
     if (triggerType === 'onSummon' && (desc.includes('when this card is normal summoned') || desc.includes('when this card is summoned') || desc.includes('if this card is normal summoned') || desc.includes('tribute summon'))) return true;
+    if (triggerType === 'ignition' && (
+      desc.includes('once per turn') ||
+      desc.includes('toss a coin') ||
+      desc.includes('you can toss') ||
+      desc.includes('you can tribute') ||
+      desc.includes('you can banish') ||
+      desc.includes('you can remove') ||
+      desc.includes('take on the atk and def') ||
+      desc.includes('this effect can only be used once per turn') ||
+      desc.includes('remove 1 a-counter') ||
+      desc.includes('remove up to 3 monsters')
+    )) return true;
   }
   return false;
 }
@@ -2102,10 +2555,12 @@ export function resolveMonsterEffect(state, controllerIdx, card, triggerType, co
   let effectMeta = registered;
 
   if (registered) {
-    if (registered.trigger === triggerType && typeof registered.execute === 'function') {
-      effectFn = registered.execute;
-    } else if (registered.triggers && typeof registered.triggers[triggerType] === 'function') {
-      effectFn = registered.triggers[triggerType];
+    if (registered.triggers && typeof registered.triggers[triggerType] === 'function') {
+      effectFn = registered.triggers[triggerType].bind(registered);
+    } else if (registered.trigger === triggerType && typeof registered.execute === 'function') {
+      effectFn = registered.execute.bind(registered);
+    } else if (typeof registered.execute === 'function') {
+      effectFn = registered.execute.bind(registered);
     }
   }
 

@@ -290,7 +290,15 @@ export const DeckBuilderScreen = ({
         {/* Left Action Buttons */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button
-            onClick={onBack}
+            onClick={() => {
+              if (totalCount < 40) {
+                if (window.confirm(`تنبيه: مجموعتك تحتوي على ${totalCount} بطاقة فقط، والحد الأدنى الرسمي للمجموعة هو 40 بطاقة لبدء المبارزة.\n\nهل تريد الخروج الآن؟ (لن تتمكن من بدء أي مبارزة حتى تكمل 40 بطاقة).`)) {
+                  onBack();
+                }
+              } else {
+                onBack();
+              }
+            }}
             className="btn-pharaoh-stone"
             style={{
               padding: '6px 10px',

@@ -157,6 +157,19 @@ export function advancePhase(state, requestedPhase) {
 }
 
 export function endTurn(state) {
+  // Handle Swords of Revealing Light countdown on opponent turn end
+  if (state.swordsOfRevealingLight && state.swordsOfRevealingLight.active) {
+    if (state.swordsOfRevealingLight.playerIndex !== state.currentTurnPlayer) {
+      state.swordsOfRevealingLight.turnsRemaining -= 1;
+      if (state.swordsOfRevealingLight.turnsRemaining <= 0) {
+        state.swordsOfRevealingLight.active = false;
+        state.swordsOfRevealingLight = null;
+        state.lastLog.push('انتهى مفعول سيوف النور الكاشف وتلاشت من الساحة!');
+      } else {
+        state.lastLog.push(`سيوف النور الكاشف: باقي ${state.swordsOfRevealingLight.turnsRemaining} أدوار لمنع هجوم الخصم.`);
+      }
+    }
+  }
   const isTagSequential = state.isTagMode && (state.tagSettings?.turnFlow === 'tag_sequential' || state.turnFlow === 'tag_sequential');
 
   if (isTagSequential) {
@@ -212,6 +225,7 @@ export function endTurn(state) {
         for (const slot of p.monsterZones) {
           if (slot) {
             slot.hasAttacked = false;
+            slot.hasUsedEffectThisTurn = false;
           }
         }
       }
@@ -226,6 +240,68 @@ export function endTurn(state) {
         slot.canChangePosition = true;
       }
     }
+  }
+
+
+  // Continuous turn-based effects that trigger every turn
+  // 1. Nightmare Wheel: 500 damage to trapped opponent every turn
+  if (Array.isArray(state.players)) {
+    state.players.forEach((p, pIdx) => {
+      if (p && Array.isArray(p.spellTrapZones)) {
+        p.spellTrapZones.forEach((st) => {
+          if (st && st.faceUp && (st.card?.name || '').toLowerCase().includes('nightmare wheel')) {
+            const opp = state.players[1 - pIdx];
+            if (opp) {
+              opp.lifePoints = Math.max(0, opp.lifePoints - 500);
+              state.lastLog.push(`فخ عجلة الكابوس (Nightmare Wheel): سبّب 500 ضرر مباشر لـ ${opp.name} في هذا الدور!`);
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // 2. Burning Land: 500 burn to both players every turn
+  if (Array.isArray(state.players)) {
+    let hasBurningLand = false;
+    state.players.forEach((p) => {
+      if (p && Array.isArray(p.spellTrapZones)) {
+        if (p.spellTrapZones.some((st) => st && st.faceUp && (st.card?.name || '').toLowerCase().includes('burning land'))) {
+          hasBurningLand = true;
+        }
+      }
+    });
+    if (hasBurningLand) {
+      state.players.forEach((p) => {
+        if (p) p.lifePoints = Math.max(0, p.lifePoints - 500);
+      });
+      state.lastLog.push('الأرض المحترقة (Burning Land): سبّبت 500 ضرر لكلا اللاعبين في هذا الدور!');
+    }
+  }
+
+  // 3. Lava Golem: Controller takes 1000 burn at turn start
+  const currentActiveTurnPlayer = state.players?.[state.currentTurnPlayer];
+  if (currentActiveTurnPlayer && Array.isArray(currentActiveTurnPlayer.monsterZones)) {
+    for (const m of currentActiveTurnPlayer.monsterZones) {
+      if (m && (m.card?.name || '').toLowerCase().includes('lava golem')) {
+        currentActiveTurnPlayer.lifePoints = Math.max(0, currentActiveTurnPlayer.lifePoints - 1000);
+        state.lastLog.push(`غول الحمم البركانية (Lava Golem): أحرق نقاط حياة ${currentActiveTurnPlayer.name} بـ 1000 ضرر في هذا الدور!`);
+      }
+    }
+  }
+
+  // 4. Wave-Motion Cannon: accumulates +1000 damage each turn
+  if (Array.isArray(state.players)) {
+    state.players.forEach((p) => {
+      if (p && Array.isArray(p.spellTrapZones)) {
+        p.spellTrapZones.forEach((st) => {
+          if (st && st.faceUp && (st.card?.name || '').toLowerCase().includes('wave-motion cannon')) {
+            st.turnsCharged = (st.turnsCharged || 0) + 1;
+            state.lastLog.push(`مدفع الحركة الموجية: شحن دور إضافي (الضرر المجمّع: ${st.turnsCharged * 1000})!`);
+          }
+        });
+      }
+    });
   }
 
   drawCardForTurnPlayer(state);
